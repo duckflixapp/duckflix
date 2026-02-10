@@ -1,30 +1,29 @@
 import argon2 from 'argon2';
-import jwt from 'jsonwebtoken';
 import { db } from '../../shared/db';
-import { users, type UserWithoutPassword } from '../../shared/schema';
-import { DrizzleQueryError, eq, getTableColumns } from 'drizzle-orm';
+import { users } from '../../shared/schema';
+import { DrizzleQueryError, eq } from 'drizzle-orm';
 import { EmailAlreadyExistsError, InvalidCredentialsError, UserNotCreatedError } from './auth.errors';
 import { DatabaseError } from 'pg';
+import type { UserDTO } from '@duckflix/shared';
+import { toUserDTO } from '../../shared/mappers/user.mapper';
+import { signToken } from '../../shared/utils/jwt';
 
-const JWT_SECRET = process.env.JWT_SECRET!;
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const { password: _pswdClmn, ...columnsWithoutPassword } = getTableColumns(users);
-
-export const register = async (email: string, pass: string): Promise<UserWithoutPassword> => {
+export const register = async (name: string, email: string, pass: string): Promise<UserDTO> => {
     const hashedPassword = await argon2.hash(pass);
 
     try {
         const [result] = await db
             .insert(users)
             .values({
+                name,
                 email,
                 password: hashedPassword,
             })
-            .returning(columnsWithoutPassword);
+            .returning();
 
         if (!result) throw new UserNotCreatedError();
-        return result;
+
+        return toUserDTO(result);
     } catch (e) {
         if (e instanceof DrizzleQueryError && e.cause instanceof DatabaseError && e.cause.code === '23505')
             throw new EmailAlreadyExistsError();
@@ -33,15 +32,15 @@ export const register = async (email: string, pass: string): Promise<UserWithout
     }
 };
 
-export const login = async (email: string, pass: string): Promise<{ token: string; user: UserWithoutPassword }> => {
-    const user = (await db.select().from(users).where(eq(users.email, email)))[0];
+export const login = async (email: string, pass: string): Promise<{ token: string; user: UserDTO }> => {
+    const user = await db.query.users.findFirst({ where: eq(users.email, email) });
 
     if (!user) throw new InvalidCredentialsError();
 
     const isPasswordValid = await argon2.verify(user.password, pass);
     if (!isPasswordValid) throw new InvalidCredentialsError();
 
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    const token = signToken({ userId: user.id });
 
-    return { token, user };
+    return { token, user: toUserDTO(user) };
 };

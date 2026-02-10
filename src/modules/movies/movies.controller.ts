@@ -11,6 +11,7 @@ export const upload = catchAsync(async (req: Request, res: Response) => {
     if (!file) throw new AppError('Video file is missing', 400);
 
     const movie = await MoviesService.initiateUpload({
+        userId: req.userId!,
         title,
         tempPath: file.path,
         originalName: file.originalname,

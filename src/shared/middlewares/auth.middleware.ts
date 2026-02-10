@@ -1,10 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
-import jwt, { TokenExpiredError } from 'jsonwebtoken';
+import { TokenExpiredError } from 'jsonwebtoken';
 import { catchAsync } from '../utils/catchAsync';
 import { AppError } from '../errors';
 import { csrfGuard } from './csrf.middleware';
-
-const JWT_SECRET = process.env.JWT_SECRET!;
+import { verifyToken } from '../utils/jwt';
 
 export class UnauthorizedError extends AppError {
     constructor(message: string = 'Unauthorized access') {
@@ -18,7 +17,7 @@ export const authenticate = catchAsync(async (req: Request, res: Response, next:
     if (!token) throw new UnauthorizedError('No token provided');
 
     try {
-        const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+        const decoded = verifyToken(token) as { userId: string };
 
         req.userId = decoded.userId;
 

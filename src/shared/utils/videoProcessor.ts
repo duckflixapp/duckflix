@@ -52,6 +52,8 @@ export const transcode = async (inputPath: string, outputPath: string, targetHei
         'libx264',
         '-crf',
         '23',
+        '-movflags',
+        '+faststart',
         '-preset',
         'medium',
         '-c:a',

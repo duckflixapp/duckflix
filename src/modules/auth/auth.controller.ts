@@ -7,8 +7,9 @@ import { catchAsync } from '../../shared/utils/catchAsync';
 export const register = catchAsync(async (req: Request, res: Response) => {
     const data = registerSchema.parse(req.body); // validate data
 
-    const user = await AuthService.register(data.email, data.password);
-    return res.status(201).json({ message: 'User created', id: user.id });
+    await AuthService.register(data.name, data.email, data.password);
+
+    return res.status(201).json({ message: 'User created' });
 });
 
 export const login = catchAsync(async (req: Request, res: Response) => {
@@ -29,5 +30,5 @@ export const login = catchAsync(async (req: Request, res: Response) => {
         sameSite: 'lax',
     });
 
-    return res.json({ message: 'Login successfull' });
+    return res.json({ message: 'Login successfull', user: result.user });
 });

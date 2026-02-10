@@ -8,11 +8,12 @@ import { randomUUID } from 'node:crypto';
 import { ffprobe } from '../../shared/utils/videoProcessor';
 import { createMovieStorageKey, startProcessing } from './movies.processor';
 import type { MovieDetailedDTO, MovieDTO, PaginatedResponse } from '@duckflix/shared';
-import { toMovieDetailedDTO, toMovieDTO } from './movies.mapper';
+import { toMovieDetailedDTO, toMovieDTO } from '../../shared/mappers/movies.mapper';
 
 const STORAGE_FOLDER = process.env.STORAGE_FOLDER ?? 'storage';
 
 export const initiateUpload = async (data: {
+    userId: string;
     title: string;
     tempPath: string;
     originalName: string;
@@ -29,7 +30,7 @@ export const initiateUpload = async (data: {
     const originalWidth = Number(videoStream.width) || 0;
     const originalHeight = Number(videoStream.height) || 0;
 
-    const [dbMovie] = await db.insert(movies).values({ title: data.title, status: 'processing' }).returning();
+    const [dbMovie] = await db.insert(movies).values({ title: data.title, status: 'processing', userId: data.userId }).returning();
     if (!dbMovie) throw new MovieNotCreatedError();
 
     const movieId = dbMovie.id;
@@ -41,7 +42,7 @@ export const initiateUpload = async (data: {
     const finalPath = path.join(STORAGE_FOLDER, storageKey);
 
     try {
-        await fs.mkdir(path.join(STORAGE_FOLDER, 'movies', movieId), { recursive: true });
+        await fs.mkdir(path.dirname(finalPath), { recursive: true });
         await fs.rename(data.tempPath, finalPath);
 
         // add version and set status to ready on movie
@@ -117,6 +118,12 @@ export const getMovieById = async (id: string): Promise<MovieDetailedDTO | null>
         where: eq(movies.id, id),
         with: {
             versions: true,
+            user: {
+                columns: {
+                    id: true,
+                    name: true,
+                },
+            },
         },
     });
 
