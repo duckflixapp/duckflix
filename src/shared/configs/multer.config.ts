@@ -11,12 +11,7 @@ export const movieUpload: Multer = multer({
         fileSize: 1024 * 1024 * FILE_LIMIT_MB,
     },
     fileFilter: (req, file, cb) => {
-        const allowedMimeTypes = ['video/mp4', 'video/x-matroska', 'video/quicktime', 'video/x-msvideo'];
-
-        if (allowedMimeTypes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new AppError('Only video files (mp4, mkv, avi, mov) are allowed', 400) as unknown as null, false);
-        }
+        if (file.mimetype.startsWith('video/') || file.mimetype === 'application/octet-stream') cb(null, true);
+        else cb(new AppError('Only video files (mp4, mkv, avi, mov) are allowed', 400) as unknown as null, false);
     },
 });
