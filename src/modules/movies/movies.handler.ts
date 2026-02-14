@@ -75,9 +75,10 @@ export const handleProcessingError = async (movieVerId: string, error: unknown, 
 
 export const handleMovieTask = async (movieVerId: string, taskId: string, context: 'started' | 'completed') => {
     try {
-        const [updatedVersion] = await db.update(movieVersions).set({ status: 'error' }).where(eq(movieVersions.id, movieVerId)).returning({
-            movieId: movieVersions.movieId,
-        });
+        const [updatedVersion] = await db
+            .select({ movieId: movieVersions.movieId })
+            .from(movieVersions)
+            .where(eq(movieVersions.id, movieVerId));
 
         if (updatedVersion?.movieId) {
             const [movieData] = await db
