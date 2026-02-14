@@ -52,6 +52,13 @@ export const startProcessing = async (movieId: string, tasksToRun: number[], sto
 const processTask = async (task: MovieVersion, originalPath: string, outputPath: string) => {
     try {
         await db.update(movieVersions).set({ status: 'processing' }).where(eq(movieVersions.id, task.id));
+
+        try {
+            await fs.access(originalPath);
+        } catch {
+            throw new VideoProcessingError('Original video file not found on disk.');
+        }
+
         // transcode process
         await transcode(originalPath, outputPath, task.height);
         const stats = await fs.stat(outputPath);
@@ -73,7 +80,6 @@ const processTask = async (task: MovieVersion, originalPath: string, outputPath:
             })
             .where(eq(movieVersions.id, task.id));
     } catch (error) {
-        const processingError = new VideoProcessingError(error instanceof Error ? error.message : 'Unknown transcode error');
-        throw processingError;
+        throw error;
     }
 };

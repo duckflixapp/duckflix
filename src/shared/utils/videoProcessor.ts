@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { spawn } from './thread.utils';
+import { VideoProcessingError } from '../../modules/movies/movies.errors';
 
 export interface FFprobeStream {
     index: number;
@@ -30,13 +31,18 @@ export const ffprobe = async (filePath: string): Promise<FFprobeData> => {
     const proc = await spawn('ffprobe', ['-v', 'quiet', '-print_format', 'json', '-show_streams', '-show_format', absolutePath]);
 
     const text = await proc.getStdout();
+    const errorText = await proc.getStderr();
     const exitCode = await proc.wait();
 
     if (exitCode !== 0) {
-        throw new Error('FFprobe failed to read file');
+        throw new VideoProcessingError(`FFprobe failed`, new Error(errorText));
     }
 
-    return JSON.parse(text) as FFprobeData;
+    try {
+        return JSON.parse(text) as FFprobeData;
+    } catch (e) {
+        throw new VideoProcessingError('Failed to parse FFprobe JSON output', e);
+    }
 };
 
 export const transcode = async (inputPath: string, outputPath: string, targetHeight: number): Promise<string> => {
@@ -78,8 +84,18 @@ export const transcode = async (inputPath: string, outputPath: string, targetHei
         outputPath,
     ]);
 
+    const errorOutput = await proc.getStderr();
     const exitCode = await proc.wait();
 
-    if (exitCode !== 0) throw new Error(`FFmpeg transcoding failed for height ${targetHeight}`);
+    if (exitCode !== 0) {
+        const msg = errorOutput.toLowerCase();
+        let userFriendlyMsg = `Transcoding failed at ${targetHeight}p`;
+
+        if (msg.includes('no space left')) userFriendlyMsg = 'Disk full during transcoding.';
+        else if (msg.includes('invalid argument')) userFriendlyMsg = 'Invalid video parameters or codec mismatch.';
+        else if (msg.includes('out of memory')) userFriendlyMsg = 'Server ran out of RAM during processing.';
+
+        throw new VideoProcessingError(userFriendlyMsg, new Error(errorOutput));
+    }
     return outputPath;
 };

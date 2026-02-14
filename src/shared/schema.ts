@@ -97,7 +97,21 @@ export const movieVersionsRelations = relations(movieVersions, ({ one }) => ({
     }),
 }));
 
+export const notifications = pgTable('notifications', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id'),
+    movieId: uuid('movie_id').references(() => movies.id, { onDelete: 'cascade' }),
+    movieVerId: uuid('movie_version_id').references(() => movieVersions.id, { onDelete: 'cascade' }),
+    type: text('type').$type<'info' | 'error' | 'success' | 'warning'>().default('info'),
+    title: text('title').notNull(),
+    message: text('message').notNull(),
+    isRead: boolean('is_read').default(false),
+    createdAt: timestamp('created_at').defaultNow(),
+});
+
 export type Movie = InferSelectModel<typeof movies>;
 export type Genre = InferSelectModel<typeof genres>;
 export type MovieVersion = InferSelectModel<typeof movieVersions>;
+export type Notification = InferSelectModel<typeof notifications>;
+
 export type NewMovieVersion = typeof movieVersions.$inferInsert;

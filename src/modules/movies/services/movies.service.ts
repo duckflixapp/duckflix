@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import { and, count, desc, eq, ilike, inArray } from 'drizzle-orm';
 import { db } from '../../../shared/db';
 import { genres, movies, moviesToGenres, movieVersions } from '../../../shared/schema';
-import { InvalidVideoFileError, MovieNotCreatedError, MovieNotFoundError } from '../movies.errors';
+import { InvalidVideoFileError, MovieNotCreatedError, MovieNotFoundError, TorrentDownloadError } from '../movies.errors';
 import { randomUUID } from 'node:crypto';
 import { ffprobe } from '../../../shared/utils/videoProcessor';
 import { createMovieStorageKey, startProcessing } from '../movies.processor';
@@ -52,7 +52,7 @@ export const processTorrentFileWorkflow = async (data: { movieId: string; torren
     let torrentBuffer: Buffer;
     try {
         const valid = await validateTorrentSize(data.torrentPath);
-        if (!valid) throw new AppError('Torrent file is too large', 400);
+        if (!valid) throw new AppError('Torrent file is too large', { statusCode: 400 });
 
         torrentBuffer = await fs.readFile(data.torrentPath);
     } catch (err) {
@@ -70,7 +70,7 @@ export const processTorrentFileWorkflow = async (data: { movieId: string; torren
         process.stdout.write(`\rDownload progress: ${formattedProgress}% @ ${formattedSpeed}\x1b[K`);
     }).catch((e) => {
         fs.rm(sessionFolder, { recursive: true, force: true }).catch(() => {}); // cleanup
-        throw e;
+        throw new TorrentDownloadError(e);
     });
 
     let safePath, mainFile;
@@ -81,8 +81,8 @@ export const processTorrentFileWorkflow = async (data: { movieId: string; torren
         const ext = path.extname(mainFile.name);
         safePath = path.join(paths.downloads, `${data.movieId}-torrent${ext}`);
         await fs.rename(downloadedPath, safePath);
-    } catch (err) {
-        throw err;
+    } catch (e) {
+        throw new AppError('Video could not be copied', { cause: e });
     } finally {
         torrent.destroy();
         await fs.rm(sessionFolder, { recursive: true, force: true }).catch(() => {});
@@ -151,9 +151,9 @@ export const processMovieWorkflow = async (data: {
             });
             await tx.update(movies).set({ duration, status: 'ready' }).where(eq(movies.id, data.movieId));
         });
-    } catch (err) {
+    } catch (e) {
         await fs.unlink(finalPath).catch(() => {});
-        throw err;
+        throw new AppError('Video could not be saved in database', { cause: e });
     }
 
     const tasksToRun = new Set<number>();

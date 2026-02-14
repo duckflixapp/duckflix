@@ -13,7 +13,7 @@ export const upload = catchAsync(async (req: Request, res: Response) => {
 
     const videoFile = files?.['video']?.[0];
     const torrentFile = files?.['torrent']?.[0];
-    if (!videoFile && !torrentFile) throw new AppError('Please provide either a video file or a magnet link', 400);
+    if (!videoFile && !torrentFile) throw new AppError('Please provide either a video file or a magnet link', { statusCode: 400 });
 
     const metadata = await MetadataService.enrichMetadata(validatedData.dbUrl, validatedData);
 
@@ -55,7 +55,7 @@ export const getOne = catchAsync(async (req: Request, res: Response) => {
     const { id } = movieParamsSchema.parse(req.params);
     const movieDto = await MoviesService.getMovieById(id);
 
-    if (!movieDto) throw new AppError('Movie not found', 404);
+    if (!movieDto) throw new AppError('Movie not found', { statusCode: 404 });
 
     res.status(200).json({
         status: 'success',

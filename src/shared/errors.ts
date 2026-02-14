@@ -2,12 +2,21 @@ import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 
 export class AppError extends Error {
+    public readonly originalError?: unknown;
+    public readonly statusCode?: number;
+
     constructor(
         public override message: string,
-        public statusCode: number = 400
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        options?: { cause?: any; statusCode?: number }
     ) {
         super(message);
         this.name = 'AppError';
+        this.statusCode = options?.statusCode;
+        this.originalError = options?.cause;
+        if (options?.cause?.stack) {
+            this.stack += `\nCAUSED BY: ${options.cause.stack}`;
+        }
     }
 }
 
@@ -23,8 +32,8 @@ export const globalErrorHandler = (err: unknown, req: Request, res: Response, _n
     }
 
     if (err instanceof AppError) {
-        return res.status(err.statusCode).json({
-            status: err.statusCode < 500 ? 'fail' : 'error',
+        return res.status(err.statusCode ?? 500).json({
+            status: err.statusCode && err.statusCode < 500 ? 'fail' : 'error',
             message: err.message,
         });
     }
