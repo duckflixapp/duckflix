@@ -8,7 +8,7 @@ export class MovieNotCreatedError extends AppError {
 
 export class InvalidVideoFileError extends AppError {
     constructor() {
-        super('The uploaded file is not a valid video or is corrupted.', { statusCode: 400 });
+        super('The uploaded file is not a valid video or corrupted.', { statusCode: 400 });
     }
 }
 

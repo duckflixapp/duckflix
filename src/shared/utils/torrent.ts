@@ -1,8 +1,5 @@
 import fs from 'node:fs/promises';
-import type { Torrent } from 'webtorrent';
-import WebTorrent from 'webtorrent';
-
-const client = new WebTorrent({ lsd: false });
+import { AppError } from '../errors';
 
 const defaultMaxSize = 1024 * 1024 * 2; // 2MB
 export const validateTorrentSize = async (torrentPath: string, maxSize: number = defaultMaxSize) => {
@@ -19,30 +16,27 @@ export const formatSpeed = (bytesPerSecond: number) => {
     return parseFloat((bytesPerSecond / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-export const downloadTorrent = (
-    buffer: Buffer,
-    downloadPath: string,
-    onProgress?: (progress: number, speed: number) => void
-): Promise<Torrent> => {
+export const downloadTorrent = (buffer: Buffer, downloadPath: string, onProgress?: (progress: number, speed: number) => void) => {
     return new Promise((resolve, reject) => {
         try {
-            client.add(buffer, { path: downloadPath }, (torrent) => {
-                const progressHandler = () => {
-                    if (onProgress) onProgress(torrent.progress * 100, torrent.downloadSpeed);
-                };
+            // client.add(buffer, { path: downloadPath }, (torrent) => {
+            //     const progressHandler = () => {
+            //         if (onProgress) onProgress(torrent.progress * 100, torrent.downloadSpeed);
+            //     };
 
-                torrent.on('download', progressHandler);
-                torrent.once('done', () => {
-                    torrent.removeListener('download', progressHandler);
-                    resolve(torrent);
-                });
+            //     torrent.on('download', progressHandler);
+            //     torrent.once('done', () => {
+            //         torrent.removeListener('download', progressHandler);
+            //         resolve(torrent);
+            //     });
 
-                torrent.once('error', (err) => {
-                    torrent.removeAllListeners();
-                    torrent.destroy();
-                    reject(err);
-                });
-            });
+            //     torrent.once('error', (err) => {
+            //         torrent.removeAllListeners();
+            //         torrent.destroy();
+            //         reject(err);
+            //     });
+            // });
+            reject(new Error('Torrent not implemented'));
         } catch (err) {
             reject(err);
         }

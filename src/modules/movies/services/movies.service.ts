@@ -73,27 +73,27 @@ export const processTorrentFileWorkflow = async (data: { movieId: string; torren
         throw new TorrentDownloadError(e);
     });
 
-    let safePath, mainFile;
-    try {
-        mainFile = torrent.files.reduce((p, c) => (p.length > c.length ? p : c));
-        const downloadedPath = path.join(torrent.path, mainFile.path);
+    // let safePath, mainFile;
+    // try {
+    //     mainFile = torrent.files.reduce((p, c) => (p.length > c.length ? p : c));
+    //     const downloadedPath = path.join(torrent.path, mainFile.path);
 
-        const ext = path.extname(mainFile.name);
-        safePath = path.join(paths.downloads, `${data.movieId}-torrent${ext}`);
-        await fs.rename(downloadedPath, safePath);
-    } catch (e) {
-        throw new AppError('Video could not be copied after downloading', { cause: e });
-    } finally {
-        torrent.destroy();
-        await fs.rm(sessionFolder, { recursive: true, force: true }).catch(() => {});
-    }
+    //     const ext = path.extname(mainFile.name);
+    //     safePath = path.join(paths.downloads, `${data.movieId}-torrent${ext}`);
+    //     await fs.rename(downloadedPath, safePath);
+    // } catch (e) {
+    //     throw new AppError('Video could not be copied after downloading', { cause: e });
+    // } finally {
+    //     torrent.destroy();
+    //     await fs.rm(sessionFolder, { recursive: true, force: true }).catch(() => {});
+    // }
 
-    await processMovieWorkflow({
-        movieId: data.movieId,
-        tempPath: safePath,
-        originalName: mainFile.name,
-        fileSize: mainFile.length,
-    });
+    // await processMovieWorkflow({
+    //     movieId: data.movieId,
+    //     tempPath: safePath,
+    //     originalName: mainFile.name,
+    //     fileSize: mainFile.length,
+    // });
 };
 
 export const processMovieWorkflow = async (data: {

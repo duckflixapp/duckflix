@@ -4,12 +4,16 @@
     "type": "module",
     "private": true,
     "scripts": {
-        "dev": "bun --hot src/server.ts",
+        "build": "bun build ./src/server.ts --outdir ./dist --target node --external node-datachannel --external utp-native",
+        "prestart": "bun run db:push",
+        "start:node": "node dist/server.js",
         "start": "bun src/server.ts",
-        "dev:tsx": "tsx watch --env-file=.env src/server.ts",
-        "start:tsx": "tsx --env-file=.env src/server.ts",
-        "db:push": "bun drizzle-kit push",
-        "db:studio": "bun drizzle-kit studio"
+        "dev": "bun --hot src/server.ts",
+        "dev:node": "tsx watch --env-file=.env src/server.ts",
+        "db:push": "drizzle-kit push",
+        "db:studio": "drizzle-kit studio",
+        "lint": "eslint .",
+        "typecheck": "tsc --noEmit"
     },
     "devDependencies": {
         "@types/bun": "latest",
@@ -20,13 +24,14 @@
         "@types/multer": "^2.0.0",
         "@types/pg": "^8.16.0",
         "@types/webtorrent": "^0.110.1",
-        "drizzle-kit": "^0.31.9"
+        "drizzle-kit": "^0.31.9",
+        "vite": "^7.3.1"
     },
     "peerDependencies": {
         "typescript": "^5"
     },
     "dependencies": {
-        "@duckflix/shared": "workspace:*",
+        "@duckflix/shared": "file:../shared",
         "argon2": "^0.44.0",
         "axios": "^1.13.5",
         "cookie-parser": "^1.4.7",
@@ -37,7 +42,6 @@
         "multer": "^2.0.2",
         "pg": "^8.18.0",
         "tsx": "^4.21.0",
-        "webtorrent": "^2.8.5",
         "zod": "^4.3.6"
     }
 }
