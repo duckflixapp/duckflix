@@ -82,7 +82,7 @@ export const processTorrentFileWorkflow = async (data: { movieId: string; torren
         safePath = path.join(paths.downloads, `${data.movieId}-torrent${ext}`);
         await fs.rename(downloadedPath, safePath);
     } catch (e) {
-        throw new AppError('Video could not be copied', { cause: e });
+        throw new AppError('Video could not be copied after downloading', { cause: e });
     } finally {
         torrent.destroy();
         await fs.rm(sessionFolder, { recursive: true, force: true }).catch(() => {});

@@ -12,12 +12,6 @@ export class UserNotCreatedError extends AppError {
     }
 }
 
-export class UserNotFoundError extends AppError {
-    constructor() {
-        super('User not found or deleted', { statusCode: 404 });
-    }
-}
-
 export class InvalidCredentialsError extends AppError {
     constructor() {
         super('Invalid email or password', { statusCode: 401 });

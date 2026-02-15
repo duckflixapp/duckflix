@@ -45,16 +45,3 @@ export const logout = catchAsync(async (req: Request, res: Response) => {
     res.clearCookie('auth_token');
     return res.status(200).json({ status: 'success' });
 });
-
-export const getMe = catchAsync(async (req: Request, res: Response) => {
-    if (!req.userId) {
-        return res.status(401).json({ message: 'Not authenticated' });
-    }
-
-    const user = await AuthService.getMe(req.userId);
-
-    return res.status(200).json({
-        status: 'success',
-        data: { user },
-    });
-});
