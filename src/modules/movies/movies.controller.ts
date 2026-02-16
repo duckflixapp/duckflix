@@ -6,6 +6,7 @@ import { catchAsync } from '../../shared/utils/catchAsync';
 import { AppError } from '../../shared/errors';
 import { createMovieSchema, movieParamsSchema, movieQuerySchema } from './validators/movies.validator';
 import { handleWorkflowError } from './movies.handler';
+import { createGenreSchema } from './validators/genres.validator';
 
 export const upload = catchAsync(async (req: Request, res: Response) => {
     const validatedData = createMovieSchema.parse(req.body);
@@ -60,6 +61,17 @@ export const getOne = catchAsync(async (req: Request, res: Response) => {
     res.status(200).json({
         status: 'success',
         data: { movie: movieDto },
+    });
+});
+
+export const createGenre = catchAsync(async (req: Request, res: Response) => {
+    const { name } = createGenreSchema.parse(req.body);
+
+    const genre = await GenresService.createGenre(name);
+
+    res.status(200).json({
+        status: 'success',
+        data: { genre },
     });
 });
 

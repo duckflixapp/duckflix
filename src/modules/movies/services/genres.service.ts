@@ -3,6 +3,13 @@ import { genres } from '../../../shared/schema';
 import { db } from '../../../shared/db';
 import { toGenreDTO } from '../../../shared/mappers/movies.mapper';
 import { inArray } from 'drizzle-orm';
+import { AppError } from '../../../shared/errors';
+
+export const createGenre = async (name: string): Promise<GenreDTO> => {
+    const results = await db.insert(genres).values({ name }).returning();
+    if (results.length == 0 || !results[0]) throw new AppError('Genre not created', { statusCode: 500 });
+    return toGenreDTO(results[0]);
+};
 
 export const getGenres = async (): Promise<GenreDTO[]> => {
     const results = await db.select().from(genres).orderBy(genres.name);

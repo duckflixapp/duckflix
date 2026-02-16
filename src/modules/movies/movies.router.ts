@@ -13,7 +13,9 @@ router.post(
     MoviesController.upload
 );
 router.get('/', MoviesController.getMany);
+
 router.get('/genres', MoviesController.getManyGenres);
+router.post('/genres', MoviesController.createGenre);
 
 router.get('/:id', MoviesController.getOne);
 

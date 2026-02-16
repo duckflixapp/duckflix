@@ -29,6 +29,7 @@ export const login = catchAsync(async (req: Request, res: Response) => {
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
+        domain: process.env.DOMAIN,
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
     });
 

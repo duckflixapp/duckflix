@@ -38,6 +38,7 @@
         "cors": "^2.8.6",
         "drizzle-orm": "^0.45.1",
         "express": "^5.2.1",
+        "helmet": "^8.1.0",
         "jsonwebtoken": "^9.0.3",
         "multer": "^2.0.2",
         "pg": "^8.18.0",
