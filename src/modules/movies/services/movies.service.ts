@@ -68,7 +68,6 @@ export const processTorrentFileWorkflow = async (data: { movieId: string; torren
     await fs.mkdir(paths.downloads, { recursive: true });
 
     const torrent = await torrentClient.download(torrentBuffer).catch((e) => {
-        fs.rm(torrent.dir, { recursive: true, force: true }).catch(() => {});
         throw new TorrentDownloadError(e);
     });
 
@@ -84,6 +83,7 @@ export const processTorrentFileWorkflow = async (data: { movieId: string; torren
         await torrent.waitDownload();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
+        fs.rm(torrent.dir, { recursive: true, force: true }).catch(() => {});
         throw new TorrentDownloadError(err);
     }
 
@@ -173,17 +173,19 @@ export const processMovieWorkflow = async (data: {
     const tasksToRun = new Set<number>();
     // process original resolution if not mp4
     if (mimeType != 'video/mp4') {
-        // try to keep standardized resolutions
-        if (originalHeight >= 2160) tasksToRun.add(2160);
-        else if (originalHeight >= 1440) tasksToRun.add(1440);
-        else if (originalHeight >= 1080) tasksToRun.add(1080);
-        else if (originalHeight >= 720) tasksToRun.add(720);
-        else tasksToRun.add(originalHeight);
+        tasksToRun.add(originalHeight);
+
+        const videoStream = metadata.streams.find((s) => s.codec_type === 'video');
+        const codecName = videoStream?.codec_name;
+        if (codecName === 'h265' || codecName === 'hevc') {
+            if (originalHeight > 1080) tasksToRun.add(1080);
+            else if (originalHeight > 720) tasksToRun.add(720);
+        }
     }
 
-    // process tasks for lower resolutions
-    if (originalHeight > 1080) tasksToRun.add(1080);
-    else if (originalHeight > 720) tasksToRun.add(720);
+    // process tasks for lower resolutions -> enable (auto) only on strong cpus
+    // if (originalHeight > 1080) tasksToRun.add(1080);
+    // else if (originalHeight > 720) tasksToRun.add(720);
 
     if (tasksToRun.size > 0) startProcessing(data.movieId, Array.from(tasksToRun), paths.storage, finalPath);
 };

@@ -24,7 +24,7 @@ export class RqbitClient {
     private readonly api;
     constructor(options?: { baseUrl: string }) {
         const baseUrl = options?.baseUrl ?? 'http://localhost:3030';
-        this.api = axios.create({ baseURL: baseUrl });
+        this.api = axios.create({ baseURL: baseUrl, responseType: 'json' });
     }
 
     public async torrentDownload(torrentFile: Buffer): Promise<RqbitTorrent> {

@@ -2,7 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { db } from '../../shared/db';
 import { movieVersions, type MovieVersion, type NewMovieVersion } from '../../shared/schema';
-import { ffprobe, transcode } from '../../shared/utils/videoProcessor';
+import { copy, ffprobe, transcode } from '../../shared/utils/videoProcessor';
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { VideoProcessingError } from './movies.errors';
@@ -59,8 +59,15 @@ const processTask = async (task: MovieVersion, originalPath: string, outputPath:
             throw new VideoProcessingError('Original video file not found on disk.');
         }
 
-        // transcode process
-        await transcode(originalPath, outputPath, task.height);
+        const originalMeta = await ffprobe(originalPath);
+        const videoStream = originalMeta.streams.find((s) => s.codec_type === 'video');
+
+        const codecName = videoStream?.codec_name;
+        const isSameHeight = videoStream?.height === task.height;
+
+        // process
+        if (isSameHeight && (codecName === 'h264' || codecName === 'h265' || codecName === 'hevc')) await copy(originalPath, outputPath);
+        else await transcode(originalPath, outputPath, task.height);
         const stats = await fs.stat(outputPath);
 
         // additional check for actual resolution
