@@ -179,7 +179,7 @@ export const processMovieWorkflow = async (data: {
             });
             await tx.update(movies).set({ duration, status: 'ready' }).where(eq(movies.id, data.movieId));
         });
-        notifyJobStatus(data.userId, 'completed', `Movie upload completed`, `Movie uploaded successfully`, data.movieId).catch(() => {});
+        notifyJobStatus(data.userId, 'completed', `Upload completed`, `Movie uploaded successfully`, data.movieId).catch(() => {});
     } catch (e) {
         await fs.unlink(finalPath).catch(() => {});
         throw new AppError('Video could not be saved in database', { cause: e });

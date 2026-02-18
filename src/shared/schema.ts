@@ -6,7 +6,7 @@ export const users = pgTable('users', {
     name: text('name').notNull(),
     email: text('email').notNull().unique(),
     password: text('password').notNull(),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
 export type User = InferSelectModel<typeof users>;
@@ -27,7 +27,7 @@ export const movies = pgTable(
         userId: uuid('user_id')
             .notNull()
             .references(() => users.id, { onDelete: 'cascade' }),
-        createdAt: timestamp('created_at').notNull().defaultNow(),
+        createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
     },
     (table) => [index('title_idx').on(table.title), index('created_at_idx').on(table.createdAt)]
 );
@@ -63,7 +63,7 @@ export const movieVersions = pgTable('movie_versions', {
     storageKey: text('storage_key').notNull(),
     fileSize: bigint('file_size', { mode: 'number' }),
     mimeType: text('mime_type'),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
 export const moviesRelations = relations(movies, ({ one, many }) => ({
@@ -106,7 +106,7 @@ export const notifications = pgTable('notifications', {
     title: text('title').notNull(),
     message: text('message').notNull(),
     isRead: boolean('is_read').notNull().default(false),
-    createdAt: timestamp('created_at').notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
 export type Movie = InferSelectModel<typeof movies>;

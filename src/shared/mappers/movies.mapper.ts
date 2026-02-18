@@ -25,7 +25,7 @@ export const toMovieDTO = (movie: Movie & { genres: { genre: Genre }[] }): Movie
     duration: movie.duration,
     genres: movie.genres.map((g) => toGenreDTO(g.genre)),
     status: movie.status,
-    createdAt: movie.createdAt.toISOString(),
+    createdAt: movie.createdAt,
 });
 
 export const toGenreDTO = (genre: Genre) => ({

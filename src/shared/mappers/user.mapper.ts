@@ -9,7 +9,7 @@ export const toUserMinDTO = (user: Pick<User, 'id' | 'name'>): UserMinDTO => ({
 export const toUserDTO = (user: User): UserDTO => ({
     ...toUserMinDTO(user),
     email: user.email,
-    createdAt: user.createdAt.toISOString(),
+    createdAt: user.createdAt,
 });
 
 export const toNotificationDTO = (notification: Notification): NotificationDTO => ({
@@ -21,5 +21,5 @@ export const toNotificationDTO = (notification: Notification): NotificationDTO =
     title: notification.title,
     message: notification.message,
     isRead: notification.isRead,
-    createdAt: notification.createdAt?.toISOString(),
+    createdAt: notification.createdAt,
 });
