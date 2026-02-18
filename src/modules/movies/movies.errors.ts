@@ -39,3 +39,15 @@ export class TorrentDownloadError extends AppError {
         super(friendlyMessage, { cause, statusCode: 400 });
     }
 }
+
+export class SubtitleDownloadError extends AppError {
+    constructor(message: string, cause?: unknown) {
+        super(`Subtitle Download: ${message}`, { statusCode: 502, cause });
+    }
+}
+
+export class SubtitleConversionError extends AppError {
+    constructor(message: string, cause?: unknown) {
+        super(`Subtitle Conversion: ${message}`, { statusCode: 500, cause });
+    }
+}

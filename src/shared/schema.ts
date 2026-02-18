@@ -32,6 +32,17 @@ export const movies = pgTable(
     (table) => [index('title_idx').on(table.title), index('created_at_idx').on(table.createdAt)]
 );
 
+export const subtitles = pgTable('subtitles', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    movieId: uuid('movie_id')
+        .notNull()
+        .references(() => movies.id, { onDelete: 'cascade' }),
+    language: text('language').notNull(),
+    storageKey: text('storage_key').notNull(),
+    externalId: text('external_id'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+});
+
 export const genres = pgTable('genres', {
     id: uuid('id').defaultRandom().primaryKey(),
     name: text('name').notNull().unique(),
@@ -73,6 +84,14 @@ export const moviesRelations = relations(movies, ({ one, many }) => ({
     }),
     versions: many(movieVersions),
     genres: many(moviesToGenres),
+    subtitles: many(subtitles),
+}));
+
+export const subtitlesRelations = relations(subtitles, ({ one }) => ({
+    movie: one(movies, {
+        fields: [subtitles.movieId],
+        references: [movies.id],
+    }),
 }));
 
 export const genresRelations = relations(genres, ({ many }) => ({
@@ -110,6 +129,7 @@ export const notifications = pgTable('notifications', {
 });
 
 export type Movie = InferSelectModel<typeof movies>;
+export type Subtitle = InferSelectModel<typeof subtitles>;
 export type Genre = InferSelectModel<typeof genres>;
 export type MovieVersion = InferSelectModel<typeof movieVersions>;
 export type Notification = InferSelectModel<typeof notifications>;

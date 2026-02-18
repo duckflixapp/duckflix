@@ -10,6 +10,7 @@ export interface VideoMetadata {
     posterUrl?: string | null;
     bannerUrl?: string | null;
     genreIds: string[];
+    imdbId: string | null;
 }
 
 export const fillFromUrl = async (url: string): Promise<Partial<VideoMetadata> | null> => {
@@ -32,9 +33,10 @@ export const enrichMetadata = async (url: string | undefined | null, manualData:
         posterUrl: externalData.posterUrl || manualData.posterUrl,
         bannerUrl: externalData.bannerUrl || manualData.bannerUrl,
         genreIds: externalData.genreIds?.length ? externalData.genreIds : manualData.genreIds || [],
+        imdbId: externalData.imdbId ?? null,
     };
 
-    if (!isVideoMetadata(enrichedMetadata)) throw new AppError('Failed to enrich metadata', 500);
+    if (!isVideoMetadata(enrichedMetadata)) throw new AppError('Failed to enrich metadata', { statusCode: 500 });
 
     return enrichedMetadata;
 };

@@ -6,7 +6,13 @@ import { inArray } from 'drizzle-orm';
 import { AppError } from '../../../shared/errors';
 
 export const createGenre = async (name: string): Promise<GenreDTO> => {
-    const results = await db.insert(genres).values({ name }).returning();
+    const results = await db
+        .insert(genres)
+        .values({ name })
+        .returning()
+        .catch(async (err) => {
+            throw new AppError('Database insert failed for genres', { cause: err });
+        });
     if (results.length == 0 || !results[0]) throw new AppError('Genre not created', { statusCode: 500 });
     return toGenreDTO(results[0]);
 };

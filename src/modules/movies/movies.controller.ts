@@ -28,6 +28,7 @@ export const upload = catchAsync(async (req: Request, res: Response) => {
         MoviesService.processMovieWorkflow({
             userId: req.userId!,
             movieId: movie.id,
+            imdbId: metadata.imdbId,
             tempPath: videoFile.path,
             originalName: videoFile.originalname,
             fileSize: videoFile.size,
@@ -36,6 +37,7 @@ export const upload = catchAsync(async (req: Request, res: Response) => {
         MoviesService.processTorrentFileWorkflow({
             userId: req.userId!,
             movieId: movie.id,
+            imdbId: metadata.imdbId,
             torrentPath: torrentFile?.path,
         }).catch((e) => handleWorkflowError(movie.id, e, 'torrent'));
     } else throw new Error('Please provide valid video file or torrent');

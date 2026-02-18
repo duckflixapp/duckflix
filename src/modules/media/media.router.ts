@@ -5,13 +5,21 @@ import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
-const limiter = rateLimit({
+const limiterStream = rateLimit({
     ...limiterConfigs.defaults(),
     windowMs: 1000, // 40 per 1s
     limit: 40, // because of seeking
     keyGenerator: limiterConfigs.authenticatedKey,
 });
 
-router.get('/stream/:versionId', limiter, MediaController.stream);
+const limiterSubtitle = rateLimit({
+    ...limiterConfigs.defaults(),
+    windowMs: 1000, // 40 per 1s
+    limit: 40, // because of seeking
+    keyGenerator: limiterConfigs.authenticatedKey,
+});
+
+router.get('/stream/:versionId', limiterStream, MediaController.stream);
+router.get('/subtitle/:subtitleId', limiterSubtitle, MediaController.subtitle);
 
 export default router;

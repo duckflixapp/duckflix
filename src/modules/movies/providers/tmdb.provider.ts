@@ -21,6 +21,7 @@ export const fillFromTMDBUrl = async (url: string): Promise<Partial<VideoMetadat
         posterUrl: raw.poster_path ? `https://image.tmdb.org/t/p/w500${raw.poster_path}` : undefined,
         bannerUrl: raw.backdrop_path ? `https://image.tmdb.org/t/p/original${raw.backdrop_path}` : undefined,
         genreIds,
+        imdbId: raw.imdb_id,
     };
 };
 

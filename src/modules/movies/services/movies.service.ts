@@ -17,6 +17,7 @@ import type { VideoMetadata } from './metadata.service';
 import { RqbitClient } from '../../../shared/lib/rqbit';
 import { emitMovieProgress } from '../movies.handler';
 import { notifyJobStatus } from '../../../shared/services/notification.service';
+import { computeHash, downloadSubtitles } from './subs.service';
 
 const rqbitClient = new RqbitClient({ baseUrl: process.env.RQBIT_URL! });
 const torrentClient = new TorrentClient({ rqbit: rqbitClient });
@@ -45,7 +46,12 @@ export const initiateUpload = async (
 
     if (data.genreIds && data.genreIds.length > 0) {
         const values = data.genreIds.map((genreId) => ({ movieId: dbMovie.id, genreId: genreId }));
-        await db.insert(moviesToGenres).values(values);
+        await db
+            .insert(moviesToGenres)
+            .values(values)
+            .catch(async (err) => {
+                throw new AppError('Database insert failed for movie genres', { statusCode: 500, cause: err });
+            });
     }
 
     const selectedGenres = data.genreIds.length > 0 ? await db.select().from(genres).where(inArray(genres.id, data.genreIds)) : [];
@@ -55,7 +61,7 @@ export const initiateUpload = async (
     });
 };
 
-export const processTorrentFileWorkflow = async (data: { userId: string; movieId: string; torrentPath: string }) => {
+export const processTorrentFileWorkflow = async (data: { userId: string; movieId: string; torrentPath: string; imdbId: string | null }) => {
     let torrentBuffer: Buffer;
     try {
         const valid = await validateTorrentFileSize(data.torrentPath);
@@ -120,6 +126,7 @@ export const processTorrentFileWorkflow = async (data: { userId: string; movieId
         tempPath: safePath,
         originalName: mainFile.name,
         fileSize: mainFile.length,
+        imdbId: data.imdbId,
     });
 };
 
@@ -129,6 +136,7 @@ export const processMovieWorkflow = async (data: {
     tempPath: string;
     originalName: string;
     fileSize: number;
+    imdbId: string | null;
 }): Promise<void> => {
     let metadata, videoStream;
     try {
@@ -185,6 +193,15 @@ export const processMovieWorkflow = async (data: {
         throw new AppError('Video could not be saved in database', { cause: e });
     }
 
+    // Subtitles
+    if (data.imdbId) {
+        const movieHash = await computeHash(finalPath);
+        downloadSubtitles({ movieId: data.movieId, imdbId: data.imdbId, movieHash }).catch((err) => {
+            console.error('Error downloading subs', err);
+        });
+    }
+
+    // Resolutions
     const tasksToRun = new Set<number>();
     // process original resolution if not mp4
     if (mimeType != 'video/mp4') {
@@ -257,6 +274,7 @@ export const getMovieById = async (id: string): Promise<MovieDetailedDTO | null>
                 },
             },
             versions: true,
+            subtitles: true,
             user: {
                 columns: {
                     id: true,

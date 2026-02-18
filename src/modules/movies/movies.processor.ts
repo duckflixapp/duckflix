@@ -9,6 +9,7 @@ import { VideoProcessingError } from './movies.errors';
 import { TaskHandler } from '../../shared/utils/tasks';
 import { emitMovieProgress, handleMovieTask, handleProcessingError } from './movies.handler';
 import { limits } from '../../shared/configs/limits.config';
+import { AppError } from '../../shared/errors';
 
 export const createMovieStorageKey = (movieId: string, versionId: string, ext: string) => `movies/${movieId}/${versionId}${ext}`;
 
@@ -45,7 +46,13 @@ export const startProcessing = async (movieId: string, tasksToRun: number[], sto
             status: 'waiting' as const,
         };
     });
-    const waitingTasks: MovieVersion[] = await db.insert(movieVersions).values(tasksVersions).returning();
+    const waitingTasks: MovieVersion[] = await db
+        .insert(movieVersions)
+        .values(tasksVersions)
+        .returning()
+        .catch(async (err) => {
+            throw new AppError('Database insert failed for movie version', { cause: err });
+        });
 
     waitingTasks.forEach((task) => handleVideoProcess(task, originalPath, path.join(storageFolder, task.storageKey)));
 };

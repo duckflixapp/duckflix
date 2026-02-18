@@ -2,10 +2,10 @@ import type { Request, Response } from 'express';
 import path from 'node:path';
 import { eq } from 'drizzle-orm';
 import { db } from '../../shared/db';
-import { movieVersions } from '../../shared/schema';
+import { movieVersions, subtitles } from '../../shared/schema';
 import { catchAsync } from '../../shared/utils/catchAsync';
 import { AppError } from '../../shared/errors';
-import { streamParamsSchema } from './media.validator';
+import { streamParamsSchema, subtitleParamsSchema } from './media.validator';
 import { paths } from '../../shared/configs/path.config';
 import { access } from 'node:fs/promises';
 import constants from 'node:constants';
@@ -33,6 +33,33 @@ export const stream = catchAsync(async (req: Request, res: Response) => {
             if (res.headersSent) return;
 
             console.error('Streaming error:', err);
+        }
+    });
+});
+
+export const subtitle = catchAsync(async (req: Request, res: Response) => {
+    const { subtitleId } = subtitleParamsSchema.parse(req.params);
+
+    const subtitle = await db.query.subtitles.findFirst({ where: eq(subtitles.id, subtitleId) });
+
+    if (!subtitle) {
+        throw new AppError('Subtitle not found', { statusCode: 404 });
+    }
+
+    const absolutePath = path.resolve(paths.storage, subtitle.storageKey);
+
+    await access(absolutePath, constants.F_OK).catch(() => {
+        throw new AppError('Subtitle file not found on storage', { statusCode: 404 });
+    });
+
+    res.sendFile(absolutePath, (err) => {
+        if (err) {
+            const errCode = (err as { code?: string }).code;
+            const isClientAbort = errCode === 'ECONNABORTED' || errCode === 'ECANCELED' || err.message.toLowerCase().includes('aborted');
+            if (isClientAbort) return; // client error
+            if (res.headersSent) return;
+
+            console.error('Subtitle error:', err);
         }
     });
 });
