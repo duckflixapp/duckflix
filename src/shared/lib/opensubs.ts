@@ -13,9 +13,10 @@ export class OpenSubtitlesClient {
     private tokenExpiry: number | null = null;
     private username?: string;
     private password?: string;
+    private useLogin: boolean = false;
 
     private providedBaseUrl: string | undefined;
-    constructor(options: { baseUrl: string; apiKey: string; username?: string; password?: string }) {
+    constructor(options: { baseUrl: string; apiKey: string; username?: string; password?: string; login?: boolean }) {
         const appName = 'Duckflix',
             appVersion = '1.0';
         this.api = axios.create({
@@ -30,6 +31,7 @@ export class OpenSubtitlesClient {
         this.providedBaseUrl = options.baseUrl;
         this.username = options.username;
         this.password = options.password;
+        this.useLogin = options.login ?? false;
     }
 
     private async login() {
@@ -60,7 +62,7 @@ export class OpenSubtitlesClient {
         },
         further: number = 1
     ): Promise<SubtitleData[]> {
-        // await this.login();
+        if (this.useLogin) await this.login();
         const languagesString = options?.languages ? options?.languages.sort().join(',') : undefined;
         const { data } = await this.api
             .get<SearchSubsResponse>(`/subtitles`, {
@@ -87,7 +89,7 @@ export class OpenSubtitlesClient {
     }
 
     public async downloadSubtitle(fileId: number, options?: { sub_format?: 'srt' | 'vtt' }) {
-        // await this.login();
+        if (this.useLogin) await this.login();
         const { data } = await this.api
             .post<DownloadSubResponse>(`/download`, {
                 file_id: fileId,

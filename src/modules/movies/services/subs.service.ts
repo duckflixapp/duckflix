@@ -10,19 +10,20 @@ import path from 'node:path';
 import { convertSRTtoVTT } from '../../../shared/utils/ffmpeg';
 import { SubtitleDownloadError } from '../movies.errors';
 import { AppError } from '../../../shared/errors';
+import { getSystemSettings } from '../../../shared/services/system.service';
+import { env } from '../../../env';
 
+const systemSettings = await getSystemSettings();
 const subtitlesClient = new OpenSubtitlesClient({
-    baseUrl: process.env.OPENSUBS_URL!,
-    apiKey: process.env.OPENSUBS_API_KEY!,
-    username: process.env.OPENSUBS_USERNAME,
-    password: process.env.OPENSUBS_PASSWORD,
+    baseUrl: env.OPENSUBS_URL,
+    apiKey: systemSettings.external.openSubtitles.apiKey,
+    username: systemSettings.external.openSubtitles.username,
+    password: systemSettings.external.openSubtitles.password,
+    login: systemSettings.external.openSubtitles.useLogin,
 });
 
 export const downloadSubtitles = async (data: { movieId: string; imdbId: string; movieHash?: string }) => {
-    const preferences = [
-        { lang: 'sr', variants: 2 },
-        { lang: 'en', variants: 1 },
-    ];
+    const preferences = systemSettings.preferences.subtitles;
 
     const subs = await subtitlesClient.getSubtitles(data.imdbId, {
         languages: preferences.map((p) => p.lang),

@@ -40,7 +40,7 @@ export const login = async (email: string, pass: string): Promise<{ token: strin
     const isPasswordValid = await argon2.verify(user.password, pass);
     if (!isPasswordValid) throw new InvalidCredentialsError();
 
-    const token = signToken({ userId: user.id });
+    const token = signToken({ userId: user.id, role: user.role });
 
     return { token, user: toUserDTO(user) };
 };

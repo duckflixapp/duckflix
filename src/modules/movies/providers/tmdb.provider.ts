@@ -2,8 +2,11 @@ import { AppError } from '../../../shared/errors';
 import { TMDBClient } from '../../../shared/lib/tmdb';
 import { getGenreIds } from '../services/genres.service';
 import type { VideoMetadata } from '../services/metadata.service';
+import { env } from '../../../env';
+import { getSystemSettings } from '../../../shared/services/system.service';
 
-const tmdbClient = new TMDBClient({ baseUrl: process.env.TMDB_URL!, apiKey: process.env.TMDB_API_KEY! });
+const systemSettings = await getSystemSettings();
+const tmdbClient = new TMDBClient({ baseUrl: env.TMDB_URL, apiKey: systemSettings.external.tmdb.apiKey });
 
 export const fillFromTMDBUrl = async (url: string): Promise<Partial<VideoMetadata>> => {
     const id = parseIdFromUrl(url);
@@ -22,6 +25,7 @@ export const fillFromTMDBUrl = async (url: string): Promise<Partial<VideoMetadat
         bannerUrl: raw.backdrop_path ? `https://image.tmdb.org/t/p/original${raw.backdrop_path}` : undefined,
         genreIds,
         imdbId: raw.imdb_id,
+        rating: raw.vote_average,
     };
 };
 

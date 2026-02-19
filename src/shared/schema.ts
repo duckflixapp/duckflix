@@ -1,11 +1,41 @@
 import { relations, type InferSelectModel } from 'drizzle-orm';
-import { bigint, boolean, decimal, index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, decimal, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+
+export const systemSettings = pgTable('system_settings', {
+    id: integer('id').primaryKey().default(1),
+    settings: jsonb('settings')
+        .$type<{
+            features: {
+                autoTranscoding: 'off' | 'compatibility' | 'smart';
+                concurrentProcessing: number;
+            };
+            preferences: {
+                subtitles: { lang: string; variants: number }[];
+            };
+            external: {
+                tmdb: {
+                    apiKey: string;
+                };
+                openSubtitles: {
+                    apiKey: string;
+                    username: string;
+                    password: string;
+                    useLogin: boolean;
+                };
+            };
+        }>()
+        .notNull(),
+});
+
+export type SystemSettingsRow = InferSelectModel<typeof systemSettings>;
+export type SystemSettings = SystemSettingsRow['settings'];
 
 export const users = pgTable('users', {
     id: uuid('id').defaultRandom().primaryKey(),
     name: text('name').notNull(),
     email: text('email').notNull().unique(),
     password: text('password').notNull(),
+    role: text('role').$type<'admin' | 'contributor' | 'watcher'>().default('watcher').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 

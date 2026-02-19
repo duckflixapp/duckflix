@@ -1,10 +1,7 @@
-import { getEnvNumber } from '../utils/env.utils';
+import { env } from '../../env';
 
 export const limits = {
     file: {
-        upload: getEnvNumber('UPLOAD_FILE_LIMIT', 16384),
-    },
-    processing: {
-        concurrent: getEnvNumber('CONCURENT_PROCESS', 1),
+        upload: env.UPLOAD_FILE_LIMIT,
     },
 } as const;

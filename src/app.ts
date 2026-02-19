@@ -4,11 +4,11 @@ import cookieParser from 'cookie-parser';
 import { globalErrorHandler } from './shared/errors';
 import router from './routes/v1';
 import helmet from 'helmet';
+import { env } from './env';
 
 const app = express();
 
-const proxyCount = parseInt(process.env.PROXIES || '0', 10);
-app.set('trust proxy', proxyCount);
+app.set('trust proxy', env.PROXIES);
 app.use(
     helmet({
         contentSecurityPolicy: {
@@ -16,16 +16,16 @@ app.use(
                 defaultSrc: ["'self'"],
                 scriptSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
                 imgSrc: ["'self'", 'data:', 'https://image.tmdb.org'],
-                mediaSrc: ["'self'", process.env.BASE_URL!, process.env.ORIGIN!],
-                connectSrc: ["'self'", process.env.BASE_URL!],
-                upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+                mediaSrc: ["'self'", env.BASE_URL, env.ORIGIN],
+                connectSrc: ["'self'", env.BASE_URL],
+                upgradeInsecureRequests: env.NODE_ENV === 'production' ? [] : null,
             },
         },
         crossOriginResourcePolicy: { policy: 'cross-origin' },
         hidePoweredBy: true,
     })
 );
-app.use(cors({ origin: process.env.ORIGIN, credentials: true }));
+app.use(cors({ origin: env.ORIGIN, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 

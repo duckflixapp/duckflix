@@ -11,6 +11,7 @@ export interface VideoMetadata {
     bannerUrl?: string | null;
     genreIds: string[];
     imdbId: string | null;
+    rating: number | null;
 }
 
 export const fillFromUrl = async (url: string): Promise<Partial<VideoMetadata> | null> => {
@@ -34,6 +35,7 @@ export const enrichMetadata = async (url: string | undefined | null, manualData:
         bannerUrl: externalData.bannerUrl || manualData.bannerUrl,
         genreIds: externalData.genreIds?.length ? externalData.genreIds : manualData.genreIds || [],
         imdbId: externalData.imdbId ?? null,
+        rating: externalData.rating ?? null,
     };
 
     if (!isVideoMetadata(enrichedMetadata)) throw new AppError('Failed to enrich metadata', { statusCode: 500 });

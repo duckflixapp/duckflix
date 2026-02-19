@@ -3,11 +3,13 @@ import * as MoviesController from './movies.controller';
 import { movieUpload } from '../../shared/configs/multer.config';
 import { limiterConfigs } from '../../shared/limiters';
 import rateLimit from 'express-rate-limit';
+import { isAdmin, isContributor } from '../../shared/middlewares/auth.middleware';
 
 const router = Router();
 
 router.post(
     '/upload',
+    isContributor,
     rateLimit({
         ...limiterConfigs.defaults(),
         windowMs: 30 * 1000, // 20 per 30s
@@ -43,6 +45,7 @@ router.get(
 );
 router.post(
     '/genres',
+    isAdmin,
     rateLimit({
         ...limiterConfigs.defaults(),
         windowMs: 2 * 1000, // 4 per 2s

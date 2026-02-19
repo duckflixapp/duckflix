@@ -1,9 +1,11 @@
 import jwt from 'jsonwebtoken';
+import { env } from '../../env';
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+const JWT_SECRET = env.JWT_SECRET;
 
 export interface TokenPayload {
     userId: string;
+    role: 'contributor' | 'admin' | 'watcher';
 }
 
 export const signToken = (payload: TokenPayload): string => {

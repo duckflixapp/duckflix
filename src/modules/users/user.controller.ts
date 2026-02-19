@@ -4,11 +4,11 @@ import { catchAsync } from '../../shared/utils/catchAsync';
 import { validateMarkUserNotifications } from './user.validator';
 
 export const getMe = catchAsync(async (req: Request, res: Response) => {
-    if (!req.userId) {
+    if (!req.user) {
         return res.status(401).json({ message: 'Not authenticated' });
     }
 
-    const user = await UserService.getMe(req.userId);
+    const user = await UserService.getMe(req.user.id);
 
     return res.status(200).json({
         status: 'success',
@@ -17,7 +17,7 @@ export const getMe = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const getUserNotifications = catchAsync(async (req: Request, res: Response) => {
-    const notifications = await UserService.getUserNotifications(req.userId!);
+    const notifications = await UserService.getUserNotifications(req.user!.id);
 
     res.status(201).json({
         status: 'success',
@@ -28,7 +28,7 @@ export const getUserNotifications = catchAsync(async (req: Request, res: Respons
 export const markUserNotifications = catchAsync(async (req: Request, res: Response) => {
     const { notificationIds } = validateMarkUserNotifications.parse(req.body);
 
-    await UserService.markUserNotifications(req.userId!, {
+    await UserService.markUserNotifications(req.user!.id, {
         markAll: notificationIds.length === 0,
         notificationIds,
     });
@@ -39,7 +39,7 @@ export const markUserNotifications = catchAsync(async (req: Request, res: Respon
 });
 
 export const clearUserNotifications = catchAsync(async (req: Request, res: Response) => {
-    await UserService.clearUserNotifications(req.userId!);
+    await UserService.clearUserNotifications(req.user!.id);
 
     res.status(201).json({
         status: 'success',

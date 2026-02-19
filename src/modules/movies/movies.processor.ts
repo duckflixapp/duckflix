@@ -8,12 +8,14 @@ import { eq } from 'drizzle-orm';
 import { VideoProcessingError } from './movies.errors';
 import { TaskHandler } from '../../shared/utils/tasks';
 import { emitMovieProgress, handleMovieTask, handleProcessingError } from './movies.handler';
-import { limits } from '../../shared/configs/limits.config';
 import { AppError } from '../../shared/errors';
+import { getSystemSettings } from '../../shared/services/system.service';
+
+const systemSettings = await getSystemSettings();
 
 export const createMovieStorageKey = (movieId: string, versionId: string, ext: string) => `movies/${movieId}/${versionId}${ext}`;
 
-const taskHandler = new TaskHandler({ concurrent: limits.processing.concurrent });
+const taskHandler = new TaskHandler({ concurrent: systemSettings.features.concurrentProcessing });
 const taskMovies = new Map<string, string>();
 const jobs = new Map<string, VideoJob>();
 

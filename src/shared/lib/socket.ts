@@ -1,13 +1,14 @@
 import { Server, Socket } from 'socket.io';
 import http from 'node:http';
 import { authenticateSocket } from '../middlewares/auth.middleware';
+import { env } from '../../env';
 
 export class SocketServer {
     private _io: Server;
     constructor(httpServer: http.Server) {
         this._io = new Server(httpServer, {
             cors: {
-                origin: process.env.ORIGIN,
+                origin: env.ORIGIN,
                 credentials: true,
                 methods: ['GET', 'POST'],
             },

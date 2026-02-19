@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import * as AuthService from './auth.service';
 import { registerSchema, loginSchema } from './auth.schema';
 import { catchAsync } from '../../shared/utils/catchAsync';
+import { env } from '../../env';
 
 export const register = catchAsync(async (req: Request, res: Response) => {
     const data = registerSchema.parse(req.body); // validate data
@@ -21,15 +22,15 @@ export const login = catchAsync(async (req: Request, res: Response) => {
 
     res.cookie('auth_token', result.token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: env.NODE_ENV === 'production',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
         sameSite: 'lax',
     });
     res.cookie('csrf_token', csrfToken, {
         httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
+        secure: env.NODE_ENV === 'production',
         sameSite: 'lax',
-        domain: process.env.DOMAIN,
+        domain: env.DOMAIN,
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
     });
 
@@ -37,7 +38,7 @@ export const login = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const logout = catchAsync(async (req: Request, res: Response) => {
-    if (!req.userId) {
+    if (!req.user) {
         return res.status(401).json({ message: 'Not authenticated' });
     }
 

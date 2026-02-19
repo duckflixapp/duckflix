@@ -18,9 +18,12 @@ import { RqbitClient } from '../../../shared/lib/rqbit';
 import { emitMovieProgress } from '../movies.handler';
 import { notifyJobStatus } from '../../../shared/services/notification.service';
 import { computeHash, downloadSubtitles } from './subs.service';
+import { getSystemSettings } from '../../../shared/services/system.service';
+import { env } from '../../../env';
 
-const rqbitClient = new RqbitClient({ baseUrl: process.env.RQBIT_URL! });
+const rqbitClient = new RqbitClient({ baseUrl: env.RQBIT_URL! });
 const torrentClient = new TorrentClient({ rqbit: rqbitClient });
+const systemSettings = await getSystemSettings();
 
 export const initiateUpload = async (
     data: {
@@ -35,7 +38,7 @@ export const initiateUpload = async (
             description: data.overview,
             bannerUrl: data.bannerUrl,
             posterUrl: data.posterUrl,
-            rating: null,
+            rating: data.rating?.toString() ?? null,
             releaseYear: data.releaseYear,
             duration: null,
             status: data.status,
@@ -203,21 +206,26 @@ export const processMovieWorkflow = async (data: {
 
     // Resolutions
     const tasksToRun = new Set<number>();
-    // process original resolution if not mp4
-    if (mimeType != 'video/mp4') {
-        tasksToRun.add(originalHeight);
+    const processingPreference = systemSettings.features.autoTranscoding;
+    if (processingPreference === 'compatibility' || processingPreference === 'smart') {
+        if (mimeType != 'video/mp4') {
+            // process original resolution if not mp4
+            tasksToRun.add(originalHeight);
 
-        const videoStream = metadata.streams.find((s) => s.codec_type === 'video');
-        const codecName = videoStream?.codec_name;
-        if (codecName === 'h265' || codecName === 'hevc') {
+            const videoStream = metadata.streams.find((s) => s.codec_type === 'video');
+            const codecName = videoStream?.codec_name;
+            if (codecName === 'h265' || codecName === 'hevc') {
+                if (originalHeight > 1080) tasksToRun.add(1080);
+                else if (originalHeight > 720) tasksToRun.add(720);
+            }
+        }
+
+        if (processingPreference === 'smart') {
+            // process tasks for lower resolutions -> enable (auto) only on strong cpus
             if (originalHeight > 1080) tasksToRun.add(1080);
             else if (originalHeight > 720) tasksToRun.add(720);
         }
     }
-
-    // process tasks for lower resolutions -> enable (auto) only on strong cpus
-    // if (originalHeight > 1080) tasksToRun.add(1080);
-    // else if (originalHeight > 720) tasksToRun.add(720);
 
     if (tasksToRun.size > 0) startProcessing(data.movieId, Array.from(tasksToRun), paths.storage, finalPath);
 };
@@ -279,6 +287,7 @@ export const getMovieById = async (id: string): Promise<MovieDetailedDTO | null>
                 columns: {
                     id: true,
                     name: true,
+                    role: true,
                 },
             },
         },

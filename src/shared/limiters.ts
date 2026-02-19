@@ -20,7 +20,7 @@ const defaultConfig = (): Partial<Options> => {
 export const limiterConfigs = {
     defaults: defaultConfig,
     authenticatedKey: (req: Request) => {
-        if (req.userId) return req.userId!;
+        if (req.user) return req.user.id!;
         if (req.ip) return ipKeyGenerator(req.ip);
         return '';
     },

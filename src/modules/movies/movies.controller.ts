@@ -14,19 +14,19 @@ export const upload = catchAsync(async (req: Request, res: Response) => {
 
     const videoFile = files?.['video']?.[0];
     const torrentFile = files?.['torrent']?.[0];
-    if (!videoFile && !torrentFile) throw new AppError('Please provide either a video file or a magnet link', { statusCode: 400 });
+    if (!videoFile && !torrentFile) throw new AppError('Please provide either a valid video or torrent file', { statusCode: 400 });
 
     const metadata = await MetadataService.enrichMetadata(validatedData.dbUrl, validatedData);
 
     const movie = await MoviesService.initiateUpload({
-        userId: req.userId!,
+        userId: req.user!.id,
         status: videoFile ? 'processing' : 'downloading',
         ...metadata,
     });
 
     if (videoFile)
         MoviesService.processMovieWorkflow({
-            userId: req.userId!,
+            userId: req.user!.id,
             movieId: movie.id,
             imdbId: metadata.imdbId,
             tempPath: videoFile.path,
@@ -35,7 +35,7 @@ export const upload = catchAsync(async (req: Request, res: Response) => {
         }).catch((e) => handleWorkflowError(movie.id, e, 'movie'));
     else if (torrentFile?.path) {
         MoviesService.processTorrentFileWorkflow({
-            userId: req.userId!,
+            userId: req.user!.id,
             movieId: movie.id,
             imdbId: metadata.imdbId,
             torrentPath: torrentFile?.path,

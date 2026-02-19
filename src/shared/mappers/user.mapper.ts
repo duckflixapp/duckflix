@@ -1,8 +1,9 @@
 import type { NotificationDTO, UserDTO, UserMinDTO } from '@duckflix/shared';
 import type { Notification, User } from '../schema';
 
-export const toUserMinDTO = (user: Pick<User, 'id' | 'name'>): UserMinDTO => ({
+export const toUserMinDTO = (user: Pick<User, 'id' | 'name' | 'role'>): UserMinDTO => ({
     id: user.id,
+    role: user.role,
     name: user.name,
 });
 

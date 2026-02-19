@@ -1,7 +1,8 @@
 import path from 'node:path';
+import { env } from '../../env';
 
-const ROOT_STORAGE = process.env.STORAGE_FOLDER || 'storage';
-const ROOT_TEMP = process.env.TEMP_FOLDER || 'temp';
+const ROOT_STORAGE = env.STORAGE_FOLDER;
+const ROOT_TEMP = env.TEMP_FOLDER;
 
 export const paths = {
     storage: path.resolve(ROOT_STORAGE),
