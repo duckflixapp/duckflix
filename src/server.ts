@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { app } from './app';
-import { pool } from './shared/db';
+import { pool } from './shared/configs/db';
 import { SocketServer } from './shared/lib/socket';
 import { env } from './env';
 

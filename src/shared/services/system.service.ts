@@ -1,13 +1,16 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../db';
-import { systemSettings, type SystemSettings } from '../schema';
+import { db } from '../configs/db';
+import { systemSettings as systemSettingsScheme, type SystemSettingsT } from '../schema';
 import { AppError } from '../errors';
 import { env } from '../../env';
+import merge from 'deepmerge';
+import EventEmitter from 'node:events';
 
-export const DEFAULT_SETTINGS: SystemSettings = {
+export const DEFAULT_SETTINGS: SystemSettingsT = {
     features: {
         autoTranscoding: 'compatibility',
         concurrentProcessing: 1,
+        trustEmails: true,
     },
     preferences: {
         subtitles: [
@@ -23,36 +26,57 @@ export const DEFAULT_SETTINGS: SystemSettings = {
             password: env.OPENSUBS_PASSWORD || '',
             useLogin: false,
         },
+        email: {
+            enabled: env.SMTP_HOST ? true : false,
+            smtpSettings: {
+                host: env.SMTP_HOST ?? '',
+                port: env.SMTP_PORT ?? 0,
+                username: env.SMTP_USERNAME ?? '',
+                password: env.SMTP_PASSWORD ?? '',
+            },
+        },
     },
 };
 
-export const getSystemSettings = async (): Promise<SystemSettings> => {
-    const [result] = await db.select({ settings: systemSettings.settings }).from(systemSettings).where(eq(systemSettings.id, 1));
+const overwriteMerge = (_: unknown[], sourceArray: unknown[]) => sourceArray;
 
-    if (!result) return saveSystemSettings(DEFAULT_SETTINGS);
+export class SystemSettings extends EventEmitter {
+    public async get() {
+        const [result] = await db
+            .select({ settings: systemSettingsScheme.settings })
+            .from(systemSettingsScheme)
+            .where(eq(systemSettingsScheme.id, 1));
 
-    return {
-        ...DEFAULT_SETTINGS,
-        ...result.settings,
-        features: { ...DEFAULT_SETTINGS.features, ...result.settings.features },
-        external: { ...DEFAULT_SETTINGS.external, ...result.settings.external },
-    };
-};
+        if (!result) return this.save(DEFAULT_SETTINGS);
 
-export const saveSystemSettings = async (settings: SystemSettings): Promise<SystemSettings> => {
-    const [result] = await db
-        .insert(systemSettings)
-        .values({
-            id: 1,
-            settings,
-        })
-        .onConflictDoUpdate({
-            target: systemSettings.id,
-            set: { settings },
-        })
-        .returning({ settings: systemSettings.settings });
+        return merge(DEFAULT_SETTINGS, result.settings, { arrayMerge: overwriteMerge });
+    }
 
-    if (result) return result.settings;
+    public async update(settings: Partial<SystemSettingsT>) {
+        const current = await this.get();
 
-    throw new AppError('System setting save failed', { statusCode: 500 });
-};
+        const data = await this.save(merge(current, settings, { arrayMerge: overwriteMerge }));
+
+        this.emit('update', data);
+    }
+
+    private async save(settings: SystemSettingsT): Promise<SystemSettingsT> {
+        const [result] = await db
+            .insert(systemSettingsScheme)
+            .values({
+                id: 1,
+                settings,
+            })
+            .onConflictDoUpdate({
+                target: systemSettingsScheme.id,
+                set: { settings },
+            })
+            .returning({ settings: systemSettingsScheme.settings });
+
+        if (result) return result.settings;
+
+        throw new AppError('System setting save failed', { statusCode: 500 });
+    }
+}
+
+export const systemSettings = new SystemSettings();

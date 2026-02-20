@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import path from 'node:path';
 import { eq } from 'drizzle-orm';
-import { db } from '../../shared/db';
+import { db } from '../../shared/configs/db';
 import { movieVersions, subtitles } from '../../shared/schema';
 import { catchAsync } from '../../shared/utils/catchAsync';
 import { AppError } from '../../shared/errors';

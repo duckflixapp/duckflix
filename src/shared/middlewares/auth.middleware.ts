@@ -6,6 +6,7 @@ import { csrfGuard } from './csrf.middleware';
 import { verifyToken } from '../utils/jwt';
 import type { ExtendedError, Socket } from 'socket.io';
 import cookie from 'cookie';
+import { roleHierarchy, type UserRole } from '@duckflix/shared';
 
 export class UnauthorizedError extends AppError {
     constructor(message: string = 'Unauthorized access') {
@@ -19,41 +20,41 @@ export class ForbiddenError extends AppError {
     }
 }
 
-export const isAdmin = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) throw new UnauthorizedError();
+export const hasRole = (role: UserRole) => {
+    return catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        if (!req.user) throw new UnauthorizedError();
 
-    if (req.user.role != 'admin') throw new ForbiddenError();
+        if (roleHierarchy[req.user.role] > roleHierarchy[role]) throw new ForbiddenError();
 
-    next();
-});
+        next();
+    });
+};
 
-export const isContributor = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) throw new UnauthorizedError();
+export const authenticate = (verified: boolean = true) => {
+    return catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        const token = req.cookies.auth_token || req.headers.authorization?.split(' ')[1];
 
-    if (req.user.role != 'contributor' && req.user.role != 'admin') throw new ForbiddenError();
+        if (!token) throw new UnauthorizedError('No token provided');
 
-    next();
-});
+        let decoded;
+        try {
+            decoded = verifyToken(token);
+        } catch (err: unknown) {
+            if (err instanceof jwt.TokenExpiredError) throw new UnauthorizedError('Expired token');
+            throw new UnauthorizedError('Invalid token');
+        }
 
-export const authenticate = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const token = req.cookies.auth_token || req.headers.authorization?.split(' ')[1];
-
-    if (!token) throw new UnauthorizedError('No token provided');
-
-    try {
-        const decoded = verifyToken(token);
+        if (verified && !decoded.isVerified) throw new ForbiddenError('Email not verified');
 
         req.user = {
-            id: decoded.userId,
+            id: decoded.sub,
             role: decoded.role,
+            isVerified: decoded.isVerified,
         };
 
         csrfGuard(req, res, next); // automatically use csrf guard
-    } catch (err: unknown) {
-        if (err instanceof jwt.TokenExpiredError) throw new UnauthorizedError('Expired token');
-        throw new UnauthorizedError('Invalid token');
-    }
-});
+    });
+};
 
 export const authenticateSocket = async (socket: Socket, next: (err?: ExtendedError | undefined) => unknown) => {
     try {
@@ -65,9 +66,7 @@ export const authenticateSocket = async (socket: Socket, next: (err?: ExtendedEr
         if (!token) return next(new Error('Auth error: Token missing'));
 
         const decoded = verifyToken(token);
-        if (!decoded?.userId) return next(new Error('Auth error: Invalid user'));
-
-        socket.data.userId = decoded.userId;
+        socket.data.userId = decoded.sub;
         next();
     } catch (err) {
         next(new Error('Authentication error'));

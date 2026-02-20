@@ -1,5 +1,5 @@
 import type { NotificationDTO } from '@duckflix/shared';
-import { db } from '../../shared/db';
+import { db } from '../../shared/configs/db';
 import { notifications, users } from '../../shared/schema';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { toNotificationDTO, toUserDTO } from '../../shared/mappers/user.mapper';

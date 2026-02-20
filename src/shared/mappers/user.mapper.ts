@@ -10,6 +10,7 @@ export const toUserMinDTO = (user: Pick<User, 'id' | 'name' | 'role'>): UserMinD
 export const toUserDTO = (user: User): UserDTO => ({
     ...toUserMinDTO(user),
     email: user.email,
+    isVerified: user.verified_email,
     createdAt: user.createdAt,
 });
 

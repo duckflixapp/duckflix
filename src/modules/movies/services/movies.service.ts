@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { and, count, desc, eq, ilike, inArray } from 'drizzle-orm';
-import { db } from '../../../shared/db';
+import { db } from '../../../shared/configs/db';
 import { genres, movies, moviesToGenres, movieVersions } from '../../../shared/schema';
 import { InvalidVideoFileError, MovieNotCreatedError, MovieNotFoundError, TorrentDownloadError } from '../movies.errors';
 import { randomUUID } from 'node:crypto';
@@ -18,12 +18,11 @@ import { RqbitClient } from '../../../shared/lib/rqbit';
 import { emitMovieProgress } from '../movies.handler';
 import { notifyJobStatus } from '../../../shared/services/notification.service';
 import { computeHash, downloadSubtitles } from './subs.service';
-import { getSystemSettings } from '../../../shared/services/system.service';
 import { env } from '../../../env';
+import { systemSettings } from '../../../shared/services/system.service';
 
 const rqbitClient = new RqbitClient({ baseUrl: env.RQBIT_URL! });
 const torrentClient = new TorrentClient({ rqbit: rqbitClient });
-const systemSettings = await getSystemSettings();
 
 export const initiateUpload = async (
     data: {
@@ -206,7 +205,9 @@ export const processMovieWorkflow = async (data: {
 
     // Resolutions
     const tasksToRun = new Set<number>();
-    const processingPreference = systemSettings.features.autoTranscoding;
+
+    const sysSettings = await systemSettings.get();
+    const processingPreference = sysSettings.features.autoTranscoding;
     if (processingPreference === 'compatibility' || processingPreference === 'smart') {
         if (mimeType != 'video/mp4') {
             // process original resolution if not mp4

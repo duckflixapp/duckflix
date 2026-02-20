@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import * as AuthController from './auth.controller';
-import { authenticate } from '../../shared/middlewares/auth.middleware';
 import rateLimit from 'express-rate-limit';
 import { limiterConfigs } from '../../shared/limiters';
 
@@ -10,10 +9,19 @@ router.post(
     '/register',
     rateLimit({
         ...limiterConfigs.defaults(),
-        windowMs: 30 * 1000, // 20 per 30s
-        limit: 20,
+        windowMs: 30 * 1000, // 10 per 30s
+        limit: 10,
     }),
     AuthController.register
+);
+router.post(
+    '/verify-email',
+    rateLimit({
+        ...limiterConfigs.defaults(),
+        windowMs: 30 * 1000, // 10 per 30s
+        limit: 10,
+    }),
+    AuthController.verifyEmail
 );
 router.post(
     '/login',
@@ -32,8 +40,17 @@ router.post(
         limit: 10,
         keyGenerator: limiterConfigs.authenticatedKey,
     }),
-    authenticate,
     AuthController.logout
+);
+
+router.post(
+    '/refresh',
+    rateLimit({
+        ...limiterConfigs.defaults(),
+        windowMs: 10 * 1000, // 10 per 10s
+        limit: 10,
+    }),
+    AuthController.refresh
 );
 
 export default router;

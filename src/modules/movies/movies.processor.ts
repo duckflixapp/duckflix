@@ -1,6 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { db } from '../../shared/db';
+import { db } from '../../shared/configs/db';
 import { movieVersions, type MovieVersion, type NewMovieVersion } from '../../shared/schema';
 import { ffprobe, VideoJob, type JobType } from '../../shared/utils/videoProcessor';
 import { randomUUID } from 'node:crypto';
@@ -9,13 +9,12 @@ import { VideoProcessingError } from './movies.errors';
 import { TaskHandler } from '../../shared/utils/tasks';
 import { emitMovieProgress, handleMovieTask, handleProcessingError } from './movies.handler';
 import { AppError } from '../../shared/errors';
-import { getSystemSettings } from '../../shared/services/system.service';
-
-const systemSettings = await getSystemSettings();
+import { systemSettings } from '../../shared/services/system.service';
 
 export const createMovieStorageKey = (movieId: string, versionId: string, ext: string) => `movies/${movieId}/${versionId}${ext}`;
 
-const taskHandler = new TaskHandler({ concurrent: systemSettings.features.concurrentProcessing });
+const sysSettings = await systemSettings.get(); // this wont change without restart, should not be changed for stability reasons
+const taskHandler = new TaskHandler({ concurrent: sysSettings.features.concurrentProcessing });
 const taskMovies = new Map<string, string>();
 const jobs = new Map<string, VideoJob>();
 

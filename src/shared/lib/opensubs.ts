@@ -34,6 +34,22 @@ export class OpenSubtitlesClient {
         this.useLogin = options.login ?? false;
     }
 
+    public updateCredentials(apiKey: string, username: string, password: string, login: boolean): boolean {
+        if (
+            this.api.defaults.headers['Api-Key'] === apiKey &&
+            this.username === username &&
+            this.password === password &&
+            this.useLogin === login
+        )
+            return false;
+
+        this.api.defaults.headers['Api-Key'] = apiKey;
+        this.username = username;
+        this.password = password;
+        this.useLogin = login;
+        return true;
+    }
+
     private async login() {
         if (this.tokenExpiry && this.tokenExpiry > Date.now() + 60000) return;
         const { data } = await this.api.post<{ status: number; base_url?: string; token?: string }>(

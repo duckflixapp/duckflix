@@ -3,7 +3,7 @@ import { AppError } from '../errors';
 
 class CSRFError extends AppError {
     constructor(message: string = 'Invalid CSRF token') {
-        super(message, 403);
+        super(message, { statusCode: 403 });
     }
 }
 

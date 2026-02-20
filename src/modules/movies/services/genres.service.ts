@@ -1,6 +1,6 @@
 import type { GenreDTO } from '@duckflix/shared';
 import { genres } from '../../../shared/schema';
-import { db } from '../../../shared/db';
+import { db } from '../../../shared/configs/db';
 import { toGenreDTO } from '../../../shared/mappers/movies.mapper';
 import { inArray } from 'drizzle-orm';
 import { AppError } from '../../../shared/errors';

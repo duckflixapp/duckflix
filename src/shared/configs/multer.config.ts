@@ -12,14 +12,14 @@ export const movieUpload: Multer = multer({
     fileFilter: (req, file, cb) => {
         if (file.fieldname === 'video') {
             if (file.mimetype.startsWith('video/') || file.mimetype === 'application/octet-stream') return cb(null, true);
-            return cb(new AppError('The "video" field must contain a valid video file.', 400) as unknown as null, false);
+            return cb(new AppError('The "video" field must contain a valid video file.', { statusCode: 400 }) as unknown as null, false);
         }
         if (file.fieldname === 'torrent') {
             const contentLength = parseInt(req.headers['content-length'] || '0');
 
             // If whole request is 5MB .torrent file is probably malicious
             if (contentLength > 5 * 1024 * 1024) {
-                return cb(new AppError('Torrent file is suspiciously large', 400) as unknown as null, false);
+                return cb(new AppError('Torrent file is suspiciously large', { statusCode: 400 }) as unknown as null, false);
             }
 
             const isTorrentMime = file.mimetype === 'application/x-bittorrent';
@@ -28,9 +28,9 @@ export const movieUpload: Multer = multer({
             if (isTorrentMime || isTorrentExt) {
                 return cb(null, true);
             }
-            return cb(new AppError('The "torrent" field must contain a .torrent file.', 400) as unknown as null, false);
+            return cb(new AppError('The "torrent" field must contain a .torrent file.', { statusCode: 400 }) as unknown as null, false);
         }
 
-        cb(new AppError('Only video files (mp4, mkv, avi, mov) are allowed', 400) as unknown as null, false);
+        cb(new AppError('Only video files (mp4, mkv, avi, mov) are allowed', { statusCode: 400 }) as unknown as null, false);
     },
 });

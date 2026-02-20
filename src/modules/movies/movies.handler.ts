@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../../shared/db';
+import { db } from '../../shared/configs/db';
 import { movies, movieVersions } from '../../shared/schema';
 import { AppError } from '../../shared/errors';
 import { capitalize } from '../../shared/utils/string';

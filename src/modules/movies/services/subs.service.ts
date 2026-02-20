@@ -2,28 +2,36 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import { OpenSubtitlesClient } from '../../../shared/lib/opensubs';
 import type { SmallSubtitleData, SubtitleData, SubtitleFile } from '../../../shared/types/opensubs';
-import { db } from '../../../shared/db';
-import { subtitles } from '../../../shared/schema';
+import { db } from '../../../shared/configs/db';
+import { subtitles, type SystemSettingsT } from '../../../shared/schema';
 import { paths } from '../../../shared/configs/path.config';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { convertSRTtoVTT } from '../../../shared/utils/ffmpeg';
 import { SubtitleDownloadError } from '../movies.errors';
 import { AppError } from '../../../shared/errors';
-import { getSystemSettings } from '../../../shared/services/system.service';
 import { env } from '../../../env';
+import { systemSettings } from '../../../shared/services/system.service';
 
-const systemSettings = await getSystemSettings();
+const sysSettings = await systemSettings.get();
 const subtitlesClient = new OpenSubtitlesClient({
     baseUrl: env.OPENSUBS_URL,
-    apiKey: systemSettings.external.openSubtitles.apiKey,
-    username: systemSettings.external.openSubtitles.username,
-    password: systemSettings.external.openSubtitles.password,
-    login: systemSettings.external.openSubtitles.useLogin,
+    apiKey: sysSettings.external.openSubtitles.apiKey,
+    username: sysSettings.external.openSubtitles.username,
+    password: sysSettings.external.openSubtitles.password,
+    login: sysSettings.external.openSubtitles.useLogin,
+});
+
+systemSettings.addListener('update', (settings: SystemSettingsT) => {
+    const openSubtitles = settings.external.openSubtitles;
+    if (!subtitlesClient.updateCredentials(openSubtitles.apiKey, openSubtitles.username, openSubtitles.password, openSubtitles.useLogin))
+        return;
+    console.log('OpenSubtitles API Credentials updated.');
 });
 
 export const downloadSubtitles = async (data: { movieId: string; imdbId: string; movieHash?: string }) => {
-    const preferences = systemSettings.preferences.subtitles;
+    const sysSettings = await systemSettings.get();
+    const preferences = sysSettings.preferences.subtitles;
 
     const subs = await subtitlesClient.getSubtitles(data.imdbId, {
         languages: preferences.map((p) => p.lang),

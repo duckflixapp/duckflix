@@ -10,6 +10,7 @@ export class TMDBMovieDetailsError extends AppError {
 
 export class TMDBClient {
     private readonly api;
+    private apiKey;
     constructor(options: { baseUrl: string; apiKey: string }) {
         this.api = axios.create({
             baseURL: options?.baseUrl,
@@ -18,6 +19,14 @@ export class TMDBClient {
                 Authorization: `Bearer ${options.apiKey}`,
             },
         });
+        this.apiKey = options.apiKey;
+    }
+
+    public updateCredentials(apiKey: string): boolean {
+        if (this.apiKey === apiKey) return false;
+        this.apiKey = apiKey;
+        this.api.defaults.headers['Authorization'] = `Bearer ${apiKey}`;
+        return true;
     }
 
     public async getMovieDetails(movieId: string) {

@@ -3,10 +3,16 @@ import { TMDBClient } from '../../../shared/lib/tmdb';
 import { getGenreIds } from '../services/genres.service';
 import type { VideoMetadata } from '../services/metadata.service';
 import { env } from '../../../env';
-import { getSystemSettings } from '../../../shared/services/system.service';
+import { systemSettings } from '../../../shared/services/system.service';
+import type { SystemSettingsT } from '../../../shared/schema';
 
-const systemSettings = await getSystemSettings();
-const tmdbClient = new TMDBClient({ baseUrl: env.TMDB_URL, apiKey: systemSettings.external.tmdb.apiKey });
+const sysSettings = await systemSettings.get();
+const tmdbClient = new TMDBClient({ baseUrl: env.TMDB_URL, apiKey: sysSettings.external.tmdb.apiKey });
+systemSettings.addListener('update', (settings: SystemSettingsT) => {
+    const updated = tmdbClient.updateCredentials(settings.external.tmdb.apiKey);
+    if (!updated) return;
+    console.log('TMDB API Key updated.');
+});
 
 export const fillFromTMDBUrl = async (url: string): Promise<Partial<VideoMetadata>> => {
     const id = parseIdFromUrl(url);

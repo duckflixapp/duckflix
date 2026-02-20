@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db } from '../configs/db';
 import { notifications } from '../schema';
 import { io } from '../../server';
 

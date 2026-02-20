@@ -7,19 +7,21 @@ const envSchema = z.object({
 
     // Cookies & CORS
     DOMAIN: z.string(),
-    ORIGIN: z.string().url(),
+    ORIGIN: z.url(),
 
     // Configuration
-    UPLOAD_FILE_LIMIT: z.coerce.number(), // U MB
+    UPLOAD_FILE_LIMIT: z.coerce.number(),
     TEMP_FOLDER: z.string().min(1),
     STORAGE_FOLDER: z.string().min(1),
 
     // Database
-    DATABASE_URL: z.string().url(),
-    REDIS_URL: z.string().url(),
+    DATABASE_URL: z.url(),
 
-    // Authentication
-    JWT_SECRET: z.string().min(24, 'JWT_SECRET must have at least 24 characters'),
+    // SMTP
+    SMTP_HOST: z.string().optional(),
+    SMTP_PORT: z.coerce.number().optional(),
+    SMTP_USERNAME: z.string().optional(),
+    SMTP_PASSWORD: z.string().optional(),
 
     // External APIs
     RQBIT_URL: z.url(),

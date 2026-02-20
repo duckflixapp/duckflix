@@ -2,11 +2,13 @@ import { Router } from 'express';
 import * as UsersController from './user.controller';
 import rateLimit from 'express-rate-limit';
 import { limiterConfigs } from '../../shared/limiters';
+import { authenticate } from '../../shared/middlewares/auth.middleware';
 
 const router = Router();
 
 router.get(
     '/@me',
+    authenticate(false),
     rateLimit({
         ...limiterConfigs.defaults(),
         windowMs: 3 * 1000, // 45 per 3s
@@ -18,6 +20,7 @@ router.get(
 
 router.get(
     '/@me/notifications',
+    authenticate(),
     rateLimit({
         ...limiterConfigs.defaults(),
         windowMs: 3 * 1000, // 45 per 3s
@@ -29,6 +32,7 @@ router.get(
 
 router.patch(
     '/@me/notifications/mark',
+    authenticate(),
     rateLimit({
         ...limiterConfigs.defaults(),
         windowMs: 3 * 1000, // 45 per 3s
@@ -40,6 +44,7 @@ router.patch(
 
 router.delete(
     '/@me/notifications',
+    authenticate(),
     rateLimit({
         ...limiterConfigs.defaults(),
         windowMs: 3 * 1000, // 15 per 3s

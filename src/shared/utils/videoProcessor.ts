@@ -97,7 +97,7 @@ export class VideoJob extends EventEmitter {
             '-c:v',
             'libx264',
             '-preset',
-            'veryfast',
+            'ultrafast',
             '-crf',
             '20',
             '-maxrate',

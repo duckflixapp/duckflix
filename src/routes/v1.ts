@@ -8,9 +8,9 @@ import { authenticate } from '../shared/middlewares/auth.middleware';
 const router = Router();
 
 router.use('/auth', authRouter); // can use csrf guard later myb...
+router.use('/users', usersRouter);
 
-router.use('/users', authenticate, usersRouter);
-router.use('/movies', authenticate, movieRouter);
-router.use('/media', authenticate, mediaRouter);
+router.use('/movies', authenticate(), movieRouter);
+router.use('/media', authenticate(), mediaRouter);
 
 export default router;

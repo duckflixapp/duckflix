@@ -1,6 +1,6 @@
 import { toUserMinDTO } from './user.mapper';
 import type { Genre, Movie, MovieVersion, Subtitle } from '../schema';
-import type { MovieDetailedDTO, MovieDTO, MovieVersionDTO, SubtitleDTO } from '@duckflix/shared';
+import type { MovieDetailedDTO, MovieDTO, MovieVersionDTO, SubtitleDTO, UserRole } from '@duckflix/shared';
 import { env } from '../../env';
 
 const BASE_URL = env.BASE_URL;
@@ -46,7 +46,7 @@ export const toMovieDetailedDTO = (
     movie: Movie & {
         genres: { genre: Genre }[];
         versions: MovieVersion[];
-        user: { id: string; name: string; role: 'watcher' | 'contributor' | 'admin' };
+        user: { id: string; name: string; role: UserRole };
         subtitles: Subtitle[];
     }
 ): MovieDetailedDTO => ({
