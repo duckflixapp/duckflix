@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+export const changeUserRoleSchema = z.object({
+    email: z.email(),
+    role: z.enum(['watcher', 'contributor', 'admin']),
+});
+
 export const systemSettingsUpdateSchema = z.object({
     features: z
         .object({

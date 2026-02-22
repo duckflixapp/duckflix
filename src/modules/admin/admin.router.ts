@@ -27,4 +27,26 @@ router.patch(
     AdminController.updateSystem
 );
 
+router.get(
+    '/users',
+    rateLimit({
+        ...limiterConfigs.defaults(),
+        windowMs: 2 * 1000, // 10 per 2s
+        limit: 10,
+        keyGenerator: limiterConfigs.authenticatedKey,
+    }),
+    AdminController.getUsersWithRole
+);
+
+router.patch(
+    '/users',
+    rateLimit({
+        ...limiterConfigs.defaults(),
+        windowMs: 2 * 1000, // 10 per 2s
+        limit: 10,
+        keyGenerator: limiterConfigs.authenticatedKey,
+    }),
+    AdminController.changeUserRole
+);
+
 export default router;

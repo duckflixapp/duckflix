@@ -22,7 +22,7 @@ export const verifyEmail = catchAsync(async (req: Request, res: Response) => {
 
     await AuthService.verifyEmail(token);
 
-    return res.status(201).json({ status: 'success' });
+    return res.status(200).json({ status: 'success' });
 });
 
 export const login = catchAsync(async (req: Request, res: Response) => {

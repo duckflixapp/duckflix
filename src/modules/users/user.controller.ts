@@ -19,7 +19,7 @@ export const getMe = catchAsync(async (req: Request, res: Response) => {
 export const getUserNotifications = catchAsync(async (req: Request, res: Response) => {
     const notifications = await UserService.getUserNotifications(req.user!.id);
 
-    res.status(201).json({
+    res.status(200).json({
         status: 'success',
         data: { notifications },
     });
@@ -33,7 +33,7 @@ export const markUserNotifications = catchAsync(async (req: Request, res: Respon
         notificationIds,
     });
 
-    res.status(201).json({
+    res.status(200).json({
         status: 'success',
     });
 });
@@ -41,7 +41,7 @@ export const markUserNotifications = catchAsync(async (req: Request, res: Respon
 export const clearUserNotifications = catchAsync(async (req: Request, res: Response) => {
     await UserService.clearUserNotifications(req.user!.id);
 
-    res.status(201).json({
+    res.status(204).json({
         status: 'success',
     });
 });
