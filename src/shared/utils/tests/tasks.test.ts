@@ -9,7 +9,7 @@ describe('TaskHandler', () => {
     });
 
     test('should add a task and return a valid UUID', () => {
-        const taskId = handler.handle(async () => 'test');
+        const taskId = handler.handle(async () => 1);
         expect(typeof taskId).toBe('string');
         expect(taskId.length).toBeGreaterThan(0);
     });
@@ -20,6 +20,7 @@ describe('TaskHandler', () => {
         const createTask = (val: number, ms: number) => async () => {
             await new Promise((resolve) => setTimeout(resolve, ms));
             results.push(val);
+            return 0;
         };
 
         handler.handle(createTask(1, 50));
@@ -37,7 +38,7 @@ describe('TaskHandler', () => {
             await new Promise((resolve) => setTimeout(resolve, ms));
             return val;
         };
-        handler.addListener('started', (_) => {
+        handler.addListener('started', () => {
             try {
                 expect(handler.status).toBe('working');
             } catch (e) {
@@ -45,7 +46,7 @@ describe('TaskHandler', () => {
             }
         });
 
-        handler.addListener('completed', (_) => {
+        handler.addListener('completed', () => {
             try {
                 expect(handler.status).toBe('waiting');
                 done();
@@ -63,7 +64,7 @@ describe('TaskHandler', () => {
             throw new Error(errorMsg);
         });
 
-        handler.addListener('error', (id, err) => {
+        handler.addListener('error', (id: string, err: unknown) => {
             expect(id).toBe(taskId);
             expect((err as Error).message).toBe(errorMsg);
             done();
@@ -73,8 +74,9 @@ describe('TaskHandler', () => {
     test('should correctly report status via check()', async () => {
         const task1Id = handler.handle(async () => {
             await new Promise((resolve) => setTimeout(resolve, 50));
+            return 0;
         });
-        const task2Id = handler.handle(async () => {});
+        const task2Id = handler.handle(async () => 0);
 
         expect(handler.check(task1Id)).toBe('working');
         expect(handler.check(task2Id)).toBe('waiting');
@@ -93,7 +95,7 @@ describe('TaskHandler', () => {
         handler.addListener('completed', callback);
         handler.removeListener('completed', callback);
 
-        handler.handle(async () => {});
+        handler.handle(async () => 0);
 
         setTimeout(() => {
             expect(callCount).toBe(0);
@@ -110,6 +112,7 @@ describe('TaskHandler', () => {
             maxObservedActive = Math.max(maxObservedActive, activeCount);
             await new Promise((r) => setTimeout(r, 20));
             activeCount--;
+            return 0;
         };
 
         for (let i = 0; i < 5; i++) {
@@ -127,6 +130,7 @@ describe('TaskHandler', () => {
         const createTask = (val: number, ms: number) => async () => {
             await new Promise((r) => setTimeout(r, ms));
             results.push(val);
+            return 0;
         };
 
         ch.handle(createTask(1, 100));
@@ -144,8 +148,8 @@ describe('TaskHandler', () => {
         const t1 = ch.handle(async () => await new Promise((r) => setTimeout(r, 100)));
         const t2 = ch.handle(async () => await new Promise((r) => setTimeout(r, 100)));
 
-        const t3 = ch.handle(async () => {});
-        const t4 = ch.handle(async () => {});
+        const t3 = ch.handle(async () => 0);
+        const t4 = ch.handle(async () => 0);
 
         expect(ch.findPosition(t1)).toBe(0);
         expect(ch.findPosition(t2)).toBe(0);

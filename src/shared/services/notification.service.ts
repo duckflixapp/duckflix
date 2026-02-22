@@ -9,7 +9,7 @@ const notifyUser = (userId: string, data: unknown) => {
 
 const notifyJobStatus = async (
     userId: string,
-    status: 'started' | 'completed' | 'downloaded' | 'error',
+    status: 'started' | 'completed' | 'downloaded' | 'canceled' | 'error',
     title: string,
     message: string,
     movieId?: string,
@@ -17,6 +17,7 @@ const notifyJobStatus = async (
 ) => {
     const typeMap = {
         completed: 'success',
+        canceled: 'warning',
         error: 'error',
         started: 'info',
         downloaded: 'info',

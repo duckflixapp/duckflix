@@ -66,6 +66,38 @@ export class Queue<T> {
     }
 
     /**
+     * Removes and returns the first element that matches the predicate.
+     * @param predicate - A function to test each element.
+     * @returns The removed element, or undefined if no match is found.
+     */
+    public removeWhere(predicate: (value: T) => boolean): T | undefined {
+        let curr = this.head;
+
+        while (curr !== null) {
+            if (predicate(curr.element)) {
+                const { prev, next, element } = curr;
+
+                if (prev === null) {
+                    this.head = next;
+                } else {
+                    prev.next = next;
+                }
+
+                if (next === null) {
+                    this.tail = prev;
+                } else {
+                    next.prev = prev;
+                }
+
+                this.queueSize--;
+                return element;
+            }
+            curr = curr.next;
+        }
+
+        return undefined;
+    }
+    /**
      * Retrieves, but does not remove, the element at the front of the queue.
      * @returns The head element, or undefined if the queue is empty.
      */

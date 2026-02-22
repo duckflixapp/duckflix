@@ -6,28 +6,26 @@ import { ffprobe, VideoJob, type JobType } from '../../shared/utils/videoProcess
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { VideoProcessingError } from './movies.errors';
-import { TaskHandler } from '../../shared/utils/tasks';
+import { taskHandler } from '../../shared/utils/tasks';
 import { emitMovieProgress, handleMovieTask, handleProcessingError } from './movies.handler';
 import { AppError } from '../../shared/errors';
-import { systemSettings } from '../../shared/services/system.service';
+import { taskRegistry } from '../../shared/utils/taskRegistry';
 
 export const createMovieStorageKey = (movieId: string, versionId: string, ext: string) => `movies/${movieId}/${versionId}${ext}`;
 
-const sysSettings = await systemSettings.get(); // this wont change without restart, should not be changed for stability reasons
-const taskHandler = new TaskHandler({ concurrent: sysSettings.features.concurrentProcessing });
-const taskMovies = new Map<string, string>();
-const jobs = new Map<string, VideoJob>();
-
-taskHandler.addListener('started', (taskId) => handleMovieTask(taskMovies.get(taskId)!, taskId, 'started'));
-taskHandler.addListener('completed', (taskId) => handleMovieTask(taskMovies.get(taskId)!, taskId, 'completed'));
-taskHandler.addListener('error', (taskId, e) => handleProcessingError(taskMovies.get(taskId)!, e, 'task')); // this should be already catched in func handleVideoProcess
+taskHandler.addListener('started', (taskId) => handleMovieTask(taskId, 'started'));
+taskHandler.addListener('completed', (taskId) => handleMovieTask(taskId, 'completed'));
+taskHandler.addListener('canceled', (taskId) => handleMovieTask(taskId, 'canceled'));
+taskHandler.addListener('error', (taskId, e) => handleProcessingError(taskId, e, 'task')); // this should be already catched in func handleVideoProcess
 
 const handleVideoProcess = (movieVer: MovieVersion, originalPath: string, outputPath: string) => {
-    const runnable = () => processTask(movieVer, originalPath, outputPath).catch((e) => handleProcessingError(movieVer.id, e, 'transcode'));
+    const runnable = () =>
+        processTask(movieVer, originalPath, outputPath).catch((e) => {
+            handleProcessingError(movieVer.id, e, 'transcode');
+            return -1;
+        });
 
-    const taskId = randomUUID();
-    taskMovies.set(taskId, movieVer.id);
-    taskHandler.handle(runnable, taskId);
+    taskHandler.handle(runnable, movieVer.id);
 };
 
 export const startProcessing = async (movieId: string, tasksToRun: number[], storageFolder: string, originalPath: string) => {
@@ -58,7 +56,7 @@ export const startProcessing = async (movieId: string, tasksToRun: number[], sto
     waitingTasks.forEach((task) => handleVideoProcess(task, originalPath, path.join(storageFolder, task.storageKey)));
 };
 
-const processTask = async (task: MovieVersion, originalPath: string, outputPath: string) => {
+const processTask = async (task: MovieVersion, originalPath: string, outputPath: string): Promise<number> => {
     try {
         await db.update(movieVersions).set({ status: 'processing' }).where(eq(movieVersions.id, task.id));
 
@@ -85,12 +83,17 @@ const processTask = async (task: MovieVersion, originalPath: string, outputPath:
             priority: 1,
             totalDuration,
         });
-        jobs.set(task.id, job);
+        taskRegistry.register(task.id, job);
         job.addListener('progress', (progress) => emitMovieProgress(task.movieId, 'processing', progress, task.id));
 
-        await job.start();
-        jobs.delete(task.id);
+        const successfull = await job.start();
+        taskRegistry.unregister(task.id);
         job.destroy();
+
+        if (!successfull) {
+            await fs.unlink(outputPath).catch(() => {});
+            return 1;
+        }
 
         const stats = await fs.stat(outputPath);
 
@@ -110,7 +113,9 @@ const processTask = async (task: MovieVersion, originalPath: string, outputPath:
                 status: 'ready',
             })
             .where(eq(movieVersions.id, task.id));
+        return 0;
     } catch (error) {
+        await fs.unlink(outputPath).catch(() => {});
         throw error;
     }
 };

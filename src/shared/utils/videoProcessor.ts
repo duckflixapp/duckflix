@@ -3,6 +3,7 @@ import { spawn, type Subprocess } from 'bun';
 import { VideoProcessingError } from '../../modules/movies/movies.errors';
 import type { JobProgress } from '@duckflix/shared';
 import { EventEmitter } from 'node:events';
+import type { Interruptible } from './taskRegistry';
 
 export interface FFprobeStream {
     index: number;
@@ -55,7 +56,7 @@ const defaults: { h: number; limits: { bitrate: string; buf: string; audioBitrat
     { h: 0, limits: { bitrate: '2M', buf: '4M', audioBitrate: '128k' } },
 ];
 
-export class VideoJob extends EventEmitter {
+export class VideoJob extends EventEmitter implements Interruptible {
     private config;
     private proc: null | Subprocess = null;
     constructor(
@@ -67,6 +68,12 @@ export class VideoJob extends EventEmitter {
         super();
         const matched = defaults.find(({ h }) => options.height >= h)!.limits;
         this.config = { ...matched, ...options };
+    }
+    public stop(): Promise<void> | void {
+        if (this.proc) {
+            this.proc.kill();
+            this.proc = null;
+        }
     }
 
     private args(config: { bitrate: string; buf: string; audioBitrate: string; isHvec: boolean; height: number }) {
@@ -97,7 +104,7 @@ export class VideoJob extends EventEmitter {
             '-c:v',
             'libx264',
             '-preset',
-            'ultrafast',
+            'veryfast',
             '-crf',
             '20',
             '-maxrate',
@@ -161,7 +168,7 @@ export class VideoJob extends EventEmitter {
         }
     }
 
-    public async start() {
+    public async start(): Promise<boolean> {
         const ffmpegArgs = this.args(this.config);
 
         this.proc = spawn(ffmpegArgs, {
@@ -171,7 +178,10 @@ export class VideoJob extends EventEmitter {
 
         this.monitorProgress();
 
-        return await this.proc.exited;
+        const exitCode = await this.proc.exited;
+        console.log(exitCode);
+
+        return exitCode === 0;
     }
 
     public kill() {

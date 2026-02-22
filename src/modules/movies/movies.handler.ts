@@ -73,7 +73,7 @@ export const handleProcessingError = async (movieVerId: string, error: unknown, 
     );
 };
 
-export const handleMovieTask = async (movieVerId: string, taskId: string, context: 'started' | 'completed') => {
+export const handleMovieTask = async (movieVerId: string, context: 'started' | 'completed' | 'canceled') => {
     try {
         const [updatedVersion] = await db
             .select({ movieId: movieVersions.movieId })
@@ -93,11 +93,11 @@ export const handleMovieTask = async (movieVerId: string, taskId: string, contex
 
             if (updatedVersion?.movieId) notifyJobStatus(movieData?.userId, context, title, message, updatedVersion.movieId, movieVerId);
         }
-        logger.info({ movieVerId, taskId, context }, `Movie task ${context}`);
+        logger.info({ movieVerId, context }, `Movie task ${context}`);
     } catch (err: unknown) {
-        logger.error({ err, movieVerId, taskId }, 'Failed to send movie task notification');
+        logger.error({ err, movieVerId }, 'Failed to send movie task notification');
     }
-    logger.debug({ taskId, movieVerId }, `[MovieTask] processing task ${context}`);
+    logger.debug({ movieVerId }, `[MovieTask] processing task ${context}`);
 };
 
 export const emitMovieProgress = (

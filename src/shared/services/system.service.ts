@@ -24,7 +24,7 @@ export const DEFAULT_SETTINGS: SystemSettingsT = {
             apiKey: env.OPENSUBS_API_KEY || '',
             username: env.OPENSUBS_USERNAME || '',
             password: env.OPENSUBS_PASSWORD || '',
-            useLogin: false,
+            useLogin: true,
         },
         email: {
             enabled: env.SMTP_HOST ? true : false,

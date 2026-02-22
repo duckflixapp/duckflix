@@ -140,7 +140,7 @@ export const movieVersions = pgTable('movie_versions', {
     width: integer('width'), // can be null while task is in process
     height: integer('height').notNull(),
     isOriginal: boolean('is_original').default(false).notNull(),
-    status: text('status').$type<'waiting' | 'processing' | 'ready' | 'error'>().default('processing').notNull(),
+    status: text('status').$type<'waiting' | 'processing' | 'ready' | 'error' | 'canceled'>().default('processing').notNull(),
     storageKey: text('storage_key').notNull(),
     fileSize: bigint('file_size', { mode: 'number' }),
     mimeType: text('mime_type'),
