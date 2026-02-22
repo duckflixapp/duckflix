@@ -6,7 +6,7 @@ import { ffprobe, VideoJob, type JobType } from '../../shared/utils/videoProcess
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { VideoProcessingError } from './movies.errors';
-import { taskHandler } from '../../shared/utils/tasks';
+import { taskHandler } from '../../shared/utils/taskHandler';
 import { emitMovieProgress, handleMovieTask, handleProcessingError } from './movies.handler';
 import { AppError } from '../../shared/errors';
 import { taskRegistry } from '../../shared/utils/taskRegistry';

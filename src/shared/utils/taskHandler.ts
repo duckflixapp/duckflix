@@ -98,14 +98,14 @@ export class TaskHandler {
 
     private async checkQueue(): Promise<void> {
         while (this.current.length < this.concurrent && !this.taskQueue.isEmpty) {
-            await this.process();
+            this.process();
         }
     }
 
     /**
      * If task return 0 it should be marked as success, 1 as canceled and other values are ignored
      */
-    private async process() {
+    private process() {
         const task = this.taskQueue.remove() as Task;
         this.current.push(task);
         this.tasksMap.delete(task.id);

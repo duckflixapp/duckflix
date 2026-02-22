@@ -69,19 +69,26 @@ export class VideoJob extends EventEmitter implements Interruptible {
         const matched = defaults.find(({ h }) => options.height >= h)!.limits;
         this.config = { ...matched, ...options };
     }
-    public stop(): Promise<void> | void {
+    public stop(): void {
         if (this.proc) {
             this.proc.kill();
             this.proc = null;
         }
     }
 
+    public pause(): void {
+        if (this.proc) process.kill(this.proc.pid, 'SIGSTOP');
+        this.emit('pause');
+    }
+
+    public resume() {
+        if (this.proc) process.kill(this.proc.pid, 'SIGCONT');
+        this.emit('resume');
+    }
+
     private args(config: { bitrate: string; buf: string; audioBitrate: string; isHvec: boolean; height: number }) {
         const cmd = 'ffmpeg';
         const base = [
-            'nice',
-            '-n',
-            this.config.priority.toString(),
             cmd,
             '-progress',
             'pipe:1',
@@ -179,7 +186,6 @@ export class VideoJob extends EventEmitter implements Interruptible {
         this.monitorProgress();
 
         const exitCode = await this.proc.exited;
-        console.log(exitCode);
 
         return exitCode === 0;
     }

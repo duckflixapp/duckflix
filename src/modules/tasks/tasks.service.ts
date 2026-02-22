@@ -3,7 +3,7 @@ import { db } from '../../shared/configs/db';
 import { movieVersions } from '../../shared/schema';
 import { taskRegistry } from '../../shared/utils/taskRegistry';
 import { TaskNotFoundError } from './tasks.errors';
-import { taskHandler } from '../../shared/utils/tasks';
+import { taskHandler } from '../../shared/utils/taskHandler';
 
 export const killMovieTask = async (id: string) => {
     const task = await db.query.movieVersions.findFirst({
