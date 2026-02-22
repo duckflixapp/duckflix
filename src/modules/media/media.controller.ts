@@ -12,7 +12,7 @@ import constants from 'node:constants';
 import { logger } from '../../shared/utils/logger';
 
 export const stream = catchAsync(async (req: Request, res: Response) => {
-    const { versionId } = streamParamsSchema.parse(req.params);
+    const { versionId, file } = streamParamsSchema.parse(req.params);
 
     const version = await db.query.movieVersions.findFirst({ where: eq(movieVersions.id, versionId) });
 
@@ -20,18 +20,27 @@ export const stream = catchAsync(async (req: Request, res: Response) => {
         throw new AppError('Video version not found', { statusCode: 404 });
     }
 
-    const absolutePath = path.resolve(paths.storage, version.storageKey);
+    const absolutePlaylistPath = path.resolve(paths.storage, version.storageKey);
+    const directoryPath = path.dirname(absolutePlaylistPath);
 
-    await access(absolutePath, constants.F_OK).catch(() => {
-        throw new AppError('Video file not found on storage', { statusCode: 404 });
+    const requestedFile = version.mimeType === 'application/x-mpegURL' ? file || 'index.m3u8' : path.basename(version.storageKey);
+    const finalFilePath = path.join(directoryPath, requestedFile);
+
+    await access(finalFilePath, constants.F_OK).catch(() => {
+        throw new AppError('Media file not found', { statusCode: 404 });
     });
 
-    res.sendFile(absolutePath, (err) => {
+    if (requestedFile.endsWith('.m3u8')) res.setHeader('Content-Type', 'application/x-mpegURL');
+    else if (requestedFile.endsWith('.ts')) res.setHeader('Content-Type', 'video/MP2T');
+    else if (version.mimeType) res.setHeader('Content-Type', version.mimeType);
+    else res.setHeader('Content-Type', 'application/octet-stream');
+
+    res.sendFile(finalFilePath, (err) => {
         if (err) {
             const errCode = (err as { code?: string }).code;
             const isClientAbort = errCode === 'ECONNABORTED' || errCode === 'ECANCELED' || err.message.toLowerCase().includes('aborted');
             if (isClientAbort) {
-                logger.debug({ path: absolutePath }, 'Stream aborted by client');
+                logger.debug({ path: absolutePlaylistPath, file: requestedFile }, 'Stream aborted by client');
                 return; // client error
             }
             if (res.headersSent) return;
@@ -40,7 +49,7 @@ export const stream = catchAsync(async (req: Request, res: Response) => {
                 {
                     err,
                     code: errCode,
-                    path: absolutePath,
+                    path: absolutePlaylistPath,
                 },
                 'Failed to send file'
             );

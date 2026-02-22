@@ -12,7 +12,7 @@ export const toMovieVersionDTO = (v: MovieVersion): MovieVersionDTO => ({
     status: v.status,
     fileSize: v.fileSize,
     mimeType: v.mimeType,
-    streamUrl: `${BASE_URL}/media/stream/${v.id}`,
+    streamUrl: `${BASE_URL}/media/stream/${v.id}/`,
     isOriginal: v.isOriginal,
 });
 

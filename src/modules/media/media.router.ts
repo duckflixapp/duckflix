@@ -19,7 +19,7 @@ const limiterSubtitle = rateLimit({
     keyGenerator: limiterConfigs.authenticatedKey,
 });
 
-router.get('/stream/:versionId', limiterStream, MediaController.stream);
+router.get('/stream/:versionId{/:file}', limiterStream, MediaController.stream);
 router.get('/subtitle/:subtitleId', limiterSubtitle, MediaController.subtitle);
 
 export default router;

@@ -178,7 +178,7 @@ export const processMovieWorkflow = async (data: {
     // create path for movie version
     const fileExt = path.extname(data.originalName);
     const originalId = randomUUID();
-    const storageKey = createMovieStorageKey(data.movieId, originalId, fileExt);
+    const storageKey = createMovieStorageKey(data.movieId, originalId, 'index' + fileExt);
     const finalPath = path.join(paths.storage, storageKey);
 
     try {

@@ -88,23 +88,21 @@ export class VideoJob extends EventEmitter implements Interruptible {
 
     private args(config: { bitrate: string; buf: string; audioBitrate: string; isHvec: boolean; height: number }) {
         const cmd = 'ffmpeg';
-        const base = [
-            cmd,
-            '-progress',
-            'pipe:1',
-            '-v',
-            'info',
-            '-thread_queue_size',
-            '1024',
-            '-i',
-            this.inputPath,
-            '-map',
-            '0:v:0',
-            '-map',
-            '0:a:0?',
+        const base = [cmd, '-progress', 'pipe:1', '-v', 'info', '-i', this.inputPath, '-map', '0:v:0', '-map', '0:a:0?'];
+
+        const hlsOptions = [
+            '-f',
+            'hls',
+            '-hls_time',
+            '6',
+            '-hls_playlist_type',
+            'vod',
+            '-hls_segment_filename',
+            path.join(path.dirname(this.outputPath), 'seg-%d.ts'),
+            '-master_pl_name',
+            'master.m3u8',
         ];
 
-        const copyArgs = ['-c:v', 'copy', '-c:a', 'aac', '-b:a', '256k', '-ac', '2'];
         const transcodeArgs = [
             '-vf',
             `scale=-2:${config.height}:flags=lanczos`,
@@ -128,12 +126,15 @@ export class VideoJob extends EventEmitter implements Interruptible {
             '2',
         ];
 
+        const copyArgs = ['-c:v', 'copy', '-c:a', 'aac', '-b:a', '256k', '-ac', '2'];
+
         const outputArgs = ['-sn', '-movflags', '+faststart', '-y', this.outputPath];
 
         const args = [
             ...base,
             ...(this.type === 'copy' ? copyArgs : transcodeArgs),
             ...(config.isHvec && this.type === 'copy' ? ['-tag:v', 'hvc1'] : []),
+            ...hlsOptions,
             ...outputArgs,
         ];
 

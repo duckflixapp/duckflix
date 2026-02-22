@@ -11,7 +11,7 @@ import { emitMovieProgress, handleMovieTask, handleProcessingError } from './mov
 import { AppError } from '../../shared/errors';
 import { taskRegistry } from '../../shared/utils/taskRegistry';
 
-export const createMovieStorageKey = (movieId: string, versionId: string, ext: string) => `movies/${movieId}/${versionId}${ext}`;
+export const createMovieStorageKey = (movieId: string, versionId: string, file: string) => `movies/${movieId}/${versionId}/${file}`;
 
 taskHandler.addListener('started', (taskId) => handleMovieTask(taskId, 'started'));
 taskHandler.addListener('completed', (taskId) => handleMovieTask(taskId, 'completed'));
@@ -32,7 +32,7 @@ export const startProcessing = async (movieId: string, tasksToRun: number[], sto
     // insert tasks into db
     const tasksVersions = tasksToRun.map<NewMovieVersion>((height) => {
         const versionId = randomUUID();
-        const storageKey = createMovieStorageKey(movieId, versionId, '.mp4');
+        const storageKey = createMovieStorageKey(movieId, versionId, 'index.m3u8');
         return {
             id: versionId,
             movieId: movieId,
@@ -41,7 +41,7 @@ export const startProcessing = async (movieId: string, tasksToRun: number[], sto
             isOriginal: false,
             storageKey,
             fileSize: 0,
-            mimeType: 'video/mp4',
+            mimeType: 'application/x-mpegURL',
             status: 'waiting' as const,
         };
     });
@@ -57,7 +57,9 @@ export const startProcessing = async (movieId: string, tasksToRun: number[], sto
 };
 
 const processTask = async (task: MovieVersion, originalPath: string, outputPath: string): Promise<number> => {
+    const dirPath = path.dirname(outputPath);
     try {
+        await fs.mkdir(dirPath, { recursive: true });
         await db.update(movieVersions).set({ status: 'processing' }).where(eq(movieVersions.id, task.id));
 
         try {
@@ -70,16 +72,14 @@ const processTask = async (task: MovieVersion, originalPath: string, outputPath:
         const videoStream = originalMeta.streams.find((s) => s.codec_type === 'video');
 
         const codecName = videoStream?.codec_name;
-        const isSameHeight = videoStream?.height === task.height;
 
         // process
-        const isHvec = codecName === 'h265' || codecName === 'hevc';
         const totalDuration = parseFloat(originalMeta.format.duration) || 0;
 
-        const type: JobType = isSameHeight && (codecName === 'h264' || isHvec) ? 'copy' : 'transcode';
+        const type: JobType = videoStream?.height === task.height && codecName === 'h264' ? 'copy' : 'transcode';
         const job = new VideoJob(originalPath, outputPath, type, {
             height: task.height,
-            isHvec,
+            isHvec: codecName === 'hevc',
             priority: 1,
             totalDuration,
         });
@@ -91,31 +91,32 @@ const processTask = async (task: MovieVersion, originalPath: string, outputPath:
         job.destroy();
 
         if (!successfull) {
-            await fs.unlink(outputPath).catch(() => {});
+            await fs.rm(dirPath, { recursive: true, force: true }).catch(() => {});
             return 1;
         }
 
-        const stats = await fs.stat(outputPath);
+        const files = await fs.readdir(dirPath);
+        let totalSize = 0;
+        for (const file of files) {
+            const s = await fs.stat(path.join(dirPath, file));
+            totalSize += s.size;
+        }
 
-        // additional check for actual resolution
-        const meta = await ffprobe(outputPath);
-        const stream = meta.streams.find((s) => s.codec_type === 'video');
-        const width = stream?.width ?? 0,
-            height = stream?.height ?? task.height;
+        const finalWidth = videoStream?.width ? Math.round((videoStream.width * task.height) / (videoStream.height || 1)) : 0;
 
         // save resolution to database
         await db
             .update(movieVersions)
             .set({
-                width,
-                height,
-                fileSize: stats.size,
+                width: finalWidth,
+                height: task.height,
+                fileSize: totalSize,
                 status: 'ready',
             })
             .where(eq(movieVersions.id, task.id));
         return 0;
     } catch (error) {
-        await fs.unlink(outputPath).catch(() => {});
+        await fs.rm(dirPath, { recursive: true, force: true }).catch(() => {});
         throw error;
     }
 };
