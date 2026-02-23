@@ -1,35 +1,20 @@
 import express from 'express';
-import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { globalErrorHandler } from './shared/errors';
 import router from './routes/v1';
-import helmet from 'helmet';
 import { env } from './env';
 import { httpLogger } from './shared/utils/logger';
+import { helmetConfiguration } from './shared/configs/helmet';
+import { corsConfiguration } from './shared/configs/cors';
 
 const app = express();
 
 app.set('trust proxy', env.PROXIES);
 app.use(httpLogger);
 
-app.use(
-    helmet({
-        contentSecurityPolicy: {
-            directives: {
-                defaultSrc: ["'self'"],
-                scriptSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-                imgSrc: ["'self'", 'data:', 'https://image.tmdb.org'],
-                mediaSrc: ["'self'", "blob:", "data:", env.BASE_URL, env.ORIGIN],
-                connectSrc: ["'self'", env.BASE_URL],
-                upgradeInsecureRequests: env.NODE_ENV === 'production' ? [] : null,
-            },
-        },
-        crossOriginResourcePolicy: { policy: 'cross-origin' },
-        hidePoweredBy: true,
-        crossOriginEmbedderPolicy: false,
-    })
-);
-app.use(cors({ origin: env.ORIGIN, credentials: true }));
+app.use(helmetConfiguration);
+app.use(corsConfiguration);
+
 app.use(express.json());
 app.use(cookieParser());
 
