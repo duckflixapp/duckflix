@@ -13,7 +13,7 @@ export const initalize = async () => {
     const [totalGenres] = await db.select({ value: count(genres.id) }).from(genres);
     if (totalGenres?.value === 0) await seedGenres();
 
-    await liveCleanup();
+    // await liveCleanup();
 
     logger.info('System initialized successfully.');
 };
