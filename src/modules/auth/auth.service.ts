@@ -1,7 +1,7 @@
 import argon2 from 'argon2';
 import crypto from 'node:crypto';
 import { db } from '../../shared/configs/db';
-import { accountTokens, sessions, users } from '../../shared/schema';
+import { accountTokens, libraries, sessions, users } from '../../shared/schema';
 import { and, DrizzleQueryError, eq } from 'drizzle-orm';
 import { EmailAlreadyExistsError, InvalidCredentialsError, UserNotCreatedError } from './auth.errors';
 import { DatabaseError } from 'pg';
@@ -14,6 +14,7 @@ import { limits } from '../../shared/configs/limits.config';
 import { sendVerificationMail } from '../../shared/services/mailer.service';
 import { systemSettings } from '../../shared/services/system.service';
 import { logger } from '../../shared/configs/logger';
+import { isDuplicateKey } from '../../shared/db.errors';
 
 export const register = async (name: string, email: string, pass: string): Promise<UserDTO> => {
     const sysSettings = await systemSettings.get();
@@ -41,11 +42,24 @@ export const register = async (name: string, email: string, pass: string): Promi
             })
             .returning()
             .catch((e) => {
-                if (e instanceof DrizzleQueryError && e.cause instanceof DatabaseError && e.cause.code === '23505')
-                    throw new EmailAlreadyExistsError();
+                if (isDuplicateKey(e)) throw new EmailAlreadyExistsError();
                 throw e;
             });
         if (!user) throw new UserNotCreatedError();
+
+        // create initial libraries
+        await tx.insert(libraries).values([
+            {
+                userId: user.id,
+                name: 'My Watchlist',
+                type: 'watchlist',
+            },
+            {
+                userId: user.id,
+                name: 'My Library',
+                type: 'library',
+            },
+        ]);
 
         if (!trustEmails)
             await tx.insert(accountTokens).values({
@@ -54,7 +68,8 @@ export const register = async (name: string, email: string, pass: string): Promi
                 type: 'email_verification',
                 expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
             });
-        return toUserDTO(user);
+
+        return user;
     });
 
     if (!trustEmails)
@@ -62,7 +77,7 @@ export const register = async (name: string, email: string, pass: string): Promi
             logger.error({ err: e, email: user.email }, 'Failed to send verification email');
         });
 
-    return user;
+    return toUserDTO(user);
 };
 
 export const verifyEmail = async (token: string) => {

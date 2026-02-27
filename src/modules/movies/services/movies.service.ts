@@ -42,7 +42,7 @@ export const initiateUpload = async (
             releaseYear: data.releaseYear,
             duration: null,
             status: data.status,
-            userId: data.userId,
+            uploaderId: data.userId,
         })
         .returning();
     if (!dbMovie) throw new MovieNotCreatedError();
@@ -303,7 +303,7 @@ export const getMovieById = async (id: string): Promise<MovieDetailedDTO | null>
             },
             versions: true,
             subtitles: true,
-            user: {
+            uploader: {
                 columns: {
                     id: true,
                     name: true,

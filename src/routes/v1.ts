@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRouter from '../modules/auth/auth.router';
 import movieRouter from '../modules/movies/movies.router';
 import usersRouter from '../modules/users/user.router';
+import libraryRouter from '../modules/library/library.router';
 import mediaRouter from '../modules/media/media.router';
 import adminRouter from '../modules/admin/admin.router';
 import tasksRouter from '../modules/tasks/tasks.router';
@@ -14,6 +15,8 @@ router.use('/health', healthRouter);
 
 router.use('/auth', authRouter); // can use csrf guard later myb...
 router.use('/users', usersRouter);
+
+router.use('/library', authenticate(), libraryRouter);
 
 router.use('/movies', authenticate(), movieRouter);
 router.use('/media', mediaRouter);

@@ -14,7 +14,7 @@ export const handleWorkflowError = async (movieId: string, error: unknown, conte
             .update(movies)
             .set({ status: 'error' })
             .where(eq(movies.id, movieId))
-            .returning({ userId: movies.userId });
+            .returning({ userId: movies.uploaderId });
 
         const userId = updatedMovie?.userId;
         if (userId) {
@@ -45,7 +45,7 @@ export const handleProcessingError = async (movieVerId: string, error: unknown, 
         });
 
         if (updatedVersion?.movieId) {
-            const [movieData] = await db.select({ userId: movies.userId }).from(movies).where(eq(movies.id, updatedVersion.movieId));
+            const [movieData] = await db.select({ userId: movies.uploaderId }).from(movies).where(eq(movies.id, updatedVersion.movieId));
 
             if (movieData?.userId) {
                 const title = `Error while ${context === 'task' ? 'doing task' : ' transcoding video'}`;
@@ -82,7 +82,7 @@ export const handleMovieTask = async (movieVerId: string, context: 'started' | '
 
         if (updatedVersion?.movieId) {
             const [movieData] = await db
-                .select({ userId: movies.userId, title: movies.title })
+                .select({ userId: movies.uploaderId, title: movies.title })
                 .from(movies)
                 .where(eq(movies.id, updatedVersion.movieId));
 

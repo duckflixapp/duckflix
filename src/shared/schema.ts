@@ -1,6 +1,6 @@
 import type { UserRole } from '@duckflix/shared';
 import { relations, type InferSelectModel } from 'drizzle-orm';
-import { bigint, boolean, decimal, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { bigint, boolean, decimal, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 export const systemSettings = pgTable('system_settings', {
     id: integer('id').primaryKey().default(1),
@@ -86,6 +86,7 @@ export const movies = pgTable(
     'movies',
     {
         id: uuid('id').defaultRandom().primaryKey(),
+        uploaderId: uuid('uploader_id').references(() => users.id, { onDelete: 'set null' }),
         title: text('title').notNull(),
         description: text('description'),
         bannerUrl: text('banner_url'),
@@ -94,9 +95,6 @@ export const movies = pgTable(
         releaseYear: integer('release_year'),
         duration: integer('duration'), // null while uploading or similar - seconds
         status: text('status').$type<'downloading' | 'processing' | 'ready' | 'error'>().default('processing').notNull(),
-        userId: uuid('user_id')
-            .notNull()
-            .references(() => users.id, { onDelete: 'cascade' }),
         createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
     },
     (table) => [index('title_idx').on(table.title), index('created_at_idx').on(table.createdAt)]
@@ -148,8 +146,8 @@ export const movieVersions = pgTable('movie_versions', {
 });
 
 export const moviesRelations = relations(movies, ({ one, many }) => ({
-    user: one(users, {
-        fields: [movies.userId],
+    uploader: one(users, {
+        fields: [movies.uploaderId],
         references: [users.id],
     }),
     versions: many(movieVersions),
@@ -205,3 +203,51 @@ export type MovieVersion = InferSelectModel<typeof movieVersions>;
 export type Notification = InferSelectModel<typeof notifications>;
 
 export type NewMovieVersion = typeof movieVersions.$inferInsert;
+
+export const libraries = pgTable(
+    'library',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        name: text('name').notNull(),
+        type: text('type').$type<'custom' | 'watchlist' | 'library'>().default('custom').notNull(),
+        size: integer('size').notNull().default(0),
+        createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    },
+    (t) => [uniqueIndex('user_name_unique_key').on(t.userId, t.name)]
+);
+
+export type Library = typeof libraries.$inferSelect;
+
+export const libraryItems = pgTable(
+    'library_items',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        libraryId: uuid('library_id')
+            .notNull()
+            .references(() => libraries.id, { onDelete: 'cascade' }),
+        movieId: uuid('movie_id')
+            .notNull()
+            .references(() => movies.id, { onDelete: 'cascade' }),
+        addedAt: timestamp('added_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    },
+    (t) => [uniqueIndex('library_movie_unique_indx').on(t.libraryId, t.movieId)]
+);
+
+export type LibraryItem = typeof libraryItems.$inferSelect;
+
+export const libraryRelations = relations(libraries, ({ one }) => ({
+    user: one(users, {
+        fields: [libraries.userId],
+        references: [users.id],
+    }),
+}));
+
+export const libraryItemsRelations = relations(libraryItems, ({ one }) => ({
+    movie: one(movies, {
+        fields: [libraryItems.movieId],
+        references: [movies.id],
+    }),
+}));
