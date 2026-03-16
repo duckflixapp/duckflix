@@ -351,7 +351,7 @@ export const getMovieById = async (id: string, options: { userId: string | null 
             .select({ value: count() })
             .from(libraries)
             .leftJoin(libraryItems, eq(libraries.id, libraryItems.libraryId))
-            .where(and(eq(libraries.type, 'library'), eq(libraries.userId, options.userId), eq(libraryItems.movieId, id)));
+            .where(and(eq(libraries.type, 'watchlist'), eq(libraries.userId, options.userId), eq(libraryItems.movieId, id)));
 
         inLibrary = !!libraryCount?.value && libraryCount?.value > 0;
     }
@@ -381,3 +381,5 @@ export const getMovieById = async (id: string, options: { userId: string | null 
 
     return dto;
 };
+
+export const recordWatchStart = async (_movieId: string, _userId: string) => {};

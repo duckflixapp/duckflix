@@ -53,11 +53,6 @@ export const register = async (name: string, email: string, pass: string): Promi
                 name: 'My Watchlist',
                 type: 'watchlist',
             },
-            {
-                userId: user.id,
-                name: 'My Library',
-                type: 'library',
-            },
         ]);
 
         if (!trustEmails)

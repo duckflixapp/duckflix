@@ -18,11 +18,10 @@ export const getUserLibraries = async (userId: string, options?: { custom?: bool
     return results.map(toLibraryMinDTO);
 };
 
-const unallowedLibraryNames = ['watchlist', 'library'];
+const reservedLibraryNames = ['watchlist'];
 const MAX_LIBRARIES = 10;
 export const createUserLibrary = async (userId: string, context: { name: string }): Promise<LibraryMinDTO> => {
-    if (unallowedLibraryNames.includes(context.name.toLowerCase()))
-        throw new AppError('Name is in not-allowed list: ' + unallowedLibraryNames, { statusCode: 409 });
+    if (reservedLibraryNames.includes(context.name.toLowerCase())) throw new AppError('Name is unavailable', { statusCode: 409 });
 
     try {
         const result = await db.transaction(async (tx) => {
@@ -73,7 +72,7 @@ export const addMovieToUserLibrary = async (userId: string, libraryId: string, m
     try {
         const conditions = [];
         conditions.push(eq(libraries.userId, userId));
-        if (libraryId === 'library') conditions.push(eq(libraries.type, 'library'));
+        if (libraryId === 'watchlist') conditions.push(eq(libraries.type, 'watchlist'));
         else conditions.push(eq(libraries.id, libraryId));
 
         const filters = and(...conditions);
@@ -103,7 +102,7 @@ export const addMovieToUserLibrary = async (userId: string, libraryId: string, m
 export const removeMovieFromUserLibrary = async (userId: string, libraryId: string, movieId: string): Promise<void> => {
     const conditions = [];
     conditions.push(eq(libraries.userId, userId));
-    if (libraryId === 'library') conditions.push(eq(libraries.type, 'library'));
+    if (libraryId === 'watchlist') conditions.push(eq(libraries.type, 'watchlist'));
     else conditions.push(eq(libraries.id, libraryId));
 
     const filters = and(...conditions);

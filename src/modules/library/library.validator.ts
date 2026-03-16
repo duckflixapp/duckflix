@@ -20,7 +20,7 @@ export const newLibraryScheme = z.object({
 });
 
 export const libraryMovieItemScheme = z.object({
-    libraryId: z.union([z.literal('library'), z.uuid()]),
+    libraryId: z.union([z.literal('watchlist'), z.uuid()]),
     movieId: z.uuid(),
 });
 

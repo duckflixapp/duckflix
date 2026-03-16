@@ -92,3 +92,13 @@ export const getManyGenres = catchAsync(async (req: Request, res: Response) => {
         data: { genres: genresDto },
     });
 });
+
+export const saveMovieWatch = catchAsync(async (req: Request, res: Response) => {
+    const { id } = movieParamsSchema.parse(req.params);
+
+    await MoviesService.recordWatchStart(id, req.user!.id);
+
+    res.status(201).json({
+        status: 'success',
+    });
+});

@@ -212,7 +212,7 @@ export const libraries = pgTable(
             .notNull()
             .references(() => users.id, { onDelete: 'cascade' }),
         name: text('name').notNull(),
-        type: text('type').$type<'custom' | 'watchlist' | 'library'>().default('custom').notNull(),
+        type: text('type').$type<'custom' | 'watchlist'>().default('custom').notNull(),
         size: integer('size').notNull().default(0),
         createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
     },
