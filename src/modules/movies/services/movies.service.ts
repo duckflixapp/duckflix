@@ -1,6 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { and, asc, count, desc, eq, ilike, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, exists, ilike, inArray, sql } from 'drizzle-orm';
 import { db } from '../../../shared/configs/db';
 import { genres, libraries, libraryItems, movies, moviesToGenres, movieVersions } from '../../../shared/schema';
 import { InvalidVideoFileError, MovieNotCreatedError, MovieNotFoundError, TorrentDownloadError } from '../movies.errors';
@@ -269,13 +269,22 @@ export const getMovies = async (options: {
     limit: number;
     search?: string;
     orderBy?: string;
+    genreId?: string;
 }): Promise<PaginatedResponse<MovieDTO>> => {
     const offset = (options.page - 1) * options.limit;
 
     const searchFilter = options.search ? ilike(movies.title, `%${options.search}%`) : null;
     const readyFilter = eq(movies.status, 'ready');
+    const genreFilter = options.genreId
+        ? exists(
+              db
+                  .select()
+                  .from(moviesToGenres)
+                  .where(and(eq(moviesToGenres.movieId, movies.id), eq(moviesToGenres.genreId, options.genreId)))
+          )
+        : null;
 
-    const conditions = [searchFilter, readyFilter];
+    const conditions = [searchFilter, readyFilter, genreFilter];
     const filters = and(...conditions.filter((cond) => cond != null));
 
     const orderBy = getOrderBy(options.orderBy ?? null);
