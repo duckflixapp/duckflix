@@ -5,12 +5,21 @@ export const changeUserRoleSchema = z.object({
     role: z.enum(['watcher', 'contributor', 'admin']),
 });
 
+export const userSchema = z.object({
+    email: z.email(),
+});
+
 export const systemSettingsUpdateSchema = z.object({
     features: z
         .object({
             autoTranscoding: z.enum(['off', 'compatibility', 'smart']).optional(),
             concurrentProcessing: z.number().min(1).max(10).optional(),
-            trustEmails: z.boolean().optional(),
+            registration: z
+                .object({
+                    enabled: z.boolean().optional(),
+                    trustEmails: z.boolean().optional(),
+                })
+                .optional(),
         })
         .optional(),
     preferences: z

@@ -17,11 +17,15 @@ import { isDuplicateKey } from '../../shared/db.errors';
 
 export const register = async (name: string, email: string, pass: string): Promise<UserDTO> => {
     const sysSettings = await systemSettings.get();
-    const trustEmails = sysSettings.features.trustEmails;
+    const registration = sysSettings.features.registration;
 
-    if (!trustEmails && !sysSettings.external.email.enabled)
+    if (!registration.enabled)
+        throw new AppError('Registration is disabled. Please contact the system administrator.', { statusCode: 503 });
+
+    if (!registration.trustEmails && !sysSettings.external.email.enabled)
         throw new AppError(
-            'You tried to register but account cannot be verified because you disabled email service and trust emails feature'
+            'You tried to register but account cannot be verified because you disabled email service and trust emails feature.',
+            { statusCode: 503 }
         );
 
     const hashedPassword = await argon2.hash(pass);
@@ -36,7 +40,7 @@ export const register = async (name: string, email: string, pass: string): Promi
                 name,
                 email,
                 password: hashedPassword,
-                verified_email: trustEmails,
+                verified_email: registration.trustEmails,
                 role: existingUser.length === 0 ? 'admin' : 'watcher',
             })
             .returning()
@@ -55,7 +59,7 @@ export const register = async (name: string, email: string, pass: string): Promi
             },
         ]);
 
-        if (!trustEmails)
+        if (!registration.trustEmails)
             await tx.insert(accountTokens).values({
                 userId: user.id,
                 token: verificationToken,
@@ -66,7 +70,7 @@ export const register = async (name: string, email: string, pass: string): Promi
         return user;
     });
 
-    if (!trustEmails)
+    if (!registration.trustEmails)
         await sendVerificationMail(user.name, user.email, verificationToken).catch((e) => {
             logger.error({ err: e, email: user.email }, 'Failed to send verification email');
         });

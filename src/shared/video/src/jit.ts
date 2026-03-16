@@ -10,6 +10,35 @@ export interface VideoProcess {
     onProgress?: (cb: (p: Subprocess) => void) => void;
 }
 
+const SEG_OPEN_RE = /Opening '.*?seg-(\d+)\.ts\.tmp'/;
+
+const parseSegmentStream = async (stderr: ReadableStream<Uint8Array>, onSegment: (seg: number) => void): Promise<void> => {
+    const decoder = new TextDecoder('utf-8', { fatal: false });
+    let pending: number | null = null;
+    let leftover = '';
+
+    try {
+        for await (const chunk of stderr) {
+            const text = leftover + decoder.decode(chunk, { stream: true });
+            const lines = text.split('\n');
+            leftover = lines.pop() ?? '';
+
+            for (const line of lines) {
+                const match = SEG_OPEN_RE.exec(line);
+                if (match?.[1]) {
+                    pending = parseInt(match[1]);
+                }
+                if (line.includes('index.m3u8.tmp') && pending !== null) {
+                    onSegment(pending);
+                    pending = null;
+                }
+            }
+        }
+    } catch (err) {
+        console.error(err);
+    }
+};
+
 export async function createJitRunner(opts: {
     input: string;
     outputDir: string;
@@ -39,38 +68,6 @@ export async function createJitRunner(opts: {
     return {
         proc,
         stop: () => proc.kill(),
-        onSegment: (cb) => {
-            const reader = proc.stderr.getReader();
-            const decoder = new TextDecoder();
-            (async () => {
-                try {
-                    let pending: number | null = null;
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-
-                        const text = decoder.decode(value);
-
-                        // Koristimo globalni match /g za slučaj da više segmenta prođe u jednom chunku
-                        const lines = text.split('\n');
-                        for (const line of lines) {
-                            const match = line.match(/Opening '.*?seg-(\d+)\.ts\.tmp'/);
-                            if (match && match[1]) {
-                                pending = parseInt(match[1]);
-                            }
-
-                            if (line.includes('index.m3u8.tmp') && pending !== null) {
-                                cb(pending);
-                                pending = null;
-                            }
-                        }
-                    }
-                } catch (err) {
-                    console.error(err);
-                } finally {
-                    reader.releaseLock();
-                }
-            })();
-        },
+        onSegment: (cb) => parseSegmentStream(proc.stderr, cb),
     };
 }

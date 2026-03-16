@@ -13,7 +13,10 @@ export const toSystemDTO = (entity: SystemSettingsT): SystemSettingsDTO => {
         features: {
             autoTranscoding: entity.features?.autoTranscoding ?? 'compatibility',
             concurrentProcessing: Number(entity.features?.concurrentProcessing ?? 1),
-            trustEmails: Boolean(entity.features?.trustEmails),
+            registration: {
+                enabled: Boolean(entity.features?.registration.enabled),
+                trustEmails: Boolean(entity.features?.registration.trustEmails),
+            },
         },
         preferences: {
             subtitles: entity.preferences?.subtitles || [],

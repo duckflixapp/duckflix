@@ -9,7 +9,10 @@ export const systemSettings = pgTable('system_settings', {
             features: {
                 autoTranscoding: 'off' | 'compatibility' | 'smart';
                 concurrentProcessing: number;
-                trustEmails: boolean; // verify users automatically
+                registration: {
+                    enabled: boolean; // is registration allowed
+                    trustEmails: boolean; // verify users automatically
+                };
             };
             preferences: {
                 subtitles: { lang: string; variants: number }[];

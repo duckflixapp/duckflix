@@ -10,7 +10,10 @@ export const DEFAULT_SETTINGS: SystemSettingsT = {
     features: {
         autoTranscoding: 'compatibility',
         concurrentProcessing: 1,
-        trustEmails: true,
+        registration: {
+            enabled: true,
+            trustEmails: true,
+        },
     },
     preferences: {
         subtitles: [

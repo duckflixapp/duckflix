@@ -49,4 +49,15 @@ router.patch(
     AdminController.changeUserRole
 );
 
+router.delete(
+    '/users',
+    rateLimit({
+        ...limiterConfigs.defaults(),
+        windowMs: 2 * 1000, // 10 per 2s
+        limit: 10,
+        keyGenerator: limiterConfigs.authenticatedKey,
+    }),
+    AdminController.deleteUser
+);
+
 export default router;

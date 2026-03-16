@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { catchAsync } from '../../shared/utils/catchAsync';
 import { systemSettings } from '../../shared/services/system.service';
 import { toSystemDTO } from '../../shared/mappers/system.mapper';
-import { changeUserRoleSchema, systemSettingsUpdateSchema } from './admin.validator';
+import { changeUserRoleSchema, systemSettingsUpdateSchema, userSchema } from './admin.validator';
 import * as AdminService from './admin.service';
 
 export const getSystem = catchAsync(async (req: Request, res: Response) => {
@@ -44,7 +44,18 @@ export const changeUserRole = catchAsync(async (req: Request, res: Response) => 
     const user = req.user!;
     const data = changeUserRoleSchema.parse(req.body);
 
-    await AdminService.changeUserRole(data.email, data.role, { user: user.id });
+    await AdminService.changeUserRole(data.email, data.role, { userId: user.id });
+
+    res.status(204).json({
+        status: 'success',
+    });
+});
+
+export const deleteUser = catchAsync(async (req: Request, res: Response) => {
+    const user = req.user!;
+    const data = userSchema.parse(req.body);
+
+    await AdminService.deleteUser(data.email, { userId: user.id });
 
     res.status(204).json({
         status: 'success',

@@ -31,7 +31,6 @@
         "@duckflix/shared": "workspace:*",
         "argon2": "^0.44.0",
         "axios": "^1.13.5",
-        "chokidar": "^5.0.0",
         "cookie": "^1.1.1",
         "cookie-parser": "^1.4.7",
         "cors": "^2.8.6",
