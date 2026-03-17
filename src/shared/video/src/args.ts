@@ -33,6 +33,11 @@ const buildHardwareAccelFlags = (hw: HardwareSupport) => {
 };
 
 const buildVideoCodecArgs = (hw: HardwareSupport, mode: JobMode, config: VideoConfig) => {
+    if (hw.nvdec) {
+        const preset = mode === 'jit' ? 'p3' : 'p6';
+        return ['-c:v', 'h264_nvenc', '-preset', preset, '-b:v', config.bitrate];
+    }
+
     if (hw.videotoolbox) {
         return [
             '-c:v',
@@ -46,11 +51,6 @@ const buildVideoCodecArgs = (hw: HardwareSupport, mode: JobMode, config: VideoCo
             '-allow_sw',
             '1',
         ];
-    }
-
-    if (hw.nvdec) {
-        const preset = mode === 'jit' ? 'p3' : 'p6';
-        return ['-c:v', 'h264_nvenc', '-preset', preset, '-b:v', config.bitrate];
     }
 
     if (hw.qsv) {

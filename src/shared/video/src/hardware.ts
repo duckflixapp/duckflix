@@ -3,11 +3,10 @@ import { spawn } from 'bun';
 export type HardwareSupport = {
     videotoolbox: boolean;
     nvdec: boolean;
-    vaapi: boolean;
     qsv: boolean;
 };
 
-let cachedSupport: HardwareSupport = { nvdec: false, vaapi: false, videotoolbox: false, qsv: false };
+let cachedSupport: HardwareSupport = { nvdec: false, videotoolbox: false, qsv: false };
 
 export const getHardwareDecodingSupport = (): HardwareSupport => ({ ...cachedSupport });
 
@@ -22,7 +21,6 @@ export const checkHardwareDecoding = async (): Promise<HardwareSupport> => {
 
         cachedSupport = {
             nvdec: output.includes('nvdec') || output.includes('nvidia'), // NVIDIA
-            vaapi: output.includes('vaapi'), // Intel/AMD Linux
             videotoolbox: output.includes('videotoolbox'), // macOS
             qsv: output.includes('qsv'), // Intel QuickSync
         } satisfies HardwareSupport;
@@ -30,5 +28,5 @@ export const checkHardwareDecoding = async (): Promise<HardwareSupport> => {
         return cachedSupport;
     } catch {}
 
-    return { nvdec: false, vaapi: false, videotoolbox: false, qsv: false };
+    return { nvdec: false, videotoolbox: false, qsv: false };
 };
