@@ -39,6 +39,7 @@ export const upload = catchAsync(async (req: Request, res: Response) => {
         processTorrentFileWorkflow({
             userId: req.user!.id,
             movieId: movie.id,
+            movieTitle: movie.title,
             imdbId: metadata.imdbId,
             torrentPath: torrentFile?.path,
         }).catch((e) => handleWorkflowError(movie.id, e, 'torrent'));

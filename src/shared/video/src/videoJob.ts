@@ -5,6 +5,7 @@ import type { Interruptible } from '../../utils/taskRegistry';
 import { videoDefaults } from '../src/constants';
 import { buildFfmpegArgs } from './args';
 import { getHardwareDecodingSupport } from './hardware';
+import { logger } from '../../configs/logger';
 
 export type JobType = 'copy' | 'transcode';
 
@@ -55,6 +56,7 @@ export class VideoJob extends EventEmitter implements Interruptible {
                         progress = Math.round((seconds / this.config.totalDuration) * 100);
                         if (progress > 100) progress = 100;
                     }
+                    logger.debug({ id: this.proc.pid, progress, time }, '[VideoJob] processing progress');
                     this.emit('progress', { time, seconds, progress } as JobProgress);
                 }
             }

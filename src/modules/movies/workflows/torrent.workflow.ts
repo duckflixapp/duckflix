@@ -18,7 +18,13 @@ import { processVideoWorkflow } from './video.workflow';
 const rqbitClient = new RqbitClient({ baseUrl: env.RQBIT_URL! });
 const torrentClient = new TorrentClient({ rqbit: rqbitClient });
 
-export const processTorrentFileWorkflow = async (data: { userId: string; movieId: string; torrentPath: string; imdbId: string | null }) => {
+export const processTorrentFileWorkflow = async (data: {
+    userId: string;
+    movieId: string;
+    movieTitle: string;
+    torrentPath: string;
+    imdbId: string | null;
+}) => {
     let torrentBuffer: Buffer;
     try {
         const valid = await validateTorrentFileSize(data.torrentPath);
@@ -53,6 +59,7 @@ export const processTorrentFileWorkflow = async (data: { userId: string; movieId
 
     try {
         logger.info({ movieId: data.movieId }, 'Torrent waiting for download...');
+        notifyJobStatus(data.userId, 'started', `Movie started downloading`, data.movieTitle, data.movieId).catch(() => {});
         await torrent.waitDownload();
         logger.info({ movieId: data.movieId }, 'Torrent download finished...');
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
