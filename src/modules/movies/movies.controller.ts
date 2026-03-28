@@ -3,8 +3,9 @@ import * as MoviesService from './services/movies.service';
 import * as GenresService from './services/genres.service';
 import { catchAsync } from '../../shared/utils/catchAsync';
 import { AppError } from '../../shared/errors';
-import { movieParamsSchema, movieQuerySchema } from './validators/movies.validator';
+import { movieParamsSchema, movieQuerySchema, updateMovieSchema } from './validators/movies.validator';
 import { createGenreSchema } from './validators/genres.validator';
+import * as MetadataService from '../../shared/metadata/metadata.service';
 
 export const getMany = catchAsync(async (req: Request, res: Response) => {
     const options = movieQuerySchema.parse(req.query);
@@ -52,15 +53,20 @@ export const deleteOne = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
-export const updateOne = catchAsync(async (_req: Request, _res: Response) => {
-    // const { id } = movieParamsSchema.parse(req.params);
-    // const validatedData = updateMovieSchema.parse(req.body);
-    // const metadata = await MetadataService.enrichUpdateMetadata(validatedData.dbUrl, validatedData);
-    // const movie = await MoviesService.updateMovieById(id, metadata);
-    // res.status(200).json({
-    //     status: 'success',
-    //     data: { movie },
-    // });
+export const updateOne = catchAsync(async (req: Request, res: Response) => {
+    const { id } = movieParamsSchema.parse(req.params);
+    const validatedData = updateMovieSchema.parse(req.body);
+
+    const enrichMetadata = MetadataService.metadataUpdateEnrichers['movie'];
+    const metadata = await enrichMetadata(validatedData.dbUrl, validatedData);
+
+    if (!metadata) throw new AppError('No metadata', { statusCode: 400 });
+
+    const movie = await MoviesService.updateMovieById(id, metadata);
+    res.status(200).json({
+        status: 'success',
+        data: { movie },
+    });
 });
 
 export const createGenre = catchAsync(async (req: Request, res: Response) => {

@@ -2,15 +2,16 @@ import { and, asc, count, desc, eq, exists, ilike, isNotNull, sql } from 'drizzl
 import { db } from '../../../shared/configs/db';
 import { libraries, libraryItems, movies, moviesToGenres, videos, videoVersions } from '../../../shared/schema';
 import { MovieNotFoundError } from '../movies.errors';
-import type { MovieDetailedDTO, MovieDTO, PaginatedResponse, VideoVersionDTO } from '@duckflix/shared';
+import type { MovieDetailedDTO, MovieDTO, PaginatedResponse } from '@duckflix/shared';
 import { toMovieDetailedDTO, toMovieDTO } from '../../../shared/mappers/movies.mapper';
 import { AppError } from '../../../shared/errors';
-import { env } from '../../../env';
 import path from 'node:path';
 import { paths } from '../../../shared/configs/path.config';
 import fs from 'node:fs/promises';
 import { taskRegistry } from '../../../shared/utils/taskRegistry';
 import { taskHandler } from '../../../shared/utils/taskHandler';
+import type { VideoMetadata } from '../../../shared/metadata/metadata.service';
+import { getGenreIds } from './genres.service';
 
 const getOrderBy = (orderBy: string | null) => {
     switch (orderBy) {
@@ -130,39 +131,40 @@ export const deleteMovieById = async (id: string) => {
     await db.delete(videos).where(eq(videos.id, video.id));
 };
 
-// export const updateMovieById = async (id: string, data: Partial<VideoMetadata>): Promise<MovieDetailedDTO> => {
-//     await db.transaction(async (tx) => {
-//         const modified = await tx
-//             .update(movies)
-//             .set({
-//                 title: data.title,
-//                 overview: data.overview,
-//                 releaseYear: data.releaseYear,
-//                 rating: data.rating?.toString() ?? null,
-//                 bannerUrl: data.bannerUrl,
-//                 posterUrl: data.posterUrl,
-//             })
-//             .where(eq(movies.id, id));
+export const updateMovieById = async (id: string, data: Partial<VideoMetadata>): Promise<MovieDetailedDTO> => {
+    await db.transaction(async (tx) => {
+        const modified = await tx
+            .update(movies)
+            .set({
+                title: data.title,
+                overview: data.overview,
+                releaseYear: data.releaseYear,
+                rating: data.rating?.toString() ?? null,
+                bannerUrl: data.bannerUrl,
+                posterUrl: data.posterUrl,
+            })
+            .where(eq(movies.id, id));
 
-//         if (modified.rowCount === 0) throw new MovieNotFoundError();
+        if (modified.rowCount === 0) throw new MovieNotFoundError();
 
-//         if (data.genreIds) {
-//             await tx.delete(moviesToGenres).where(eq(moviesToGenres.movieId, id));
+        if (data.genres) {
+            const genreIds = await getGenreIds(data.genres);
+            await tx.delete(moviesToGenres).where(eq(moviesToGenres.movieId, id));
 
-//             if (data.genreIds.length > 0) {
-//                 const values = data.genreIds.map((genreId) => ({ movieId: id, genreId: genreId }));
-//                 await tx
-//                     .insert(moviesToGenres)
-//                     .values(values)
-//                     .catch(async (err) => {
-//                         throw new AppError('Database insert failed for movie genres', { statusCode: 500, cause: err });
-//                     });
-//             }
-//         }
-//     });
+            if (genreIds.length > 0) {
+                const values = genreIds.map((genreId) => ({ movieId: id, genreId: genreId }));
+                await tx
+                    .insert(moviesToGenres)
+                    .values(values)
+                    .catch(async (err) => {
+                        throw new AppError('Database insert failed for movie genres', { statusCode: 500, cause: err });
+                    });
+            }
+        }
+    });
 
-//     return getMovieById(id);
-// };
+    return getMovieById(id);
+};
 
 export const getMovieById = async (id: string, options: { userId: string | null } = { userId: null }): Promise<MovieDetailedDTO> => {
     const result = await db.query.movies.findFirst({

@@ -23,6 +23,8 @@ export const getGenres = async (): Promise<MovieGenreDTO[]> => {
 };
 
 export const getGenreIds = async (genreNames: string[]): Promise<string[]> => {
+    if (!genreNames.length) return [];
+
     const results = await db
         .select({ id: movieGenres.id })
         .from(movieGenres)

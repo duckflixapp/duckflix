@@ -1,6 +1,7 @@
 import { parseIdFromUrl } from './providers/imdb.provider';
 import { fillFromIMDBId, fillFromTMDBUrl } from './providers/tmdb.provider';
 import type { CreateVideoInput } from '../../modules/videos/video.validator';
+import type { UpdateMovieInput } from '../../modules/movies/validators/movies.validator';
 
 export interface MovieMetadata {
     type: 'movie';
@@ -65,69 +66,35 @@ const enrichMovieMetadata: MetadataEnricher<CreateVideoInput, MovieMetadata> = a
 
 export const metadataEnrichers = {
     movie: enrichMovieMetadata,
-    // episode: enrichEpisodeMetadata,
 } as const;
 
-// export const enrichMetadata = async (url: string | undefined | null, manualData: CreateVideoInput): Promise<VideoMetadata | null> => {
-//     let externalData: Partial<VideoMetadata> = {};
+type MetadataUpdateEnricher<TInput, TOutput extends VideoMetadata> = (
+    url: string | undefined | null,
+    manual: TInput
+) => Promise<Partial<TOutput> | null>;
 
-//     if (url) {
-//         const partialData = await fillFromUrl(url);
-//         if (partialData) externalData = partialData;
-//     }
+const enrichMovieUpdateMetadata: MetadataUpdateEnricher<UpdateMovieInput, MovieMetadata> = async (url, manual) => {
+    let external: Partial<MovieMetadata> = {};
 
-//     if (!externalData.title && !manualData.title) return null;
+    if (url) {
+        const partial = await fillFromUrl(url);
+        if (partial) external = partial;
+    }
 
-//     const enrichedMetadata = {
-//         title: externalData.title || manualData.title || null,
-//         overview: externalData.overview || manualData.overview || '',
-//         releaseYear: externalData.releaseYear || manualData.releaseYear || new Date().getFullYear(),
-//         posterUrl: externalData.posterUrl || manualData.posterUrl,
-//         bannerUrl: externalData.bannerUrl || manualData.bannerUrl,
-//         genreIds: externalData.genreIds?.length ? externalData.genreIds : manualData.genreIds || [],
-//         imdbId: externalData.imdbId ?? null,
-//         rating: externalData.rating ?? null,
-//     };
+    const result: Partial<MovieMetadata> = {};
 
-//     if (!isVideoMetadata(enrichedMetadata)) throw new AppError('Failed to enrich metadata', { statusCode: 500 });
+    if (external.title || manual.title) result.title = external.title || manual.title!;
+    if (external.overview ?? manual.overview) result.overview = external.overview ?? manual.overview;
+    if (external.releaseYear ?? manual.releaseYear) result.releaseYear = external.releaseYear ?? manual.releaseYear;
+    if (external.posterUrl ?? manual.posterUrl) result.posterUrl = external.posterUrl ?? manual.posterUrl;
+    if (external.bannerUrl ?? manual.bannerUrl) result.bannerUrl = external.bannerUrl ?? manual.bannerUrl;
+    if (external.genres?.length || manual.genres?.length) result.genres = external.genres?.length ? external.genres : manual.genres;
+    if (external.imdbId) result.imdbId = external.imdbId;
+    if (external.rating) result.rating = external.rating;
 
-//     return enrichedMetadata;
-// };
+    return Object.keys(result).length > 0 ? result : null;
+};
 
-// export const enrichUpdateMetadata = async (
-//     url: string | undefined | null,
-//     manualData: UpdateMovieInput
-// ): Promise<Partial<VideoMetadata>> => {
-//     let externalData: Partial<VideoMetadata> = {};
-
-//     if (url) {
-//         const partialData = await fillFromUrl(url);
-//         if (partialData) externalData = partialData;
-//     }
-
-//     const result: Partial<VideoMetadata> = {};
-
-//     const title = externalData.title || manualData.title;
-//     if (title !== undefined) result.title = title ?? undefined;
-
-//     const overview = externalData.overview || manualData.overview;
-//     if (overview !== undefined) result.overview = overview;
-
-//     const releaseYear = externalData.releaseYear || manualData.releaseYear;
-//     if (releaseYear !== undefined) result.releaseYear = releaseYear;
-
-//     const posterUrl = externalData.posterUrl || manualData.posterUrl;
-//     if (posterUrl !== undefined) result.posterUrl = posterUrl;
-
-//     const bannerUrl = externalData.bannerUrl || manualData.bannerUrl;
-//     if (bannerUrl !== undefined) result.bannerUrl = bannerUrl;
-
-//     if (manualData.genreIds !== undefined) {
-//         result.genreIds = externalData.genreIds?.length ? externalData.genreIds : manualData.genreIds;
-//     }
-
-//     if (externalData.imdbId) result.imdbId = externalData.imdbId;
-//     if (externalData.rating) result.rating = externalData.rating;
-
-//     return result;
-// };
+export const metadataUpdateEnrichers = {
+    movie: enrichMovieUpdateMetadata,
+} as const;
