@@ -9,3 +9,5 @@ export * from './movie.schema';
 export * from './notification.schema';
 
 export * from './library.schema';
+
+export * from './series.schema';

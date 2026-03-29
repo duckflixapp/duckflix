@@ -4,6 +4,7 @@ import { relations, type InferSelectModel } from 'drizzle-orm';
 
 import { users } from './user.schema';
 import { movies } from './movie.schema';
+import { seriesEpisodes } from './series.schema';
 
 // ------------------------------------
 // Schema
@@ -65,6 +66,7 @@ export const videosRelations = relations(videos, ({ one, many }) => ({
         references: [movies.videoId],
         relationName: 'movie_video',
     }),
+    episode: one(seriesEpisodes),
     versions: many(videoVersions),
     subtitles: many(subtitles),
 }));
