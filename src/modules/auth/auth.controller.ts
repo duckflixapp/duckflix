@@ -2,11 +2,11 @@ import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 import * as AuthService from './auth.service';
 import { registerSchema, loginSchema } from './auth.schema';
-import { catchAsync } from '../../shared/utils/catchAsync';
-import { env } from '../../env';
-import { UnauthorizedError } from '../../shared/middlewares/auth.middleware';
-import { limits } from '../../shared/configs/limits.config';
-import { AppError } from '../../shared/errors';
+import { catchAsync } from '@utils/catchAsync';
+import { env } from '@core/env';
+import { UnauthorizedError } from '@shared/middlewares/auth.middleware';
+import { limits } from '@shared/configs/limits.config';
+import { AppError } from '@shared/errors';
 
 export const register = catchAsync(async (req: Request, res: Response) => {
     const data = registerSchema.parse(req.body); // validate data

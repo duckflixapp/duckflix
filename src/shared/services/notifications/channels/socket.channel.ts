@@ -1,4 +1,4 @@
-import { io } from '../../../../server';
+import { io } from '@server';
 import type { NotificationChannel, NotificationEvent } from '../notification.types';
 
 export class SocketChannel implements NotificationChannel {

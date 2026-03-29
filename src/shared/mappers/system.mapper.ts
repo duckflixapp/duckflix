@@ -1,6 +1,6 @@
 import type { StorageStatisticsDTO, SystemSettingsDTO, SystemStatisticsDTO } from '@duckflix/shared';
-import type { SystemSettingsT } from '../schema';
-import type { StorageStatistics } from '../services/storage.service';
+import type { SystemSettingsT } from '@schema/system.schema';
+import type { StorageStatistics } from '@shared/services/storage.service';
 
 export const toStorageStatisticsDTO = (stats: StorageStatistics): StorageStatisticsDTO => ({
     usedBytes: stats.usedBytes,

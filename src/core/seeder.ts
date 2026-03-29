@@ -1,7 +1,7 @@
 import { count } from 'drizzle-orm';
-import { db } from '../../shared/configs/db';
-import { movieGenres } from '../../shared/schema';
-import { getTMDBMovieGenres } from '../../shared/services/metadata/providers/tmdb.provider';
+import { db } from '@shared/configs/db';
+import { movieGenres } from '@shared/schema/movie.schema';
+import { getTMDBMovieGenres } from '@shared/services/metadata/providers/tmdb.provider';
 
 const seedGenres = async () => {
     const data = await getTMDBMovieGenres();

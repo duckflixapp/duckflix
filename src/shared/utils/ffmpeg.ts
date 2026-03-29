@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import { spawn } from 'bun';
-import { SubtitleConversionError } from '../../modules/videos/video.errors';
+import { SubtitleConversionError } from '@modules/videos/video.errors';
 
 export const getMimeTypeFromFormat = (formatName: string): string => {
     if (formatName.includes('mp4')) return 'video/mp4';

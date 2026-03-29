@@ -1,11 +1,11 @@
 import { and, asc, count, desc, eq, exists, ilike, isNotNull, sql } from 'drizzle-orm';
-import { db } from '../../../shared/configs/db';
-import { libraries, libraryItems, movies, moviesToGenres, videoVersions } from '../../../shared/schema';
+import { db } from '@shared/configs/db';
+import { movies, moviesToGenres, videoVersions, libraries, libraryItems } from '@schema/index';
 import { MovieNotFoundError } from '../movies.errors';
 import type { MovieDetailedDTO, MovieDTO, PaginatedResponse } from '@duckflix/shared';
-import { toMovieDetailedDTO, toMovieDTO } from '../../../shared/mappers/movies.mapper';
-import { AppError } from '../../../shared/errors';
-import type { VideoMetadata } from '../../../shared/services/metadata/metadata.service';
+import { toMovieDetailedDTO, toMovieDTO } from '@shared/mappers/movies.mapper';
+import { AppError } from '@shared/errors';
+import type { VideoMetadata } from '@shared/services/metadata/metadata.service';
 import { getGenreIds } from './genres.service';
 
 const getOrderBy = (orderBy: string | null) => {

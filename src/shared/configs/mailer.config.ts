@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
-import { env } from '../../env';
-import { systemSettings } from '../services/system.service';
-import type { SystemSettingsT } from '../schema';
+import { env } from '@core/env';
+import { systemSettings } from '@shared/services/system.service';
+import type { SystemSettingsT } from '@schema/system.schema';
 import { logger } from './logger';
 
 const sysSettings = await systemSettings.get();

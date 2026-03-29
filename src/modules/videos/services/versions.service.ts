@@ -1,15 +1,15 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { db } from '../../../shared/configs/db';
-import { videos, videoVersions } from '../../../shared/schema';
-import { MovieNotFoundError, OriginalMovieVersionNotFoundError } from '../../movies/movies.errors';
-import { AppError } from '../../../shared/errors';
+import { db } from '@shared/configs/db';
+import { videos, videoVersions } from '@schema/video.schema';
+import { AppError } from '@shared/errors';
 import path from 'node:path';
-import { paths } from '../../../shared/configs/path.config';
+import { paths } from '@shared/configs/path.config';
 import { startProcessing } from '../video.processor';
 import fs from 'node:fs/promises';
-import { toVideoVersionDTO } from '../../../shared/mappers/video.mapper';
-import { taskHandler } from '../../../shared/utils/taskHandler';
-import { taskRegistry } from '../../../shared/utils/taskRegistry';
+import { toVideoVersionDTO } from '@shared/mappers/video.mapper';
+import { taskHandler } from '@utils/taskHandler';
+import { taskRegistry } from '@utils/taskRegistry';
+import { OriginalVideoVersionNotFoundError, VideoNotFoundError } from '../video.errors';
 
 export const getAllVideoVersions = async (videoId: string) => {
     const results = await db.transaction(async (tx) => {
@@ -37,10 +37,10 @@ export const addVideoVersion = async (videoId: string, height: number) => {
         },
     });
 
-    if (!result) throw new MovieNotFoundError();
+    if (!result) throw new VideoNotFoundError();
 
     const original = result.versions.find((v) => v.isOriginal);
-    if (!original) throw new OriginalMovieVersionNotFoundError();
+    if (!original) throw new OriginalVideoVersionNotFoundError();
 
     if (height > original.height) throw new AppError('Height exceeds original resolution', { statusCode: 400 });
 

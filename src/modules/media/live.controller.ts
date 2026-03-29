@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express';
-import { catchAsync } from '../../shared/utils/catchAsync';
+import { catchAsync } from '@utils/catchAsync';
 import { liveManifestSchema, liveMasterSchema, liveSegmentSchema, sessionSchema } from './media.validator';
 import * as LiveMediaService from './live.service';
-import { AppError } from '../../shared/errors';
+import { AppError } from '@shared/errors';
 
 const segmentDuration = 6;
 

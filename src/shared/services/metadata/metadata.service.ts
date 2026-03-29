@@ -1,9 +1,9 @@
 import { parseIdFromUrl } from './providers/imdb.provider';
 import { fillFromIMDBId, fillFromTMDBUrl } from './providers/tmdb.provider';
-import type { CreateVideoInput } from '../../../modules/videos/video.validator';
-import type { UpdateMovieInput } from '../../../modules/movies/validators/movies.validator';
+import type { CreateVideoInput } from '@modules/videos/video.validator';
+import type { UpdateMovieInput } from '@modules/movies/validators/movies.validator';
 import { movieMetadataSchema } from './metadata.validator';
-import { AppError } from '../../errors';
+import { AppError } from '@shared/errors';
 
 export interface MovieMetadata {
     type: 'movie';

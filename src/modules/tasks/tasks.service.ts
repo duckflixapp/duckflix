@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../../shared/configs/db';
-import { videoVersions } from '../../shared/schema';
-import { taskRegistry } from '../../shared/utils/taskRegistry';
+import { db } from '@shared/configs/db';
+import { videoVersions } from '@schema/video.schema';
+import { taskRegistry } from '@utils/taskRegistry';
 import { TaskNotFoundError } from './tasks.errors';
-import { taskHandler } from '../../shared/utils/taskHandler';
+import { taskHandler } from '@utils/taskHandler';
 
 export const killMovieTask = async (id: string) => {
     const task = await db.query.videoVersions.findFirst({

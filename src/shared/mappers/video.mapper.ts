@@ -1,7 +1,7 @@
 import type { SubtitleDTO, UserRole, VideoDTO, VideoMinDTO, VideoVersionDTO } from '@duckflix/shared';
-import type { Subtitle, Video, VideoVersion } from '../schema';
+import type { Subtitle, Video, VideoVersion } from '@schema/video.schema';
 import { toUserMinDTO } from './user.mapper';
-import { env } from '../../env';
+import { env } from '@core/env';
 
 const BASE_URL = env.BASE_URL;
 

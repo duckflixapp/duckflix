@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { catchAsync } from '../../shared/utils/catchAsync';
+import { catchAsync } from '@utils/catchAsync';
 import { killTaskSchema } from './tasks.validator';
 import * as TaskService from './tasks.service';
 

@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { db } from '../shared/configs/db';
+import { db } from '@shared/configs/db';
 import { sql } from 'drizzle-orm';
 import rateLimit from 'express-rate-limit';
-import { limiterConfigs } from '../shared/limiters';
-import { env } from '../env';
+import { limiterConfigs } from '@shared/limiters';
+import { env } from '@core/env';
 
 const router = Router();
 

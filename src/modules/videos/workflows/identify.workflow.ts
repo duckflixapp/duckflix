@@ -1,4 +1,4 @@
-import type { VideoMetadata, VideoType } from '../../../shared/services/metadata/metadata.service';
+import type { VideoMetadata, VideoType } from '@shared/services/metadata/metadata.service';
 import { identifyMovie } from './identify/movie.strategy';
 
 type IdentifyStrategy<T extends VideoMetadata> = (filePath: string, fileName: string | undefined, checkHash: boolean) => Promise<T>;

@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { catchAsync } from '../../shared/utils/catchAsync';
+import { catchAsync } from '@utils/catchAsync';
 import * as LibraryService from './library.service';
 import { getUserLibrariesScheme, libraryScheme, libraryMovieItemScheme, newLibraryScheme, libraryQuerySchema } from './library.validator';
 

@@ -1,15 +1,16 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { db } from '../../shared/configs/db';
-import { videoVersions, type VideoVersion, type NewVideoVersion } from '../../shared/schema';
-import { VideoJob, type JobType } from '../../shared/services/video';
-import { ffprobe } from '../../shared/services/video';
+import { db } from '@shared/configs/db';
+import { type VideoVersion, type NewVideoVersion } from '@shared/schema';
+import { videoVersions } from '@shared/schema/video.schema';
+import { VideoJob, type JobType } from '@shared/services/video';
+import { ffprobe } from '@shared/services/video';
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { taskHandler } from '../../shared/utils/taskHandler';
+import { taskHandler } from '@utils/taskHandler';
 import { emitVideoProgress, handleVideoTask, handleProcessingError } from './video.handler';
-import { AppError } from '../../shared/errors';
-import { taskRegistry } from '../../shared/utils/taskRegistry';
+import { AppError } from '@shared/errors';
+import { taskRegistry } from '@utils/taskRegistry';
 import { VideoProcessingError } from './video.errors';
 
 export const createVideoStorageKey = (videoId: string, versionId: string, file: string) => `videos/${videoId}/${versionId}/${file}`;

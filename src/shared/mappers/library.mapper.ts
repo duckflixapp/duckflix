@@ -1,5 +1,5 @@
 import type { LibraryDTO, LibraryItemDTO, LibraryItemMinDTO, LibraryMinDTO } from '@duckflix/shared';
-import type { Library, LibraryItem, Movie, User } from '../schema';
+import type { Movie, User, Library, LibraryItem } from '@schema/index';
 import { toUserMinDTO } from './user.mapper';
 import { toMovieMinDTO } from './movies.mapper';
 

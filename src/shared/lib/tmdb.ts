@@ -1,6 +1,6 @@
 import axios from 'axios';
-import type { TMDBFindByExternalIdResponse, TMDBMovieDetails, TMDBSearchResponse } from '../types/tmdb';
-import { AppError } from '../errors';
+import type { TMDBFindByExternalIdResponse, TMDBMovieDetails, TMDBSearchResponse } from '@shared/types/tmdb';
+import { AppError } from '@shared/errors';
 
 export class TMDBMovieDetailsError extends AppError {
     constructor(err: unknown) {

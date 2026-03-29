@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { AppError } from '../errors';
-import type { DownloadSubResponse, SearchSubsResponse, SubtitleData } from '../types/opensubs';
+import { AppError } from '@shared/errors';
+import type { DownloadSubResponse, SearchSubsResponse, SubtitleData } from '@shared/types/opensubs';
 
 export class OpenSubsError extends AppError {
     constructor(err: unknown) {

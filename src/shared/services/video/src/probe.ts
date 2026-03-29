@@ -1,6 +1,6 @@
 import { spawn } from 'bun';
 import path from 'path';
-import { AppError } from '../../../errors';
+import { AppError } from '@shared/errors';
 
 export interface FFprobeStream {
     index: number;

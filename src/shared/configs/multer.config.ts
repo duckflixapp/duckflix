@@ -1,5 +1,5 @@
 import multer from 'multer';
-import { AppError } from '../../shared/errors';
+import { AppError } from '@shared/errors';
 import type { Multer } from 'multer';
 import { paths } from './path.config';
 import { limits } from './limits.config';

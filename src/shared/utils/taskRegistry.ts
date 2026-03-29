@@ -1,4 +1,4 @@
-import { logger } from '../configs/logger';
+import { logger } from '@shared/configs/logger';
 
 export interface Interruptible {
     kill(): Promise<void> | void;

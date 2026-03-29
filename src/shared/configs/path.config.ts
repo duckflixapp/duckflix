@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { env } from '../../env';
+import { env } from '@core/env';
 
 export const paths = {
     drop: path.resolve(env.DROP_FOLDER),

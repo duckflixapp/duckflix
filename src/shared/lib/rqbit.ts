@@ -1,6 +1,6 @@
 import axios from 'axios';
-import type { RqbitTorrent, TorrentStats } from '../types/torrent';
-import { AppError } from '../errors';
+import type { RqbitTorrent, TorrentStats } from '@shared/types/torrent';
+import { AppError } from '@shared/errors';
 
 export class RqbitNewTorrentError extends AppError {
     constructor(code: number) {

@@ -1,4 +1,4 @@
-import { env } from '../../env';
+import { env } from '@core/env';
 
 export const limits = {
     file: {

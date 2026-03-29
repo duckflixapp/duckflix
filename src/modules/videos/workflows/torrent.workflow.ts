@@ -1,18 +1,18 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { db } from '../../../shared/configs/db';
+import { db } from '@shared/configs/db';
 import type { DownloadProgress } from '@duckflix/shared';
-import { paths } from '../../../shared/configs/path.config';
-import { AppError } from '../../../shared/errors';
-import { TorrentClient, validateTorrentFileSize } from '../../../shared/utils/torrent';
-import { RqbitClient } from '../../../shared/lib/rqbit';
+import { paths } from '@shared/configs/path.config';
+import { AppError } from '@shared/errors';
+import { TorrentClient, validateTorrentFileSize } from '@utils/torrent';
+import { RqbitClient } from '@shared/lib/rqbit';
 import { emitVideoProgress } from '../video.handler';
-import { notifyJobStatus } from '../../../shared/services/notifications/notification.helper';
-import { env } from '../../../env';
-import { logger } from '../../../shared/configs/logger';
+import { notifyJobStatus } from '@shared/services/notifications/notification.helper';
+import { env } from '@core/env';
+import { logger } from '@shared/configs/logger';
 import { eq } from 'drizzle-orm';
 import { processVideoWorkflow } from './video.workflow';
-import { videos } from '../../../shared/schema';
+import { videos } from '@shared/schema/video.schema';
 import { TorrentDownloadError } from '../video.errors';
 
 const rqbitClient = new RqbitClient({ baseUrl: env.RQBIT_URL! });

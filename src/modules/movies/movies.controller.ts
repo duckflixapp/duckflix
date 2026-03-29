@@ -1,11 +1,11 @@
 import type { Request, Response } from 'express';
 import * as MoviesService from './services/movies.service';
 import * as GenresService from './services/genres.service';
-import { catchAsync } from '../../shared/utils/catchAsync';
-import { AppError } from '../../shared/errors';
+import { catchAsync } from '@utils/catchAsync';
+import { AppError } from '@shared/errors';
 import { movieParamsSchema, movieQuerySchema, updateMovieSchema } from './validators/movies.validator';
 import { createGenreSchema } from './validators/genres.validator';
-import * as MetadataService from '../../shared/services/metadata/metadata.service';
+import * as MetadataService from '@shared/services/metadata/metadata.service';
 
 export const getMany = catchAsync(async (req: Request, res: Response) => {
     const options = movieQuerySchema.parse(req.query);

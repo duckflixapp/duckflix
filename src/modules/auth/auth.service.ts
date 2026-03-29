@@ -1,19 +1,20 @@
 import argon2 from 'argon2';
 import crypto from 'node:crypto';
-import { db } from '../../shared/configs/db';
-import { accountTokens, libraries, sessions, users } from '../../shared/schema';
+import { db } from '@shared/configs/db';
+import { accountTokens, sessions, users } from '@shared/schema';
+import { libraries } from '@schema/library.schema';
 import { and, eq } from 'drizzle-orm';
 import { EmailAlreadyExistsError, InvalidCredentialsError, UserNotCreatedError } from './auth.errors';
 import type { UserDTO } from '@duckflix/shared';
-import { toUserDTO } from '../../shared/mappers/user.mapper';
-import { signToken } from '../../shared/utils/jwt';
-import { AppError } from '../../shared/errors';
-import { ForbiddenError } from '../../shared/middlewares/auth.middleware';
-import { limits } from '../../shared/configs/limits.config';
-import { sendVerificationMail } from '../../shared/services/mailer.service';
-import { systemSettings } from '../../shared/services/system.service';
-import { logger } from '../../shared/configs/logger';
-import { isDuplicateKey } from '../../shared/db.errors';
+import { toUserDTO } from '@shared/mappers/user.mapper';
+import { signToken } from '@utils/jwt';
+import { AppError } from '@shared/errors';
+import { ForbiddenError } from '@shared/middlewares/auth.middleware';
+import { limits } from '@shared/configs/limits.config';
+import { sendVerificationMail } from '@shared/services/mailer.service';
+import { systemSettings } from '@shared/services/system.service';
+import { logger } from '@shared/configs/logger';
+import { isDuplicateKey } from '@shared/db.errors';
 
 export const register = async (name: string, email: string, pass: string): Promise<UserDTO> => {
     const sysSettings = await systemSettings.get();

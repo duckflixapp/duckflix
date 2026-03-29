@@ -1,8 +1,8 @@
 import { sum } from 'drizzle-orm';
-import { db } from '../configs/db';
-import { videoVersions } from '../schema';
-import { formatBytes } from '../utils/formats';
-import { env } from '../../env';
+import { db } from '@shared/configs/db';
+import { videoVersions } from '@shared/schema/video.schema';
+import { formatBytes } from '@utils/formats';
+import { env } from '@core/env';
 
 export interface StorageStatistics {
     usedBytes: number; // int

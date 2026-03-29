@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
-import { db } from '../../configs/db';
-import { getSystemUserId } from '../../configs/system';
-import { users } from '../../schema';
+import { db } from '@shared/configs/db';
+import { getSystemUserId } from '@shared/configs/system';
+import { users } from '@schema/user.schema';
 import { notificationService } from './notification.service';
 import type { NotificationEvent } from './notification.types';
 

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import * as UserService from './user.service';
-import { catchAsync } from '../../shared/utils/catchAsync';
+import { catchAsync } from '@utils/catchAsync';
 import { validateMarkUserNotifications } from './user.validator';
 
 export const getMe = catchAsync(async (req: Request, res: Response) => {

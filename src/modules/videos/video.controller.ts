@@ -1,13 +1,13 @@
 import type { Request, Response } from 'express';
-import { catchAsync } from '../../shared/utils/catchAsync';
+import { catchAsync } from '@utils/catchAsync';
 import { createVideoSchema, videoParamsSchema } from './video.validator';
-import { AppError } from '../../shared/errors';
+import { AppError } from '@shared/errors';
 import { identifyVideoWorkflow } from './workflows/identify.workflow';
 import * as VideoService from './video.service';
 import { processVideoWorkflow } from './workflows/video.workflow';
 import { processTorrentFileWorkflow } from './workflows/torrent.workflow';
 import { handleWorkflowError } from './video.handler';
-import * as MetadataService from '../../shared/services/metadata/metadata.service';
+import * as MetadataService from '@shared/services/metadata/metadata.service';
 
 export const upload = catchAsync(async (req: Request, res: Response) => {
     const data = createVideoSchema.parse(req.body);

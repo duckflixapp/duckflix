@@ -1,11 +1,11 @@
 import { spawn, type Subprocess } from 'bun';
 import type { JobProgress } from '@duckflix/shared';
 import { EventEmitter } from 'node:events';
-import { taskRegistry, type Interruptible } from '../../../utils/taskRegistry';
-import { videoDefaults } from '../src/constants';
+import { taskRegistry, type Interruptible } from '@utils/taskRegistry';
+import { videoDefaults } from './constants';
 import { buildFfmpegArgs } from './args';
 import { getHardwareDecodingSupport } from './hardware';
-import { logger } from '../../../configs/logger';
+import { logger } from '@shared/configs/logger';
 
 export type JobType = 'copy' | 'transcode';
 

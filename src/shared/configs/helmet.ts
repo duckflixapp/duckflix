@@ -1,5 +1,5 @@
 import helmet from 'helmet';
-import { env } from '../../env';
+import { env } from '@core/env';
 
 export const helmetConfiguration = helmet({
     contentSecurityPolicy: {

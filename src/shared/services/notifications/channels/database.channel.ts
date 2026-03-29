@@ -1,6 +1,6 @@
-import { db } from '../../../configs/db';
-import { logger } from '../../../configs/logger';
-import { notifications } from '../../../schema';
+import { db } from '@shared/configs/db';
+import { logger } from '@shared/configs/logger';
+import { notifications } from '@shared/schema/notification.schema';
 import type { NotificationChannel, NotificationEvent } from '../notification.types';
 
 export class DatabaseChannel implements NotificationChannel {

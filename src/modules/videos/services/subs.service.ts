@@ -1,10 +1,10 @@
 import fsSync from 'node:fs';
-import { OpenSubtitlesClient } from '../../../shared/lib/opensubs';
-import { type SystemSettingsT } from '../../../shared/schema';
-import { env } from '../../../env';
-import { systemSettings } from '../../../shared/services/system.service';
-import { logger } from '../../../shared/configs/logger';
-import type { SmallSubtitleData, SubtitleData, SubtitleFile } from '../../../shared/types/opensubs';
+import { OpenSubtitlesClient } from '@shared/lib/opensubs';
+import { type SystemSettingsT } from '@schema/system.schema';
+import { env } from '@core/env';
+import { systemSettings } from '@shared/services/system.service';
+import { logger } from '@shared/configs/logger';
+import type { SmallSubtitleData, SubtitleData, SubtitleFile } from '@shared/types/opensubs';
 
 const sysSettings = await systemSettings.get();
 export const subtitlesClient = new OpenSubtitlesClient({

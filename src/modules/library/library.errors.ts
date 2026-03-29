@@ -1,4 +1,4 @@
-import { AppError } from '../../shared/errors';
+import { AppError } from '@shared/errors';
 
 export class LibraryNotFoundError extends AppError {
     constructor() {

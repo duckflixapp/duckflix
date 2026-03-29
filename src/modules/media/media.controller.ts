@@ -1,15 +1,15 @@
 import type { Request, Response } from 'express';
 import path from 'node:path';
 import { eq } from 'drizzle-orm';
-import { db } from '../../shared/configs/db';
-import { videoVersions, subtitles } from '../../shared/schema';
-import { catchAsync } from '../../shared/utils/catchAsync';
-import { AppError } from '../../shared/errors';
+import { db } from '@shared/configs/db';
+import { videoVersions, subtitles } from '@schema/video.schema';
+import { catchAsync } from '@utils/catchAsync';
+import { AppError } from '@shared/errors';
 import { streamParamsSchema, subtitleParamsSchema } from './media.validator';
-import { paths } from '../../shared/configs/path.config';
+import { paths } from '@shared/configs/path.config';
 import { access } from 'node:fs/promises';
 import constants from 'node:constants';
-import { logger } from '../../shared/configs/logger';
+import { logger } from '@shared/configs/logger';
 
 export const stream = catchAsync(async (req: Request, res: Response) => {
     const { versionId, file } = streamParamsSchema.parse(req.params);

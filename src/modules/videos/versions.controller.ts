@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import * as VersionService from './services/versions.service';
-import { catchAsync } from '../../shared/utils/catchAsync';
+import { catchAsync } from '@utils/catchAsync';
 import { addVersionSchema, videoParamsSchema, videoVersionParamsSchema } from './video.validator';
 
 export const getMany = catchAsync(async (req: Request, res: Response) => {

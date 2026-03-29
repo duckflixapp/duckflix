@@ -1,10 +1,10 @@
 import type { LibraryDTO, LibraryItemDTO, LibraryMinDTO, PaginatedResponse } from '@duckflix/shared';
-import { db } from '../../shared/configs/db';
-import { libraries, libraryItems, movies } from '../../shared/schema';
+import { db } from '@shared/configs/db';
+import { libraries, libraryItems, movies } from '@schema/index';
 import { and, count, desc, eq, ilike, sql } from 'drizzle-orm';
-import { toLibraryDTO, toLibraryItemDTO, toLibraryMinDTO } from '../../shared/mappers/library.mapper';
-import { AppError } from '../../shared/errors';
-import { isDuplicateKey } from '../../shared/db.errors';
+import { toLibraryDTO, toLibraryItemDTO, toLibraryMinDTO } from '@shared/mappers/library.mapper';
+import { AppError } from '@shared/errors';
+import { isDuplicateKey } from '@shared/db.errors';
 import { LibraryNotFoundError } from './library.errors';
 
 export const getUserLibraries = async (userId: string, options?: { custom?: boolean }): Promise<LibraryMinDTO[]> => {

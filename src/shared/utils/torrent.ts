@@ -1,10 +1,10 @@
 import fs from 'node:fs/promises';
-import type { RqbitTorrent, TorrentStats } from '../types/torrent';
+import type { RqbitTorrent, TorrentStats } from '@shared/types/torrent';
 import { EventEmitter } from 'node:events';
-import type { RqbitClient } from '../lib/rqbit';
-import { AppError } from '../errors';
+import type { RqbitClient } from '@shared/lib/rqbit';
+import { AppError } from '@shared/errors';
 import path from 'node:path';
-import { paths } from '../configs/path.config';
+import { paths } from '@shared/configs/path.config';
 import type { DownloadProgress } from '@duckflix/shared';
 
 const defaultMaxSize = 1024 * 1024 * 2; // 2MB

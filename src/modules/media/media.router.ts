@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import * as MediaController from './media.controller';
 import * as LiveMediaController from './live.controller';
-import { limiterConfigs } from '../../shared/limiters';
+import { limiterConfigs } from '@shared/limiters';
 import rateLimit from 'express-rate-limit';
 
 const router = Router();

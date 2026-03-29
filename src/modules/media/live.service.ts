@@ -1,13 +1,13 @@
 import { eq } from 'drizzle-orm';
-import { videos, type Video, type VideoVersion } from '../../shared/schema';
-import { db } from '../../shared/configs/db';
-import { env } from '../../env';
+import { videos, type Video, type VideoVersion } from '@schema/video.schema';
+import { db } from '@shared/configs/db';
+import { env } from '@core/env';
 import { NotStandardResolutionError, NoVideoMediaFoundError, TooBigResolutionError, VideoNotFoundError } from './live.errors';
 import { SessionTask } from './sessionTask';
 import path from 'node:path';
-import { paths } from '../../shared/configs/path.config';
+import { paths } from '@shared/configs/path.config';
 import fs from 'node:fs/promises';
-import { AppError } from '../../shared/errors';
+import { AppError } from '@shared/errors';
 
 const livePresets = [
     { name: '2160p', height: 2160, bitrate: 20000000 },

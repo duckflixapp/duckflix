@@ -2,12 +2,12 @@ import { identifyVideoWorkflow } from './identify.workflow';
 import { processVideoWorkflow } from './video.workflow';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { logger } from '../../../shared/configs/logger';
-import { paths } from '../../../shared/configs/path.config';
+import { logger } from '@shared/configs/logger';
+import { paths } from '@shared/configs/path.config';
 import chokidar from 'chokidar';
 import { handleWorkflowError } from '../video.handler';
-import { notifyJobStatus } from '../../../shared/services/notifications/notification.helper';
-import { AppError } from '../../../shared/errors';
+import { notifyJobStatus } from '@shared/services/notifications/notification.helper';
+import { AppError } from '@shared/errors';
 import { initiateUpload } from '../video.service';
 
 export const processWatcherWorkflow = async (data: { filePath: string; fileName: string; fileSize: number }, systemUserId: string) => {

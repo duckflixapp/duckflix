@@ -1,12 +1,12 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../../shared/configs/db';
-import { videos, videoVersions } from '../../shared/schema';
-import { AppError } from '../../shared/errors';
-import { capitalize } from '../../shared/utils/string';
-import { io } from '../../server';
+import { db } from '@shared/configs/db';
+import { videos, videoVersions } from '@shared/schema/video.schema';
+import { AppError } from '@shared/errors';
+import { capitalize } from '@utils/string';
+import { io } from '@server';
 import type { DownloadProgress, JobProgress } from '@duckflix/shared';
-import { notifyJobStatus } from '../../shared/services/notifications/notification.helper';
-import { logger } from '../../shared/configs/logger';
+import { notifyJobStatus } from '@shared/services/notifications/notification.helper';
+import { logger } from '@shared/configs/logger';
 
 export const handleWorkflowError = async (videoId: string, error: unknown, context: 'video' | 'torrent') => {
     try {

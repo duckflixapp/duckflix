@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { users } from '../schema';
+import { users } from '@schema/user.schema';
 import { db } from './db';
 
 let systemUserId: string | null = null;

@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
         // Environment setup & latest features
+        "types": ["bun"],
         "lib": ["ESNext"],
         "target": "ESNext",
         "module": "Preserve",
@@ -24,6 +25,18 @@
         // Some stricter flags (disabled by default)
         "noUnusedLocals": false,
         "noUnusedParameters": false,
-        "noPropertyAccessFromIndexSignature": false
+        "noPropertyAccessFromIndexSignature": false,
+
+        // alias
+        "baseUrl": ".",
+        "paths": {
+            "@server": ["src/server.ts"],
+            "@core/*": ["src/core/*"],
+            "@shared/*": ["src/shared/*"],
+            "@schema/*": ["src/shared/schema/*"],
+            "@utils/*": ["src/shared/utils/*"],
+            "@types/types/*": ["src/shared/types/*"],
+            "@modules/*": ["src/modules/*"]
+        }
     }
 }

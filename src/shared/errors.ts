@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
-import { logger } from './configs/logger';
+import { logger } from '@shared/configs/logger';
 
 export class AppError extends Error {
     public readonly originalError?: unknown;

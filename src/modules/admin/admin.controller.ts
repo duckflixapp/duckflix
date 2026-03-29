@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
-import { catchAsync } from '../../shared/utils/catchAsync';
-import { systemSettings } from '../../shared/services/system.service';
-import { toSystemDTO } from '../../shared/mappers/system.mapper';
+import { catchAsync } from '@utils/catchAsync';
+import { systemSettings } from '@shared/services/system.service';
+import { toSystemDTO } from '@shared/mappers/system.mapper';
 import { changeUserRoleSchema, systemSettingsUpdateSchema, userSchema } from './admin.validator';
 import * as AdminService from './admin.service';
 

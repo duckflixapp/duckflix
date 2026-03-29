@@ -1,9 +1,9 @@
 import type { MovieGenreDTO } from '@duckflix/shared';
-import { movieGenres } from '../../../shared/schema';
-import { db } from '../../../shared/configs/db';
-import { toGenreDTO } from '../../../shared/mappers/movies.mapper';
+import { movieGenres } from '@shared/schema/movie.schema';
+import { db } from '@shared/configs/db';
+import { toGenreDTO } from '@shared/mappers/movies.mapper';
 import { inArray } from 'drizzle-orm';
-import { AppError } from '../../../shared/errors';
+import { AppError } from '@shared/errors';
 
 export const createGenre = async (name: string): Promise<MovieGenreDTO> => {
     const results = await db

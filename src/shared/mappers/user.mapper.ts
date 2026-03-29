@@ -1,5 +1,5 @@
-import type { NotificationDTO, UserDTO, UserMinDTO } from '@duckflix/shared';
-import type { Notification, User } from '../schema';
+import type { UserDTO, UserMinDTO } from '@duckflix/shared';
+import type { User } from '@schema/user.schema';
 
 export const toUserMinDTO = (user: Pick<User, 'id' | 'name' | 'role' | 'system'>): UserMinDTO => ({
     id: user.id,
@@ -13,16 +13,4 @@ export const toUserDTO = (user: User): UserDTO => ({
     email: user.email,
     isVerified: user.verified_email,
     createdAt: user.createdAt,
-});
-
-export const toNotificationDTO = (notification: Notification): NotificationDTO => ({
-    id: notification.id,
-    userId: notification.userId,
-    videoId: notification.videoId,
-    videoVerId: notification.videoVerId,
-    type: notification.type,
-    title: notification.title,
-    message: notification.message,
-    isRead: notification.isRead,
-    createdAt: notification.createdAt,
 });

@@ -1,14 +1,14 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { db } from '../../shared/configs/db';
-import { users } from '../../shared/schema';
-import { toUserDTO } from '../../shared/mappers/user.mapper';
+import { db } from '@shared/configs/db';
+import { users } from '@schema/user.schema';
+import { toUserDTO } from '@shared/mappers/user.mapper';
 import { isAtLeast, roleHierarchy, roles, type SystemStatisticsDTO, type UserDTO, type UserRole } from '@duckflix/shared';
-import { AppError } from '../../shared/errors';
-import { getStorageStatistics } from '../../shared/services/storage.service';
-import { toSystemStatisticsDTO } from '../../shared/mappers/system.mapper';
-import { env } from '../../env';
-import { sessionRegistry } from '../media/live.service';
-import { taskHandler } from '../../shared/utils/taskHandler';
+import { AppError } from '@shared/errors';
+import { getStorageStatistics } from '@shared/services/storage.service';
+import { toSystemStatisticsDTO } from '@shared/mappers/system.mapper';
+import { env } from '@core/env';
+import { sessionRegistry } from '@modules/media/live.service';
+import { taskHandler } from '@utils/taskHandler';
 
 export const getUsersWithRoles = async (): Promise<UserDTO[]> => {
     const rolesIncluded = roles.filter((r) => isAtLeast(r, 'watcher'));

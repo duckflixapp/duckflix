@@ -1,11 +1,11 @@
 import type { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { catchAsync } from '../utils/catchAsync';
-import { AppError } from '../errors';
-import { csrfGuard } from './csrf.middleware';
-import { verifyToken } from '../utils/jwt';
 import type { ExtendedError, Socket } from 'socket.io';
+import jwt from 'jsonwebtoken';
 import cookie from 'cookie';
+import { catchAsync } from '@utils/catchAsync';
+import { AppError } from '@shared/errors';
+import { csrfGuard } from './csrf.middleware';
+import { verifyToken } from '@utils/jwt';
 import { roleHierarchy, type UserRole } from '@duckflix/shared';
 
 export class UnauthorizedError extends AppError {

@@ -1,4 +1,4 @@
-import { AppError } from '../../../../shared/errors';
+import { AppError } from '@shared/errors';
 
 export const parseIdFromUrl = (url: string): string => {
     const match = url.match(/tt\d+/);

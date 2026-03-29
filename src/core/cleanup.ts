@@ -1,5 +1,5 @@
 import fs from 'node:fs/promises';
-import { paths } from '../../shared/configs/path.config';
+import { paths } from '@shared/configs/path.config';
 import path from 'node:path';
 
 const clearLiveFolder = async () => {

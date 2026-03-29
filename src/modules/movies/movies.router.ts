@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import * as MoviesController from './movies.controller';
-import { limiterConfigs } from '../../shared/limiters';
+import { limiterConfigs } from '@shared/limiters';
 import rateLimit from 'express-rate-limit';
-import { hasRole } from '../../shared/middlewares/auth.middleware';
+import { hasRole } from '@shared/middlewares/auth.middleware';
 
 const router = Router();
 

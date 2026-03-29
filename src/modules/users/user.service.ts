@@ -1,8 +1,9 @@
 import type { NotificationDTO } from '@duckflix/shared';
-import { db } from '../../shared/configs/db';
-import { notifications, users } from '../../shared/schema';
+import { db } from '@shared/configs/db';
+import { users, notifications } from '@shared/schema';
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { toNotificationDTO, toUserDTO } from '../../shared/mappers/user.mapper';
+import { toUserDTO } from '@shared/mappers/user.mapper';
+import { toNotificationDTO } from '@shared/mappers/notification.mapper';
 import { UserNotFoundError } from './user.errors';
 
 export const getMe = async (userId: string) => {

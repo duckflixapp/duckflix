@@ -1,21 +1,21 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { eq } from 'drizzle-orm';
-import { db } from '../../../shared/configs/db';
-import { videos, videoVersions } from '../../../shared/schema';
+import { db } from '@shared/configs/db';
+import { videos, videoVersions } from '@shared/schema/video.schema';
 import { InvalidVideoFileError } from '../video.errors';
 import { randomUUID } from 'node:crypto';
-import { ffprobe } from '../../../shared/services/video';
+import { ffprobe } from '@shared/services/video';
 import { createVideoStorageKey, startProcessing } from '../video.processor';
-import { getMimeTypeFromFormat } from '../../../shared/utils/ffmpeg';
-import { paths } from '../../../shared/configs/path.config';
-import { AppError } from '../../../shared/errors';
-import { notifyJobStatus } from '../../../shared/services/notifications/notification.helper';
+import { getMimeTypeFromFormat } from '@utils/ffmpeg';
+import { paths } from '@shared/configs/path.config';
+import { AppError } from '@shared/errors';
+import { notifyJobStatus } from '@shared/services/notifications/notification.helper';
 import { computeHash } from '../services/subs.service';
-import { systemSettings } from '../../../shared/services/system.service';
-import { logger } from '../../../shared/configs/logger';
+import { systemSettings } from '@shared/services/system.service';
+import { logger } from '@shared/configs/logger';
 import { downloadSubtitlesWorkflow, extractSubtitlesWorkflow } from './subtitles.workflow';
-import { getStorageStatistics } from '../../../shared/services/storage.service';
+import { getStorageStatistics } from '@shared/services/storage.service';
 
 export const processVideoWorkflow = async (data: {
     userId: string;

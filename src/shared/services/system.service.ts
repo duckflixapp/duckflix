@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../configs/db';
-import { systemSettings as systemSettingsScheme, type SystemSettingsT } from '../schema';
-import { AppError } from '../errors';
-import { env } from '../../env';
+import { db } from '@shared/configs/db';
+import { systemSettings as systemSettingsScheme, type SystemSettingsT } from '@schema/system.schema';
+import { AppError } from '@shared/errors';
+import { env } from '@core/env';
 import merge from 'deepmerge';
 import EventEmitter from 'node:events';
 

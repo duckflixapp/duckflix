@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import http from 'node:http';
 import { authenticateSocket } from '../middlewares/auth.middleware';
-import { env } from '../../env';
+import { env } from '@core/env';
 
 export class SocketServer {
     private _io: Server;

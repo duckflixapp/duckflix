@@ -1,11 +1,11 @@
 import http from 'node:http';
-import { app } from './app';
-import { pool } from './shared/configs/db';
-import { SocketServer } from './shared/lib/socket';
-import { env } from './env';
-import { initalize } from './modules/initialize/initialize';
-import { logger } from './shared/configs/logger';
-import { sessionRegistry } from './modules/media/live.service';
+import { app } from '@core/app';
+import { pool } from '@shared/configs/db';
+import { SocketServer } from '@shared/lib/socket';
+import { env } from '@core/env';
+import { initalize } from '@core/initialize';
+import { logger } from '@shared/configs/logger';
+import { sessionRegistry } from '@modules/media/live.service';
 
 const PORT = env.PORT;
 

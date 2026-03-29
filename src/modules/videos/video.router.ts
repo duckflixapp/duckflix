@@ -1,7 +1,7 @@
 import rateLimit from 'express-rate-limit';
-import { movieUpload } from '../../shared/configs/multer.config';
-import { limiterConfigs } from '../../shared/limiters';
-import { hasRole } from '../../shared/middlewares/auth.middleware';
+import { movieUpload } from '@shared/configs/multer.config';
+import { limiterConfigs } from '@shared/limiters';
+import { hasRole } from '@shared/middlewares/auth.middleware';
 import * as VideoController from './video.controller';
 import * as VideoVersionsController from './versions.controller';
 import { Router } from 'express';

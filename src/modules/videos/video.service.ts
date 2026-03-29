@@ -1,18 +1,20 @@
 import type { VideoDTO, VideoMinDTO, VideoResolved, VideoVersionDTO } from '@duckflix/shared';
-import { db, type Transaction } from '../../shared/configs/db';
-import { movies, moviesToGenres, videos, type Video } from '../../shared/schema';
-import type { MovieMetadata, VideoMetadata } from '../../shared/services/metadata/metadata.service';
+import { db, type Transaction } from '@shared/configs/db';
+import { type Video } from '@shared/schema';
+import { movies, moviesToGenres } from '@shared/schema/movie.schema';
+import { videos } from '@shared/schema/video.schema';
+import type { MovieMetadata, VideoMetadata } from '@shared/services/metadata/metadata.service';
 import { VideoNotCreatedError, VideoNotFoundError } from './video.errors';
-import { toVideoDTO, toVideoMinDTO } from '../../shared/mappers/video.mapper';
-import { getGenreIds } from '../movies/services/genres.service';
+import { toVideoDTO, toVideoMinDTO } from '@shared/mappers/video.mapper';
+import { getGenreIds } from '@modules/movies/services/genres.service';
 import { eq } from 'drizzle-orm';
-import { AppError } from '../../shared/errors';
-import { env } from '../../env';
-import { taskRegistry } from '../../shared/utils/taskRegistry';
-import { taskHandler } from '../../shared/utils/taskHandler';
+import { AppError } from '@shared/errors';
+import { env } from '@core/env';
+import { taskRegistry } from '@utils/taskRegistry';
+import { taskHandler } from '@utils/taskHandler';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { paths } from '../../shared/configs/path.config';
+import { paths } from '@shared/configs/path.config';
 
 type UploadHandler<T extends VideoMetadata> = (tx: Transaction, video: Video, data: T) => Promise<void>;
 

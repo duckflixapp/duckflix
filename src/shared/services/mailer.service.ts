@@ -1,5 +1,5 @@
-import { env } from '../../env';
-import { transporter } from '../configs/mailer.config';
+import { env } from '@core/env';
+import { transporter } from '@shared/configs/mailer.config';
 
 export const sendVerificationMail = async (name: string, email: string, token: string) => {
     const verificationUrl = `${env.ORIGIN}/verify-email?token=${token}`;
