@@ -1,6 +1,9 @@
 import { type InferSelectModel } from 'drizzle-orm';
 import { integer, jsonb, pgTable } from 'drizzle-orm/pg-core';
 
+// ------------------------------------
+// Schema
+// ------------------------------------
 export const systemSettings = pgTable('system_settings', {
     id: integer('id').primaryKey().default(1),
     settings: jsonb('settings')
@@ -40,5 +43,8 @@ export const systemSettings = pgTable('system_settings', {
         .notNull(),
 });
 
+// ------------------------------------
+// Types
+// ------------------------------------
 export type SystemSettingsRow = InferSelectModel<typeof systemSettings>;
 export type SystemSettingsT = SystemSettingsRow['settings'];
