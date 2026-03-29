@@ -24,6 +24,7 @@ export const toVideoVersionDTO = (v: VideoVersion): VideoVersionDTO => ({
 
 export const toVideoMinDTO = (video: Video): VideoMinDTO => ({
     id: video.id,
+    type: video.type,
     uploaderId: video.uploaderId,
     duration: video.duration,
     status: video.status,

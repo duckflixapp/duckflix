@@ -50,6 +50,7 @@ export const initiateUpload = async (
                 duration: null,
                 status: data.status,
                 uploaderId: data.userId,
+                type: metadata.type,
             })
             .returning();
 
@@ -112,7 +113,7 @@ export const getVideoById = async (videoId: string): Promise<VideoDTO> => {
 export const resolveVideo = async (videoId: string): Promise<VideoResolved> => {
     const video = await db.query.videos.findFirst({
         where: eq(videos.id, videoId),
-        columns: { id: true },
+        columns: { id: true, type: true },
         with: {
             movie: {
                 columns: {
@@ -125,7 +126,10 @@ export const resolveVideo = async (videoId: string): Promise<VideoResolved> => {
 
     if (!video) throw new VideoNotFoundError();
 
-    if (video.movie) return { type: 'movie', id: video.movie.id, name: video.movie.title };
+    if (video.type == 'movie') {
+        if (!video.movie) throw new AppError('Movie record missing for video', { statusCode: 500 });
+        return { type: video.type, id: video.movie.id, name: video.movie.title };
+    }
 
     throw new AppError('Content not found', { statusCode: 404 });
 };

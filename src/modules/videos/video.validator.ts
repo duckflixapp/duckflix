@@ -1,7 +1,8 @@
+import { VIDEO_TYPES } from '@duckflix/shared';
 import z from 'zod';
 
 export const createVideoSchema = z.object({
-    type: z.enum(['movie']),
+    type: z.enum(VIDEO_TYPES),
     dbUrl: z.url('Invalid DB URL').max(1000).optional().nullable(),
 
     title: z.string().min(1, 'Title is required').max(255, 'Title is too long').optional().nullable(),

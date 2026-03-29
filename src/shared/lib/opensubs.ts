@@ -71,7 +71,9 @@ export class OpenSubtitlesClient {
 
     public async getSubtitles(
         options?: {
+            type?: 'movie' | 'episode' | 'all';
             imdbId?: string;
+            parentImdbId?: string;
             languages?: string[];
             movieHash?: string;
             page?: number;
@@ -83,10 +85,11 @@ export class OpenSubtitlesClient {
         const { data } = await this.api
             .get<SearchSubsResponse>(`/subtitles`, {
                 params: {
-                    type: 'movie',
+                    type: options?.type,
                     order_by: 'ratings',
                     order_direction: 'desc',
                     imdb_id: options?.imdbId,
+                    parent_imdb_id: options?.parentImdbId,
                     languages: languagesString,
                     moviehash: options?.movieHash,
                     moviehash_match: options?.movieHash ? 'only' : undefined,

@@ -1,4 +1,4 @@
-import type { UserRole } from '@duckflix/shared';
+import type { UserRole, VideoStatus, VideoType, VideoVersionStatus } from '@duckflix/shared';
 import { relations, type InferSelectModel } from 'drizzle-orm';
 import { bigint, boolean, decimal, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
@@ -90,7 +90,8 @@ export const videos = pgTable('videos', {
     id: uuid('id').defaultRandom().primaryKey(),
     uploaderId: uuid('uploader_id').references(() => users.id, { onDelete: 'set null' }),
     duration: integer('duration'), // null while uploading or similar - seconds
-    status: text('status').$type<'downloading' | 'processing' | 'ready' | 'error'>().default('processing').notNull(),
+    status: text('status').$type<VideoStatus>().default('processing').notNull(),
+    type: text('type').$type<VideoType>().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
 
@@ -113,7 +114,7 @@ export const videoVersions = pgTable('video_versions', {
     width: integer('width'), // can be null while task is in process
     height: integer('height').notNull(),
     isOriginal: boolean('is_original').default(false).notNull(),
-    status: text('status').$type<'waiting' | 'processing' | 'ready' | 'error' | 'canceled'>().default('processing').notNull(),
+    status: text('status').$type<VideoVersionStatus>().default('processing').notNull(),
     storageKey: text('storage_key').notNull(),
     fileSize: bigint('file_size', { mode: 'number' }),
     mimeType: text('mime_type'),

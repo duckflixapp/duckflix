@@ -23,6 +23,7 @@ export const processVideoWorkflow = async (data: {
     tempPath: string;
     originalName: string;
     fileSize: number;
+    type: 'movie';
     imdbId: string | null;
 }): Promise<void> => {
     let metadata, fileSize, videoStream;
@@ -97,7 +98,7 @@ export const processVideoWorkflow = async (data: {
     // - External
     if (data.imdbId) {
         const movieHash = await computeHash(finalPath);
-        downloadSubtitlesWorkflow({ videoId: data.videoId, imdbId: data.imdbId, movieHash }).catch((err) => {
+        downloadSubtitlesWorkflow({ videoId: data.videoId, type: data.type, imdbId: data.imdbId, movieHash }).catch((err) => {
             logger.error(
                 {
                     err,

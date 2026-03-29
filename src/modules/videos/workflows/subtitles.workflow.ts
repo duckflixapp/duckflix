@@ -12,6 +12,7 @@ import type { FFprobeData } from '../../../shared/services/video/src/probe';
 import { normalizeLanguage } from '../../../shared/utils/subs';
 import { mapSubtitles, subtitlesClient } from '../services/subs.service';
 import { SubtitleDownloadError } from '../video.errors';
+import type { VideoType } from '@duckflix/shared';
 
 const SUPPORTED_SUB_CODECS = [
     'subrip', // SRT
@@ -107,14 +108,14 @@ export const extractSubtitlesWorkflow = async (data: { filePath: string; videoId
     }
 };
 
-export const downloadSubtitlesWorkflow = async (data: { videoId: string; imdbId: string; movieHash?: string }) => {
+export const downloadSubtitlesWorkflow = async (data: { videoId: string; type: VideoType; imdbId: string; movieHash?: string }) => {
     const sysSettings = await systemSettings.get();
     const preferences = sysSettings.preferences.subtitles;
 
+    const searchOptions = data.type == 'movie' ? { imdbId: data.imdbId, movieHash: data.movieHash } : {};
     const subtitlesRaw = await subtitlesClient.getSubtitles({
-        imdbId: data.imdbId,
         languages: preferences.map((p) => p.lang),
-        movieHash: data.movieHash,
+        ...searchOptions,
     });
 
     const subtitlesMapped = mapSubtitles(subtitlesRaw, preferences);

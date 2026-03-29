@@ -10,7 +10,7 @@ const identifyStrategies: {
 };
 
 export const identifyVideoWorkflow = async (
-    data: { filePath: string; fileName?: string; type?: 'movie' },
+    data: { filePath: string; fileName?: string; type?: VideoType },
     options = { checkHash: true }
 ): Promise<VideoMetadata> => {
     const type = data.type ?? 'movie';

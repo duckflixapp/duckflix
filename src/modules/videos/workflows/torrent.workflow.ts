@@ -18,7 +18,13 @@ import { TorrentDownloadError } from '../video.errors';
 const rqbitClient = new RqbitClient({ baseUrl: env.RQBIT_URL! });
 const torrentClient = new TorrentClient({ rqbit: rqbitClient });
 
-export const processTorrentFileWorkflow = async (data: { userId: string; videoId: string; torrentPath: string; imdbId: string | null }) => {
+export const processTorrentFileWorkflow = async (data: {
+    userId: string;
+    videoId: string;
+    torrentPath: string;
+    type: 'movie';
+    imdbId: string | null;
+}) => {
     let torrentBuffer: Buffer;
     try {
         const valid = await validateTorrentFileSize(data.torrentPath);
@@ -94,6 +100,7 @@ export const processTorrentFileWorkflow = async (data: { userId: string; videoId
         tempPath: safePath,
         originalName: mainFile.name,
         fileSize: mainFile.length,
+        type: data.type,
         imdbId: data.imdbId,
     });
 };

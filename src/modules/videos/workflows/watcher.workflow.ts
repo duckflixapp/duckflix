@@ -20,6 +20,7 @@ export const processWatcherWorkflow = async (data: { filePath: string; fileName:
     });
 
     await processVideoWorkflow({
+        type: metadata.type,
         userId: systemUserId,
         videoId: video.id,
         tempPath: data.filePath,

@@ -5,6 +5,7 @@ import { systemSettings } from '../../../../shared/services/system.service';
 import type { SystemSettingsT } from '../../../../shared/schema';
 import { logger } from '../../../../shared/configs/logger';
 import type { MovieMetadata } from '../metadata.service';
+import type { VideoType } from '@duckflix/shared';
 
 const sysSettings = await systemSettings.get();
 const tmdbClient = new TMDBClient({ baseUrl: env.TMDB_URL, apiKey: sysSettings.external.tmdb.apiKey });
@@ -14,7 +15,7 @@ systemSettings.addListener('update', (settings: SystemSettingsT) => {
     logger.info({ context: 'external_api', service: 'tmdb' }, 'TMDB API Key updated successfully without restart');
 });
 
-const parseIdFromUrl = (url: string): { id: string; type: 'movie' } => {
+const parseIdFromUrl = (url: string): { id: string; type: VideoType } => {
     const movieMatch = url.match(/themoviedb\.org\/movie\/(\d+)/);
     if (movieMatch && movieMatch[1]) return { id: movieMatch[1], type: 'movie' };
     throw new AppError('Invalid TMDB URL', { statusCode: 400 });
