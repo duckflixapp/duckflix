@@ -3,7 +3,7 @@ import { catchAsync } from '@utils/catchAsync';
 import { killTaskSchema } from './tasks.validator';
 import * as TaskService from './tasks.service';
 
-export const killMovieTask = catchAsync(async (req: Request, res: Response) => {
+export const killVideoVersionTask = catchAsync(async (req: Request, res: Response) => {
     const { id } = killTaskSchema.parse(req.params);
 
     const { wasInQueue, wasRunning } = await TaskService.killMovieTask(id);
@@ -17,7 +17,7 @@ export const killMovieTask = catchAsync(async (req: Request, res: Response) => {
 
     res.status(200).json({
         status: 'success',
-        message: wasInQueue ? 'Task successfully removed from the waiting queue.' : 'Active movie processing was terminated.',
+        message: wasInQueue ? 'Task successfully removed from the waiting queue.' : 'Active video processing was terminated.',
         details: { wasInQueue, wasRunning },
     });
 });

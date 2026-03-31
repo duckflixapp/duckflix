@@ -8,6 +8,7 @@ export const getSeasonById = async (seasonId: string) => {
     const season = await db.query.seriesSeasons.findFirst({
         where: eq(seriesSeasons.id, seasonId),
         with: {
+            series: true,
             episodes: true,
         },
     });

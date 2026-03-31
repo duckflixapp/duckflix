@@ -39,7 +39,7 @@ router.delete(
 // Seasons
 // ------------------------------------
 router.get(
-    '/season/:seasonId',
+    '/seasons/:seasonId',
     rateLimit({
         ...limiterConfigs.defaults(),
         windowMs: 3 * 1000, // 45 per 3s
@@ -50,7 +50,7 @@ router.get(
 );
 
 router.delete(
-    '/season/:seasonId',
+    '/seasons/:seasonId',
     hasRole('contributor'),
     rateLimit({
         ...limiterConfigs.defaults(),

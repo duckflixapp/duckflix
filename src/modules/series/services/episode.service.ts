@@ -15,6 +15,7 @@ export const getEpisodeById = async (episodeId: string) => {
                     subtitles: true,
                 },
             },
+            season: true,
         },
     });
 

@@ -6,14 +6,14 @@ import { limiterConfigs } from '@shared/limiters';
 const router = Router();
 
 router.delete(
-    '/movies/:id/kill',
+    '/videoVersion/:id/kill',
     rateLimit({
         ...limiterConfigs.defaults(),
         windowMs: 10 * 1000, // 20 per 30s
         limit: 5,
         keyGenerator: limiterConfigs.authenticatedKey,
     }),
-    TaskController.killMovieTask
+    TaskController.killVideoVersionTask
 );
 
 export default router;
