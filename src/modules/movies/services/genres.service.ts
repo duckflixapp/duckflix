@@ -22,7 +22,7 @@ export const getGenres = async (): Promise<MovieGenreDTO[]> => {
     return results.map(toGenreDTO);
 };
 
-export const getGenreIds = async (genreNames: string[]): Promise<string[]> => {
+export const getMovieGenreIds = async (genreNames: string[]): Promise<string[]> => {
     if (!genreNames.length) return [];
 
     const results = await db

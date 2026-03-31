@@ -1,13 +1,12 @@
 import type { VideoDTO, VideoMinDTO, VideoResolved, VideoVersionDTO } from '@duckflix/shared';
 import { db, type Transaction } from '@shared/configs/db';
-import { series, seriesEpisodes, seriesSeasons, type SeriesStatus, type Video } from '@schema/index';
-import { movies, moviesToGenres } from '@shared/schema/movie.schema';
+import { series, seriesEpisodes, seriesGenres, seriesSeasons, seriesToGenres, type SeriesStatus, type Video } from '@schema/index';
+import { movieGenres, movies, moviesToGenres } from '@shared/schema/movie.schema';
 import { videos } from '@shared/schema/video.schema';
 import type { EpisodeMetadata, MovieMetadata, VideoMetadata } from '@shared/services/metadata/metadata.types';
 import { VideoNotCreatedError, VideoNotFoundError } from './video.errors';
 import { toVideoDTO, toVideoMinDTO } from '@shared/mappers/video.mapper';
-import { getGenreIds } from '@modules/movies/services/genres.service';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { AppError } from '@shared/errors';
 import { env } from '@core/env';
 import { taskRegistry } from '@utils/taskRegistry';
@@ -39,9 +38,15 @@ const movieUploadHandler: UploadHandler<MovieMetadata> = async (tx, video, data)
 
         if (!movie) throw new VideoNotCreatedError();
 
-        const genreIds = await getGenreIds(data.genres);
-        if (genreIds.length > 0) {
-            await tx.insert(moviesToGenres).values(genreIds.map((genreId) => ({ movieId: movie.id, genreId })));
+        if (data.genres.length > 0) {
+            const movieGenresRaw = await tx
+                .select({ id: movieGenres.id })
+                .from(movieGenres)
+                .where(inArray(movieGenres.name, data.genres))
+                .orderBy(movieGenres.name);
+
+            const genreIds = movieGenresRaw.map(({ id }) => id);
+            if (genreIds.length > 0) await tx.insert(moviesToGenres).values(genreIds.map((genreId) => ({ movieId: movie.id, genreId })));
         }
     } catch (e) {
         if (isDuplicateKey(e)) throw new AppError('Movie already exists', { statusCode: 409 });
@@ -83,6 +88,17 @@ const episodeUploadHandler: UploadHandler<EpisodeMetadata> = async (tx, video, d
             .returning({ id: series.id });
 
         seriesId = inserted!.id;
+
+        const genreNames = raw.genres.map((g) => g.name.toLowerCase());
+        if (genreNames.length > 0) {
+            const seriesGenresRaw = await tx
+                .select({ id: seriesGenres.id })
+                .from(seriesGenres)
+                .where(inArray(seriesGenres.name, genreNames));
+
+            const genreIds = seriesGenresRaw.map(({ id }) => id);
+            if (genreIds.length > 0) await tx.insert(seriesToGenres).values(genreIds.map((genreId) => ({ seriesId: seriesId!, genreId })));
+        }
     }
 
     let seasonId = existingSeries?.seasons.find((s) => s.seasonNumber === data.seasonNumber)?.id;

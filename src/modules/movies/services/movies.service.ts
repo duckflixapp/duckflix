@@ -6,7 +6,7 @@ import type { MovieDetailedDTO, MovieDTO, PaginatedResponse } from '@duckflix/sh
 import { toMovieDetailedDTO, toMovieDTO } from '@shared/mappers/movies.mapper';
 import { AppError } from '@shared/errors';
 import type { MovieMetadata } from '@shared/services/metadata/metadata.types';
-import { getGenreIds } from './genres.service';
+import { getMovieGenreIds } from './genres.service';
 
 const getOrderBy = (orderBy: string | null) => {
     switch (orderBy) {
@@ -111,7 +111,7 @@ export const updateMovieById = async (id: string, data: Partial<MovieMetadata>):
         if (modified.rowCount === 0) throw new MovieNotFoundError();
 
         if (data.genres) {
-            const genreIds = await getGenreIds(data.genres);
+            const genreIds = await getMovieGenreIds(data.genres);
             await tx.delete(moviesToGenres).where(eq(moviesToGenres.movieId, id));
 
             if (genreIds.length > 0) {
