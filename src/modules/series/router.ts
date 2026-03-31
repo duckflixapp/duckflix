@@ -31,7 +31,8 @@ router.delete(
         windowMs: 3 * 1000, // 45 per 3s
         limit: 45,
         keyGenerator: limiterConfigs.authenticatedKey,
-    })
+    }),
+    SeriesController.deleteOne
 );
 
 // ------------------------------------
@@ -56,7 +57,8 @@ router.delete(
         windowMs: 3 * 1000, // 45 per 3s
         limit: 45,
         keyGenerator: limiterConfigs.authenticatedKey,
-    })
+    }),
+    SeasonController.deleteOne
 );
 
 // ------------------------------------

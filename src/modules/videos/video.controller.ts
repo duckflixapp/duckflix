@@ -31,7 +31,7 @@ export const upload = catchAsync(async (req: Request, res: Response) => {
                 { checkHash: false }
             );
         if (!metadata)
-            throw new AppError('Failed to retrieve metadata. Please provide valid movie data or db url', {
+            throw new AppError('Failed to retrieve metadata. Please provide valid video data or db url', {
                 statusCode: 400,
             });
 

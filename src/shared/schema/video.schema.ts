@@ -72,14 +72,14 @@ export const videosRelations = relations(videos, ({ one, many }) => ({
 }));
 
 export const videoVersionsRelations = relations(videoVersions, ({ one }) => ({
-    movie: one(videos, {
+    video: one(videos, {
         fields: [videoVersions.videoId],
         references: [videos.id],
     }),
 }));
 
 export const subtitlesRelations = relations(subtitles, ({ one }) => ({
-    movie: one(videos, {
+    video: one(videos, {
         fields: [subtitles.videoId],
         references: [videos.id],
     }),

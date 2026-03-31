@@ -1,8 +1,8 @@
 import { db } from '@shared/configs/db';
-import { AppError } from '@shared/errors';
 import { toSeasonDTO } from '@shared/mappers/series.mapper';
 import { seriesSeasons } from '@schema/series.schema';
 import { eq } from 'drizzle-orm';
+import { SeriesSeasonNotFound } from '../errors';
 
 export const getSeasonById = async (seasonId: string) => {
     const season = await db.query.seriesSeasons.findFirst({
@@ -12,7 +12,18 @@ export const getSeasonById = async (seasonId: string) => {
         },
     });
 
-    if (!season) throw new AppError('Season not found', { statusCode: 404 });
+    if (!season) throw new SeriesSeasonNotFound();
 
     return toSeasonDTO(season);
+};
+
+export const deleteSeasonById = async (data: { seasonId: string; userId: string }) => {
+    await db.transaction(async (tx) => {
+        const season = await tx.query.seriesSeasons.findFirst({ where: eq(seriesSeasons.id, data.seasonId) });
+        if (!season) throw new SeriesSeasonNotFound();
+
+        await tx.delete(seriesSeasons).where(eq(seriesSeasons.id, data.seasonId));
+    });
+
+    return;
 };

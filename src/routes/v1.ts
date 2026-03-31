@@ -2,7 +2,7 @@ import { Router } from 'express';
 import authRouter from '../modules/auth/auth.router';
 import videoRouter from '../modules/videos/video.router';
 import movieRouter from '../modules/movies/movies.router';
-import seriesRouter from '../modules/series/series.router';
+import seriesRouter from '../modules/series/router';
 import usersRouter from '../modules/users/user.router';
 import libraryRouter from '../modules/library/library.router';
 import mediaRouter from '../modules/media/media.router';
