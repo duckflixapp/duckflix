@@ -120,6 +120,15 @@ export class TMDBClient {
         return data;
     }
 
+    public async getTVGenres(options?: { language?: string }) {
+        const { data } = await this.api
+            .get<{ genres: { id: number; name: string }[] }>('/genre/tv/list', { params: { language: options?.language } })
+            .catch((err) => {
+                throw new TMDBGenresError(err);
+            });
+        return data;
+    }
+
     // ----- Movies -----
     public async getMovieDetails(movieId: string) {
         const { data } = await this.api.get<TMDBMovieDetails>(`/movie/${movieId}`).catch((err) => {

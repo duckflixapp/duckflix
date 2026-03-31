@@ -92,12 +92,6 @@ export const fillMovieFromTMDBId = async (id: string): Promise<MovieMetadata> =>
     };
 };
 
-export const getTMDBMovieGenres = async () => {
-    const { genres } = await tmdbClient.getMovieGenres();
-    const genreNames = genres.map(({ name }) => name.toLowerCase());
-    return genreNames;
-};
-
 export const searchTMDB = async (data: {
     title: string;
     year?: number;
