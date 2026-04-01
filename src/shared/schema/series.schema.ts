@@ -1,5 +1,5 @@
 import { decimal, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
-import { relations, type InferSelectModel } from 'drizzle-orm';
+import { relations, sql, type InferSelectModel } from 'drizzle-orm';
 
 import { videos } from './video.schema';
 
@@ -8,19 +8,31 @@ export type SeriesStatus = 'returning' | 'ended' | 'canceled' | 'in_production';
 // ------------------------------------
 // Schema
 // ------------------------------------
-export const series = pgTable('series', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    title: text('title').notNull(),
-    overview: text('overview'),
-    posterUrl: text('poster_url'),
-    bannerUrl: text('banner_url'),
-    rating: decimal('rating', { precision: 3, scale: 1 }),
-    firstAirDate: text('first_air_date'),
-    lastAirDate: text('last_air_date'),
-    status: text('status').$type<SeriesStatus>(),
-    tmdbId: integer('tmdb_id').unique(),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
-});
+export const series = pgTable(
+    'series',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        title: text('title').notNull(),
+        overview: text('overview'),
+        posterUrl: text('poster_url'),
+        bannerUrl: text('banner_url'),
+        rating: decimal('rating', { precision: 3, scale: 1 }),
+        firstAirDate: text('first_air_date'),
+        lastAirDate: text('last_air_date'),
+        status: text('status').$type<SeriesStatus>(),
+        tmdbId: integer('tmdb_id').unique(),
+        createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    },
+    (t) => ({
+        createdAtIndex: index('series_created_at_idx').on(t.createdAt),
+        ratingIndex: index('series_rating_idx').on(t.rating),
+        ftsIndex: index('series_fts_idx').using(
+            'gin',
+            sql`setweight(to_tsvector('english', ${t.title}), 'A') || 
+            setweight(to_tsvector('english', coalesce(${t.overview}, '')), 'B')`
+        ),
+    })
+);
 
 export const seriesSeasons = pgTable(
     'series_seasons',

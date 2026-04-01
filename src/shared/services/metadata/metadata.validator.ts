@@ -9,6 +9,7 @@ export const movieMetadataSchema = z.object({
     bannerUrl: z.url().nullable().optional(),
     genres: z.array(z.string()),
     rating: z.number().nullable(),
+    runtime: z.number().positive().nullable().optional(),
     imdbId: z.string().nullable(),
     tmdbId: z.number().int().positive(),
 });

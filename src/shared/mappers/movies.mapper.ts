@@ -13,12 +13,12 @@ export const toMovieMinDTO = (movie: Movie): MovieMinDTO => ({
     posterUrl: movie.posterUrl,
     rating: movie.rating,
     releaseYear: movie.releaseYear,
+    runtime: movie.runtime,
 });
 
 export const toMovieDTO = (movie: RichMovieWithVideo): MovieDTO => ({
     ...toMovieMinDTO(movie),
     video: toVideoDTO(movie.video),
-    duration: movie.video.duration,
     genres: movie.genres.map((g) => toGenreDTO(g.genre)),
 });
 

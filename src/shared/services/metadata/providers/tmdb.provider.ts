@@ -87,6 +87,7 @@ export const fillMovieFromTMDBId = async (id: string): Promise<MovieMetadata> =>
         bannerUrl: raw.backdrop_path ? `https://image.tmdb.org/t/p/original${raw.backdrop_path}` : undefined,
         genres: rawGenres,
         rating: raw.vote_average,
+        runtime: raw.runtime,
         imdbId: raw.imdb_id,
         tmdbId: Number(raw.id),
     };

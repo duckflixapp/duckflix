@@ -48,6 +48,7 @@ const enrichMovieMetadata = async (external: Partial<MovieMetadata>, manual: Par
             bannerUrl: external.bannerUrl ?? manual.bannerUrl,
             genres: external.genres?.length ? external.genres : (manual.genres ?? []),
             rating: external.rating ?? null,
+            runtime: external.runtime ?? null,
             imdbId: external.imdbId ?? null,
             tmdbId: external.tmdbId ?? null,
         });

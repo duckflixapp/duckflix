@@ -8,6 +8,7 @@ import libraryRouter from '../modules/library/library.router';
 import mediaRouter from '../modules/media/media.router';
 import adminRouter from '../modules/admin/admin.router';
 import tasksRouter from '../modules/tasks/tasks.router';
+import searchRouter from '../modules/search/search.router';
 import healthRouter from './health';
 import { authenticate, hasRole } from '../shared/middlewares/auth.middleware';
 
@@ -24,6 +25,8 @@ router.use('/library', authenticate(), libraryRouter);
 
 router.use('/movies', authenticate(), movieRouter);
 router.use('/series', authenticate(), seriesRouter);
+router.use('/search', authenticate(), searchRouter);
+
 router.use('/media', mediaRouter);
 
 router.use('/admin', authenticate(), hasRole('admin'), adminRouter);

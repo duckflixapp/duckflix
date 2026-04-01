@@ -1,25 +1,38 @@
 import { pgTable, uuid, text, decimal, integer, timestamp, index } from 'drizzle-orm/pg-core';
 import { videos } from './video.schema';
-import { relations, type InferSelectModel } from 'drizzle-orm';
+import { relations, sql, type InferSelectModel } from 'drizzle-orm';
 
 // ------------------------------------
 // Schema
 // ------------------------------------
-export const movies = pgTable('movies', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    videoId: uuid('video_id')
-        .references(() => videos.id, { onDelete: 'cascade' })
-        .notNull()
-        .unique(),
-    title: text('title').notNull(),
-    overview: text('overview'),
-    bannerUrl: text('banner_url'),
-    posterUrl: text('poster_url'),
-    rating: decimal('rating', { precision: 3, scale: 1 }).default('0.0'),
-    releaseYear: integer('release_year'),
-    tmdbId: integer('tmdb_id').unique(),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
-});
+export const movies = pgTable(
+    'movies',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        videoId: uuid('video_id')
+            .references(() => videos.id, { onDelete: 'cascade' })
+            .notNull()
+            .unique(),
+        title: text('title').notNull(),
+        overview: text('overview'),
+        bannerUrl: text('banner_url'),
+        posterUrl: text('poster_url'),
+        rating: decimal('rating', { precision: 3, scale: 1 }).default('0.0'),
+        releaseYear: integer('release_year'),
+        runtime: integer('runtime'),
+        tmdbId: integer('tmdb_id').unique(),
+        createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    },
+    (t) => ({
+        createdAtIndex: index('movies_created_at_idx').on(t.createdAt),
+        ratingIndex: index('movies_rating_idx').on(t.rating),
+        ftsIndex: index('movies_fts_idx').using(
+            'gin',
+            sql`setweight(to_tsvector('english', ${t.title}), 'A') || 
+            setweight(to_tsvector('english', coalesce(${t.overview}, '')), 'B')`
+        ),
+    })
+);
 
 export const movieGenres = pgTable('movie_genres', {
     id: uuid('id').defaultRandom().primaryKey(),
