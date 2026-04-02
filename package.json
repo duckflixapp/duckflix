@@ -4,10 +4,12 @@
     "type": "module",
     "private": true,
     "scripts": {
-        "prestart": "bun run db:push",
+        "prestart": "bun run db:migrate",
         "start": "bun src/server.ts",
         "dev": "bun --hot src/server.ts",
         "db:push": "drizzle-kit push",
+        "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
+        "db:generate": "drizzle-kit generate",
         "db:studio": "drizzle-kit studio",
         "lint": "eslint .",
         "typecheck": "tsc --noEmit --excludeFiles '**/*.test.ts'"

@@ -28,8 +28,8 @@ export const movies = pgTable(
         ratingIndex: index('movies_rating_idx').on(t.rating),
         ftsIndex: index('movies_fts_idx').using(
             'gin',
-            sql`setweight(to_tsvector('english', ${t.title}), 'A') || 
-            setweight(to_tsvector('english', coalesce(${t.overview}, '')), 'B')`
+            sql`(setweight(to_tsvector('english', ${t.title}), 'A') || 
+            setweight(to_tsvector('english', coalesce(${t.overview}, '')), 'B'))`
         ),
     })
 );

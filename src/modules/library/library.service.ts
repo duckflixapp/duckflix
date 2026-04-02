@@ -94,11 +94,6 @@ export const addContentToUserLibrary = async (
                 if (!s) throw new AppError('Series not found', { statusCode: 404 });
                 await tx.insert(libraryItems).values({ libraryId: library.id, seriesId: s.id });
             }
-
-            await tx
-                .update(libraries)
-                .set({ size: sql`${libraries.size} + 1` })
-                .where(eq(libraries.id, library.id));
         });
     } catch (err) {
         if (isDuplicateKey(err)) throw new AppError(`Content is already in library.`, { statusCode: 409 });
@@ -130,11 +125,6 @@ export const removeContentFromUserLibrary = async (
 
         const modified = await tx.delete(libraryItems).where(deleteFilter);
         if (modified.rowCount === 0) throw new AppError('Content not found in library', { statusCode: 404 });
-
-        await tx
-            .update(libraries)
-            .set({ size: sql`${libraries.size} - 1` })
-            .where(eq(libraries.id, library.id));
     });
 };
 
