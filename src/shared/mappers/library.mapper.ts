@@ -1,7 +1,7 @@
-import type { LibraryDTO, LibraryItemDTO, LibraryItemMinDTO, LibraryMinDTO } from '@duckflix/shared';
-import type { Movie, User, Library, LibraryItem } from '@schema/index';
+import type { LibraryDTO, LibraryItemDTO, LibraryMinDTO } from '@duckflix/shared';
+import type { Movie, User, Library, Series } from '@schema/index';
 import { toUserMinDTO } from './user.mapper';
-import { toMovieMinDTO } from './movies.mapper';
+import { toContentDTO } from './content.mapper';
 
 export const toLibraryDTO = (library: Library & { user: Pick<User, 'id' | 'name' | 'role' | 'system'> }): LibraryDTO => ({
     ...toLibraryMinDTO(library),
@@ -17,12 +17,15 @@ export const toLibraryMinDTO = (library: Library): LibraryMinDTO => ({
     createdAt: library.createdAt,
 });
 
-export const toLibraryItemMinDTO = (item: LibraryItem): LibraryItemMinDTO => ({
+export const toLibraryItemDTO = (item: {
+    id: string;
+    libraryId: string;
+    addedAt: string;
+    movie: Movie | null;
+    series: Series | null;
+}): LibraryItemDTO => ({
+    id: item.id,
     libraryId: item.libraryId,
-    movieId: item.movieId,
-});
-
-export const toLibraryItemDTO = (item: LibraryItem & { movie: Movie }): LibraryItemDTO => ({
-    ...toLibraryItemMinDTO(item),
-    movie: toMovieMinDTO(item.movie),
+    addedAt: item.addedAt,
+    content: item.movie ? toContentDTO('movie', item.movie) : toContentDTO('series', item.series!),
 });

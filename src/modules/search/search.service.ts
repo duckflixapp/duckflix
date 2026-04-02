@@ -1,11 +1,11 @@
-import type { PaginatedResponse, SearchResultDTO, SortOrder, SortValue } from '@duckflix/shared';
+import type { PaginatedResponse, ContentDTO, SortOrder, SortValue } from '@duckflix/shared';
 import { movies } from '@schema/movie.schema';
 import { series } from '@schema/series.schema';
 import { and, asc, count, desc, sql } from 'drizzle-orm';
 import { db } from '@shared/configs/db';
 import { searchFromQuery, toSeriesGenresFilter, toMovieGenresFilter } from './search.helper';
 import { unionAll } from 'drizzle-orm/pg-core';
-import { toSearchResultDTO } from '@shared/mappers/search.mapper';
+import { toContentDTOFromRow } from '@shared/mappers/content.mapper';
 
 interface SearchOptions {
     q: string | null;
@@ -15,7 +15,7 @@ interface SearchOptions {
     genres: string[];
 }
 
-export const unifiedSearch = async (options: SearchOptions): Promise<PaginatedResponse<SearchResultDTO>> => {
+export const unifiedSearch = async (options: SearchOptions): Promise<PaginatedResponse<ContentDTO>> => {
     const offset = (options.page - 1) * options.limit;
 
     const { filter: textFilterSeries, rank: rankSeries } = searchFromQuery(series, options.q);
@@ -70,18 +70,18 @@ export const unifiedSearch = async (options: SearchOptions): Promise<PaginatedRe
 
         const orderBy = options.q ? [desc(combinedQuery.rank), unionOrder] : [unionOrder];
 
-        const paginatedResults = (await tx
+        const paginatedResults = await tx
             .select()
             .from(combinedQuery)
             .orderBy(...orderBy)
             .limit(options.limit)
-            .offset(offset)) as SearchResultDTO[];
+            .offset(offset);
 
         return { results: paginatedResults, total: totalCount };
     });
 
     return {
-        data: results.map(toSearchResultDTO),
+        data: results.map(toContentDTOFromRow),
         meta: {
             totalItems: total,
             itemCount: results.length,

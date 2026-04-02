@@ -1,7 +1,14 @@
 import type { Request, Response } from 'express';
 import { catchAsync } from '@utils/catchAsync';
 import * as LibraryService from './library.service';
-import { getUserLibrariesScheme, libraryScheme, libraryMovieItemScheme, newLibraryScheme, libraryQuerySchema } from './library.validator';
+import {
+    getUserLibrariesScheme,
+    libraryScheme,
+    newLibraryScheme,
+    libraryQuerySchema,
+    libraryItemScheme,
+    libraryItemTypeScheme,
+} from './library.validator';
 
 export const getUserLibraries = catchAsync(async (req: Request, res: Response) => {
     const userId = req.user!.id;
@@ -40,7 +47,7 @@ export const removeLibrary = catchAsync(async (req: Request, res: Response) => {
     res.status(204).json({ status: 'success' });
 });
 
-export const getLibraryMovies = catchAsync(async (req: Request, res: Response) => {
+export const getLibraryItems = catchAsync(async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { id: libraryId } = libraryScheme.parse(req.params);
     const options = libraryQuerySchema.parse(req.query);
@@ -50,20 +57,22 @@ export const getLibraryMovies = catchAsync(async (req: Request, res: Response) =
     res.status(200).json({ status: 'success', ...paginatedResults });
 });
 
-export const addMovie = catchAsync(async (req: Request, res: Response) => {
+export const addContent = catchAsync(async (req: Request, res: Response) => {
     const userId = req.user!.id;
-    const { libraryId, movieId } = libraryMovieItemScheme.parse(req.params);
+    const { libraryId, contentId } = libraryItemScheme.parse(req.params);
+    const { type } = libraryItemTypeScheme.parse(req.query);
 
-    await LibraryService.addMovieToUserLibrary(userId, libraryId, movieId);
+    await LibraryService.addContentToUserLibrary(userId, libraryId, contentId, type);
 
     res.status(204).json({ status: 'success' });
 });
 
-export const removeMovie = catchAsync(async (req: Request, res: Response) => {
+export const removeContent = catchAsync(async (req: Request, res: Response) => {
     const userId = req.user!.id;
-    const { libraryId, movieId } = libraryMovieItemScheme.parse(req.params);
+    const { libraryId, contentId } = libraryItemScheme.parse(req.params);
+    const { type } = libraryItemTypeScheme.parse(req.query);
 
-    await LibraryService.removeMovieFromUserLibrary(userId, libraryId, movieId);
+    await LibraryService.removeContentFromUserLibrary(userId, libraryId, contentId, type);
 
     res.status(204).json({ status: 'success' });
 });

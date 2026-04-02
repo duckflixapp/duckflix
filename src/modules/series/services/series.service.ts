@@ -1,10 +1,11 @@
 import { db } from '@shared/configs/db';
-import { toSeriesDTO } from '@shared/mappers/series.mapper';
+import { toSeriesDetailedDTO } from '@shared/mappers/series.mapper';
 import { series, seriesSeasons } from '@schema/series.schema';
-import { eq, sql } from 'drizzle-orm';
+import { and, count, eq, sql } from 'drizzle-orm';
 import { SeriesNotFound } from '../errors';
+import { libraries, libraryItems } from '@shared/schema';
 
-export const getSeriesById = async (seriesId: string) => {
+export const getSeriesById = async (seriesId: string, options: { userId?: string }) => {
     const tvSeries = await db.query.series.findFirst({
         where: eq(series.id, seriesId),
         with: {
@@ -20,7 +21,19 @@ export const getSeriesById = async (seriesId: string) => {
     });
 
     if (!tvSeries) throw new SeriesNotFound();
-    return toSeriesDTO(tvSeries);
+
+    let inLibrary: boolean | null = null;
+    if (options.userId) {
+        const [libraryCount] = await db
+            .select({ value: count() })
+            .from(libraries)
+            .leftJoin(libraryItems, eq(libraries.id, libraryItems.libraryId))
+            .where(and(eq(libraries.type, 'watchlist'), eq(libraries.userId, options.userId), eq(libraryItems.seriesId, tvSeries.id)));
+
+        inLibrary = !!libraryCount?.value && libraryCount?.value > 0;
+    }
+
+    return toSeriesDetailedDTO(tvSeries, inLibrary);
 };
 
 export const deleteSeriesById = async (data: { seriesId: string; userId: string }) => {

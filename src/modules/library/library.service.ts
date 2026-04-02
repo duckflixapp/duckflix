@@ -1,6 +1,6 @@
 import type { LibraryDTO, LibraryItemDTO, LibraryMinDTO, PaginatedResponse } from '@duckflix/shared';
 import { db } from '@shared/configs/db';
-import { libraries, libraryItems, movies } from '@schema/index';
+import { libraries, libraryItems, movies, series } from '@schema/index';
 import { and, count, desc, eq, ilike, sql } from 'drizzle-orm';
 import { toLibraryDTO, toLibraryItemDTO, toLibraryMinDTO } from '@shared/mappers/library.mapper';
 import { AppError } from '@shared/errors';
@@ -67,55 +67,69 @@ export const deleteUserLibrary = async (userId: string, libraryId: string): Prom
         await tx.delete(libraries).where(eq(libraries.id, library.id));
     });
 };
-
-export const addMovieToUserLibrary = async (userId: string, libraryId: string, movieId: string): Promise<void> => {
+export const addContentToUserLibrary = async (
+    userId: string,
+    libraryId: string,
+    contentId: string,
+    type: 'movie' | 'series'
+): Promise<void> => {
     try {
-        const conditions = [];
-        conditions.push(eq(libraries.userId, userId));
+        const conditions = [eq(libraries.userId, userId)];
         if (libraryId === 'watchlist') conditions.push(eq(libraries.type, 'watchlist'));
         else conditions.push(eq(libraries.id, libraryId));
 
-        const filters = and(...conditions);
-
         await db.transaction(async (tx) => {
-            const [library] = await tx.select({ id: libraries.id }).from(libraries).where(filters);
+            const [library] = await tx
+                .select({ id: libraries.id })
+                .from(libraries)
+                .where(and(...conditions));
             if (!library) throw new LibraryNotFoundError();
 
-            const [movie] = await tx.select({ id: movies.id }).from(movies).where(eq(movies.id, movieId));
-            if (!movie) throw new AppError('Movie not found', { statusCode: 404 });
+            if (type === 'movie') {
+                const [movie] = await tx.select({ id: movies.id }).from(movies).where(eq(movies.id, contentId));
+                if (!movie) throw new AppError('Movie not found', { statusCode: 404 });
+                await tx.insert(libraryItems).values({ libraryId: library.id, movieId: movie.id });
+            } else {
+                const [s] = await tx.select({ id: series.id }).from(series).where(eq(series.id, contentId));
+                if (!s) throw new AppError('Series not found', { statusCode: 404 });
+                await tx.insert(libraryItems).values({ libraryId: library.id, seriesId: s.id });
+            }
 
-            await tx.insert(libraryItems).values({
-                libraryId: library.id,
-                movieId: movie.id,
-            });
             await tx
                 .update(libraries)
                 .set({ size: sql`${libraries.size} + 1` })
                 .where(eq(libraries.id, library.id));
         });
     } catch (err) {
-        if (isDuplicateKey(err)) throw new AppError(`Movie is already in library.`, { statusCode: 409 });
+        if (isDuplicateKey(err)) throw new AppError(`Content is already in library.`, { statusCode: 409 });
         throw err;
     }
 };
 
-export const removeMovieFromUserLibrary = async (userId: string, libraryId: string, movieId: string): Promise<void> => {
-    const conditions = [];
-    conditions.push(eq(libraries.userId, userId));
+export const removeContentFromUserLibrary = async (
+    userId: string,
+    libraryId: string,
+    contentId: string,
+    type: 'movie' | 'series'
+): Promise<void> => {
+    const conditions = [eq(libraries.userId, userId)];
     if (libraryId === 'watchlist') conditions.push(eq(libraries.type, 'watchlist'));
     else conditions.push(eq(libraries.id, libraryId));
 
-    const filters = and(...conditions);
-
     await db.transaction(async (tx) => {
-        const [library] = await tx.select({ id: libraries.id }).from(libraries).where(filters);
+        const [library] = await tx
+            .select({ id: libraries.id })
+            .from(libraries)
+            .where(and(...conditions));
         if (!library) throw new LibraryNotFoundError();
 
-        const modified = await tx
-            .delete(libraryItems)
-            .where(and(eq(libraryItems.libraryId, library.id), eq(libraryItems.movieId, movieId)));
+        const deleteFilter =
+            type === 'movie'
+                ? and(eq(libraryItems.libraryId, library.id), eq(libraryItems.movieId, contentId))
+                : and(eq(libraryItems.libraryId, library.id), eq(libraryItems.seriesId, contentId));
 
-        if (modified.rowCount === 0) throw new AppError('Movie not found in library', { statusCode: 404 });
+        const modified = await tx.delete(libraryItems).where(deleteFilter);
+        if (modified.rowCount === 0) throw new AppError('Content not found in library', { statusCode: 404 });
 
         await tx
             .update(libraries)
@@ -146,10 +160,12 @@ export const getUserLibraryItems = async (
 ): Promise<PaginatedResponse<LibraryItemDTO>> => {
     const offset = (options.page - 1) * options.limit;
 
-    const searchFilter = options.search ? ilike(movies.title, `%${options.search}%`) : null;
+    const searchFilter = options.search
+        ? sql`(${ilike(movies.title, `%${options.search}%`)} OR ${ilike(series.title, `%${options.search}%`)})`
+        : null;
 
     const conditions = [searchFilter, eq(libraryItems.libraryId, libraryId)];
-    const filters = and(...conditions.filter((cond) => cond != null));
+    const filters = and(...conditions.filter((c) => c != null));
 
     const [results, total] = await db.transaction(async (tx) => {
         const [library] = await tx
@@ -164,17 +180,23 @@ export const getUserLibraryItems = async (
                 .select({
                     id: libraryItems.id,
                     libraryId: libraryItems.libraryId,
-                    movieId: libraryItems.movieId,
                     addedAt: libraryItems.addedAt,
                     movie: movies,
+                    series: series,
                 })
                 .from(libraryItems)
-                .innerJoin(movies, eq(libraryItems.movieId, movies.id))
+                .leftJoin(movies, eq(libraryItems.movieId, movies.id))
+                .leftJoin(series, eq(libraryItems.seriesId, series.id))
                 .where(filters)
+                .orderBy(desc(libraryItems.addedAt))
                 .limit(options.limit)
-                .offset(offset)
-                .orderBy(desc(movies.createdAt)),
-            tx.select({ value: count() }).from(libraryItems).innerJoin(movies, eq(libraryItems.movieId, movies.id)).where(filters),
+                .offset(offset),
+            tx
+                .select({ value: count() })
+                .from(libraryItems)
+                .leftJoin(movies, eq(libraryItems.movieId, movies.id))
+                .leftJoin(series, eq(libraryItems.seriesId, series.id))
+                .where(filters),
         ]);
     });
 

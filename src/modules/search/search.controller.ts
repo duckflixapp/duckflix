@@ -15,9 +15,3 @@ export const search = catchAsync(async (req: Request, res: Response) => {
         ...paginatedData,
     });
 });
-
-export const getFeatured = catchAsync(async (req: Request, res: Response) => {
-    return res.status(200).json({
-        status: 'success',
-    });
-});

@@ -19,8 +19,8 @@ router.post('/', defaultLimiter(), LibraryController.createLibrary);
 router.get('/:id', defaultLimiter(), LibraryController.getLibrary);
 router.delete('/:id', defaultLimiter(), LibraryController.removeLibrary);
 
-router.get('/:id/movies/', defaultLimiter(), LibraryController.getLibraryMovies);
-router.post('/:libraryId/movies/:movieId', defaultLimiter(), LibraryController.addMovie);
-router.delete('/:libraryId/movies/:movieId', defaultLimiter(), LibraryController.removeMovie);
+router.get('/:id/items/', defaultLimiter(), LibraryController.getLibraryItems);
+router.post('/:libraryId/items/:contentId', defaultLimiter(), LibraryController.addContent);
+router.delete('/:libraryId/items/:contentId', defaultLimiter(), LibraryController.removeContent);
 
 export default router;

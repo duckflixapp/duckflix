@@ -5,8 +5,9 @@ import { deleteSeriesById, getSeriesById } from './services/series.service';
 
 export const getOne = catchAsync(async (req: Request, res: Response) => {
     const { seriesId } = seriesParamSchema.parse(req.params);
+    const userId = req.user!.id;
 
-    const series = await getSeriesById(seriesId);
+    const series = await getSeriesById(seriesId, { userId });
 
     res.status(200).json({
         status: 'success',
