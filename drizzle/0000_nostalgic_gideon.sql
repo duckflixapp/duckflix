@@ -38,6 +38,7 @@ CREATE TABLE "users" (
 CREATE TABLE "subtitles" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"video_id" uuid NOT NULL,
+	"name" text NOT NULL,
 	"language" text NOT NULL,
 	"storage_key" text NOT NULL,
 	"external_id" text,
@@ -210,3 +211,20 @@ CREATE INDEX "series_fts_idx" ON "series" USING gin ((setweight(to_tsvector('eng
 CREATE UNIQUE INDEX "season_episode_unique" ON "series_episodes" USING btree ("season_id","episode_number");--> statement-breakpoint
 CREATE UNIQUE INDEX "series_season_unique" ON "series_seasons" USING btree ("series_id","season_number");--> statement-breakpoint
 CREATE INDEX "series_genre_idx" ON "series_to_genres" USING btree ("series_id","genre_id");
+--> statement-breakpoint
+CREATE OR REPLACE FUNCTION update_library_size()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        UPDATE library SET size = size + 1 WHERE id = NEW.library_id;
+    ELSIF TG_OP = 'DELETE' THEN
+        UPDATE library SET size = size - 1 WHERE id = OLD.library_id;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+--> statement-breakpoint
+CREATE TRIGGER library_size_trigger
+AFTER INSERT OR DELETE ON library_items
+FOR EACH ROW EXECUTE FUNCTION update_library_size();

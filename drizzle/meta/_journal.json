@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1775123905633,
-      "tag": "0000_strange_dragon_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1775094394221,
-      "tag": "0001_chunky_squadron_supreme",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1775273163470,
-      "tag": "0002_broken_morgan_stark",
+      "when": 1775524932070,
+      "tag": "0000_nostalgic_gideon",
       "breakpoints": true
     }
   ]

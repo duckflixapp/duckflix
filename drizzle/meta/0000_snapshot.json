@@ -1,6 +1,6 @@
 {
-  "id": "c5cf452a-b7eb-4bb7-a93d-3940e295fe0e",
-  "prevId": "f031ffd6-3809-434b-a6cd-6fa6646b42db",
+  "id": "5392ea4f-fb56-423d-a8e3-794c3b29b0b8",
+  "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -262,6 +262,12 @@
         "video_id": {
           "name": "video_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -613,7 +619,7 @@
           "name": "movies_fts_idx",
           "columns": [
             {
-              "expression": "setweight(to_tsvector('english', \"title\"), 'A') || \n            setweight(to_tsvector('english', coalesce(\"overview\", '')), 'B')",
+              "expression": "(setweight(to_tsvector('english', \"title\"), 'A') || \n            setweight(to_tsvector('english', coalesce(\"overview\", '')), 'B'))",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -1163,7 +1169,7 @@
           "name": "series_fts_idx",
           "columns": [
             {
-              "expression": "setweight(to_tsvector('english', \"title\"), 'A') || \n            setweight(to_tsvector('english', coalesce(\"overview\", '')), 'B')",
+              "expression": "(setweight(to_tsvector('english', \"title\"), 'A') || \n            setweight(to_tsvector('english', coalesce(\"overview\", '')), 'B'))",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -1255,6 +1261,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "tmdb_id": {
+          "name": "tmdb_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1315,7 +1327,15 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "series_episodes_tmdb_id_unique": {
+          "name": "series_episodes_tmdb_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tmdb_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
