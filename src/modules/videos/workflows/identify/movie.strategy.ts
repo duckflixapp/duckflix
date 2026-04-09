@@ -1,9 +1,10 @@
 import path from 'node:path';
-import { computeHash, subtitlesClient } from '../../services/subs.service';
+import { computeHash } from '../../subtitles.utils';
 import { fillMovieFromTMDBId, searchTMDB } from '@shared/services/metadata/providers/tmdb.provider';
 import { logger } from '@shared/configs/logger';
 import type { MovieMetadata } from '@shared/services/metadata/metadata.types';
 import { movieMetadataSchema } from '@shared/services/metadata/metadata.validator';
+import { subtitlesClient } from '@shared/lib/opensubs';
 
 export const identifyMovie = async (filePath: string, fileName?: string, checkHash = true): Promise<MovieMetadata> => {
     if (checkHash) {

@@ -11,7 +11,7 @@ import { getMimeTypeFromFormat } from '@utils/ffmpeg';
 import { paths } from '@shared/configs/path.config';
 import { AppError } from '@shared/errors';
 import { notifyJobStatus } from '@shared/services/notifications/notification.helper';
-import { computeHash } from '../services/subs.service';
+import { computeHash } from '../subtitles.utils';
 import { systemSettings } from '@shared/services/system.service';
 import { logger } from '@shared/configs/logger';
 import { downloadSubtitlesWorkflow, extractSubtitlesWorkflow } from './subtitles.workflow';

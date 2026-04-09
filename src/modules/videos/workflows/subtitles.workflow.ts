@@ -10,10 +10,11 @@ import { AppError } from '@shared/errors';
 import { logger } from '@shared/configs/logger';
 import type { FFprobeData } from '@shared/services/video/src/probe';
 import { createSubtitleName, normalizeLanguage } from '@utils/subs';
-import { mapSubtitles, subtitlesClient } from '../services/subs.service';
+import { mapSubtitles } from '../subtitles.utils';
 import { SubtitleDownloadError } from '../video.errors';
 import type { VideoType } from '@duckflixapp/shared';
 import { eq } from 'drizzle-orm';
+import { subtitlesClient } from '@shared/lib/opensubs';
 
 const SUPPORTED_SUB_CODECS = [
     'subrip', // SRT

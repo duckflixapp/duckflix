@@ -4,7 +4,7 @@ import { series, seriesEpisodes, seriesGenres, seriesSeasons, seriesToGenres, ty
 import { movieGenres, movies, moviesToGenres } from '@shared/schema/movie.schema';
 import { videos, watchHistory } from '@shared/schema/video.schema';
 import type { EpisodeMetadata, MovieMetadata, VideoMetadata } from '@shared/services/metadata/metadata.types';
-import { VideoNotCreatedError, VideoNotFoundError } from './video.errors';
+import { VideoNotCreatedError, VideoNotFoundError } from '../video.errors';
 import { toVideoDTO, toVideoMinDTO, toWatchHistoryDTO } from '@shared/mappers/video.mapper';
 import { and, eq, inArray } from 'drizzle-orm';
 import { AppError } from '@shared/errors';

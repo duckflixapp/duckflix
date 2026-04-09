@@ -1,5 +1,5 @@
 import { logger } from '@shared/configs/logger';
-import Elysia, { ValidationError } from 'elysia';
+import Elysia, { NotFoundError, ValidationError } from 'elysia';
 
 export class AppError extends Error {
     public readonly originalError?: unknown;
@@ -20,10 +20,13 @@ export class AppError extends Error {
     }
 }
 
-export const errorPlugin = new Elysia().onError({ as: 'global' }, ({ error, request, set, server }) => {
+export const errorPlugin = new Elysia().onError({ as: 'global' }, ({ error, request, set, server, status }) => {
     if (error instanceof ValidationError) {
         set.status = 400;
         return { error: 'Validation error', details: error.all.map((i) => ({ field: i.path, message: i.message })) };
+    }
+    if (error instanceof NotFoundError) {
+        return status(404);
     }
     if (error instanceof AppError) {
         if (!error.statusCode || error.statusCode >= 500) {

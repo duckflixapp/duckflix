@@ -9,6 +9,7 @@ export const subtitleParamsSchema = videoParamsSchema.extend({
 });
 
 export const uploadBodySchema = z.object({
+    subtitle: z.file(),
     language: z.string().length(2),
 });
 

@@ -8,13 +8,12 @@ import { AppError } from '@shared/errors';
 import { verifyToken } from '@utils/jwt';
 import { roleHierarchy, type UserRole } from '@duckflixapp/shared';
 import { csrfPlugin } from './csrf.middleware';
-import { logger } from '@shared/configs/logger';
 
 // ----- Schema -----
 export const AuthUserSchema = z.object({
     id: z.string(),
-    role: z.string().describe('Uloga korisnika u sistemu'),
-    isVerified: z.boolean().describe('Da li je korisnik verifikovao email'),
+    role: z.string().describe('User role'),
+    isVerified: z.boolean().describe('Is email verified'),
 });
 
 export type AuthUser = z.infer<typeof AuthUserSchema>;

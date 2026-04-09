@@ -11,9 +11,9 @@ import { convertSRTtoVTT } from '@shared/utils/ffmpeg';
 import { toSubtitleDTO, toSubtitleSearchResultDTO } from '@shared/mappers/video.mapper';
 import { ffprobe } from '@shared/services/video';
 import ISO6391 from 'iso-639-1';
-import { subtitlesClient } from '../services/subs.service';
 import type { SubtitleSearchResultDTO } from '@duckflixapp/shared';
 import { createSubtitleName } from '@shared/utils/subs';
+import { subtitlesClient } from '@shared/lib/opensubs';
 
 const ALLOWED_FORMATS = ['srt', 'webvtt'];
 const ALLOWED_FORMATS_STRING = ALLOWED_FORMATS.join(',');

@@ -1,11 +1,11 @@
 import { Elysia } from 'elysia';
 // import { authPlugin, rolePlugin } from '@shared/middlewares/auth.middleware';
-import { authRouter } from '../modules/auth/auth.router';
-import { usersRouter } from '../modules/users/user.router';
-import { adminRouter } from '@modules/admin/admin.router';
-import { libraryRouter } from '../modules/library/library.router';
-import { searchRouter } from '../modules/search';
-// import videoRouter from '../modules/videos/video.router';
+import { authRouter } from '@modules/auth';
+import { usersRouter } from '@modules/users';
+import { adminRouter } from '@modules/admin';
+import { libraryRouter } from '@modules/library';
+import { searchRouter } from '@modules/search';
+import { videoRouter } from '../modules/videos';
 // import movieRouter from '../modules/movies/movies.router';
 // import seriesRouter from '../modules/series/router';
 // import mediaRouter from '../modules/media/media.router';
@@ -19,8 +19,8 @@ export const v1 = new Elysia({ prefix: '/v1' })
     .use(usersRouter)
     .use(adminRouter)
     .use(libraryRouter)
-    .use(searchRouter);
-// .use(new Elysia().use(authPlugin()).use(videoRouter))
+    .use(searchRouter)
+    .use(videoRouter);
 // .use(new Elysia().use(authPlugin()).use(movieRouter))
 // .use(new Elysia().use(authPlugin()).use(seriesRouter))
 // .use(mediaRouter)

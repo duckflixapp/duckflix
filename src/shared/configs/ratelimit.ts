@@ -12,14 +12,9 @@ export const createRateLimit = ({ max = 50, duration = 3000, scoping = 'scoped' 
         duration,
         scoping,
         generator: (request, server, { user }) => {
-            if (user?.id) {
-                console.log(user.id);
-                return user.id;
-            }
+            if (user?.id) return user.id;
 
-            const ip = server?.requestIP(request)?.address || request.headers.get('x-forwarded-for') || 'localhost';
-            console.log(ip);
-            return ip;
+            return server?.requestIP(request)?.address || request.headers.get('x-forwarded-for') || 'localhost';
         },
         errorResponse: new Response(
             JSON.stringify({

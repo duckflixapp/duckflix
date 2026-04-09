@@ -1,26 +1,5 @@
 import fsSync from 'node:fs';
-import { OpenSubtitlesClient } from '@shared/lib/opensubs';
-import { type SystemSettingsT } from '@schema/system.schema';
-import { env } from '@core/env';
-import { systemSettings } from '@shared/services/system.service';
-import { logger } from '@shared/configs/logger';
 import type { SmallSubtitleData, SubtitleData, SubtitleFile } from '@shared/types/opensubs';
-
-const sysSettings = await systemSettings.get();
-export const subtitlesClient = new OpenSubtitlesClient({
-    baseUrl: env.OPENSUBS_URL,
-    apiKey: sysSettings.external.openSubtitles.apiKey,
-    username: sysSettings.external.openSubtitles.username,
-    password: sysSettings.external.openSubtitles.password,
-    login: sysSettings.external.openSubtitles.useLogin,
-});
-
-systemSettings.addListener('update', (settings: SystemSettingsT) => {
-    const openSubtitles = settings.external.openSubtitles;
-    if (!subtitlesClient.updateCredentials(openSubtitles.apiKey, openSubtitles.username, openSubtitles.password, openSubtitles.useLogin))
-        return;
-    logger.info({ context: 'external_api', service: 'opensubtitles' }, 'OpenSubtitles credentials updated successfully');
-});
 
 export const mapSubtitles = (subtitles: SubtitleData[], preferences: { lang: string; variants: number }[] = []) => {
     const languageSubtitleMap = new Map<string, SubtitleData[]>();
