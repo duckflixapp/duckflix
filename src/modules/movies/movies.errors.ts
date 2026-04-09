@@ -12,18 +12,6 @@ export class InvalidVideoFileError extends AppError {
     }
 }
 
-export class MovieVersionNotFoundError extends AppError {
-    constructor() {
-        super('The requested movie version was not found.', { statusCode: 404 });
-    }
-}
-
-export class OriginalMovieVersionNotFoundError extends AppError {
-    constructor() {
-        super('The requested movie has no original version.', { statusCode: 404 });
-    }
-}
-
 export class MovieNotFoundError extends AppError {
     constructor() {
         super('Movie not found', { statusCode: 404 });
