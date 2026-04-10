@@ -1,7 +1,5 @@
 import { Elysia } from 'elysia';
-import type { ExtendedError, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import cookie from 'cookie';
 import { z } from 'zod';
 
 import { AppError } from '@shared/errors';
@@ -86,19 +84,24 @@ export const authGuard = new Elysia({ name: 'auth-guard' }).use(authPlugin).macr
 });
 
 // ----- Socket Authentication -----
-export const authenticateSocket = async (socket: Socket, next: (err?: ExtendedError) => unknown) => {
-    try {
-        const rawCookies = socket.handshake.headers.cookie;
-        if (!rawCookies) return next(new UnauthorizedError('Auth error: No cookies'));
-
-        const cookies = cookie.parse(rawCookies);
-        const token = cookies['auth_token'];
-        if (!token) return next(new UnauthorizedError('Auth error: Token missing'));
-
-        const decoded = verifyToken(token);
-        socket.data.userId = decoded.sub;
-        next();
-    } catch {
-        next(new UnauthorizedError('Authentication error'));
+export const socketAuthPlugin = new Elysia({ name: 'socketAuth' }).derive({ as: 'global' }, ({ cookie: { auth_token }, set }) => {
+    const token = auth_token?.value;
+    if (!token) {
+        set.status = 401;
+        throw new Error('Unauthorized: No token');
     }
-};
+
+    const decoded = verifyToken(token as string);
+    if (!decoded || !decoded.sub) {
+        set.status = 401;
+        throw new Error('Unauthorized: Invalid token');
+    }
+
+    const user: AuthUser = {
+        id: decoded.sub,
+        role: decoded.role as UserRole,
+        isVerified: decoded.isVerified,
+    };
+
+    return { user };
+});
