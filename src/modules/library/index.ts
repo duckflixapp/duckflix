@@ -29,7 +29,7 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
         },
         {
             query: getUserLibrariesScheme,
-            detail: { tags: ['Library'] },
+            detail: { tags: ['Library'], summary: 'List Libraries' },
         }
     )
     .post(
@@ -41,7 +41,7 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
         },
         {
             body: newLibraryScheme,
-            detail: { tags: ['Library'] },
+            detail: { tags: ['Library'], summary: 'Create' },
         }
     )
     .get(
@@ -52,7 +52,7 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
         },
         {
             params: libraryScheme,
-            detail: { tags: ['Library'] },
+            detail: { tags: ['Library'], summary: 'Details' },
         }
     )
     .delete(
@@ -63,7 +63,7 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
         },
         {
             params: libraryScheme,
-            detail: { tags: ['Library'] },
+            detail: { tags: ['Library'], summary: 'Remove' },
         }
     )
     .get(
@@ -76,7 +76,7 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
         {
             params: libraryScheme,
             query: libraryQuerySchema,
-            detail: { tags: ['Library'] },
+            detail: { tags: ['Library'], summary: 'List Items' },
         }
     )
     .post(
@@ -89,7 +89,7 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
         {
             params: libraryItemScheme,
             query: libraryItemTypeScheme,
-            detail: { tags: ['Library'] },
+            detail: { tags: ['Library'], summary: 'Add Item' },
         }
     )
     .delete(
@@ -102,6 +102,6 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
         {
             params: libraryItemScheme,
             query: libraryItemTypeScheme,
-            detail: { tags: ['Library'] },
+            detail: { tags: ['Library'], summary: 'Remove Item' },
         }
     );

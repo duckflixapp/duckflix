@@ -35,7 +35,7 @@ export const mediaRouter = new Elysia({ prefix: '/media' })
         {
             body: createSessionBodySchema,
             auth: true,
-            detail: { tags: ['Media'] },
+            detail: { tags: ['Media'], summary: 'Create Session' },
         }
     )
     .group('/stream', { detail: { tags: ['Streaming'] } }, (app) =>
@@ -50,11 +50,19 @@ export const mediaRouter = new Elysia({ prefix: '/media' })
                     return version.videoId;
                 },
             })
-            .get('/:versionId', MediaController.handleStream, { params: streamParamsSchema, query: authQuerySchema })
-            .get('/:versionId/:file', MediaController.handleStream, { params: streamParamsSchema, query: authQuerySchema })
+            .get('/:versionId', MediaController.handleStream, {
+                params: streamParamsSchema,
+                query: authQuerySchema,
+                detail: { summary: 'Default' },
+            })
+            .get('/:versionId/:file', MediaController.handleStream, {
+                params: streamParamsSchema,
+                query: authQuerySchema,
+                detail: { summary: 'Specific' },
+            })
     )
 
-    .group('/subtitles/', { detail: { tags: ['Subtitles'] } }, (app) =>
+    .group('/subtitles', { detail: { tags: ['Subtitles'] } }, (app) =>
         app
             .use(defaultLimiter)
             .guard({
@@ -67,8 +75,8 @@ export const mediaRouter = new Elysia({ prefix: '/media' })
                     return sub!.videoId;
                 },
             })
-            .get('/subtitle/:subtitleId', MediaController.handleSubtitle, {
-                detail: { tags: ['Streaming'] },
+            .get('/:subtitleId', MediaController.handleSubtitle, {
+                detail: { tags: ['Streaming'], summary: 'VTT File' },
                 params: subtitleParamsSchema,
                 query: authQuerySchema,
             })
@@ -84,7 +92,7 @@ export const mediaRouter = new Elysia({ prefix: '/media' })
                     const master = await LiveMediaService.generateMasterFile(videoId, mediaSession.id);
                     return new Response(master, { headers: { 'Content-Type': 'application/x-mpegURL' } });
                 },
-                { query: authQuerySchema, params: liveMasterSchema }
+                { query: authQuerySchema, params: liveMasterSchema, detail: { summary: 'Master Playlist' } }
             )
 
             .get(
@@ -96,7 +104,7 @@ export const mediaRouter = new Elysia({ prefix: '/media' })
                     });
                     return new Response(m3u8, { headers: { 'Content-Type': 'application/x-mpegURL' } });
                 },
-                { query: authQuerySchema, params: liveManifestSchema }
+                { query: authQuerySchema, params: liveManifestSchema, detail: { summary: 'HLS Manifest' } }
             )
 
             .get(
@@ -119,6 +127,7 @@ export const mediaRouter = new Elysia({ prefix: '/media' })
                     },
                     query: authQuerySchema,
                     params: liveSegmentSchema,
+                    detail: { summary: 'HLS Stream segments' },
                 }
             )
     );

@@ -20,10 +20,14 @@ export const moviesRouter = new Elysia({ prefix: '/movies', detail: { tags: ['Mo
     .use(standardLimiter)
     .group('/genres', { detail: { tags: ['Movie Genres'] } }, (app) =>
         app
-            .get('/', async () => {
-                const genresDto = await GenresService.getGenres();
-                return { status: 'success', data: { genres: genresDto } };
-            })
+            .get(
+                '/',
+                async () => {
+                    const genresDto = await GenresService.getGenres();
+                    return { status: 'success', data: { genres: genresDto } };
+                },
+                { detail: { summary: 'List Genres' } }
+            )
 
             .post(
                 '/',
@@ -36,6 +40,7 @@ export const moviesRouter = new Elysia({ prefix: '/movies', detail: { tags: ['Mo
                 {
                     guard: { auth: 'admin' },
                     body: createGenreSchema,
+                    detail: { summary: 'Add Genre' },
                 }
             )
     )
@@ -49,15 +54,19 @@ export const moviesRouter = new Elysia({ prefix: '/movies', detail: { tags: ['Mo
                     const paginatedResults = await MoviesService.getMovies(options);
                     return { status: 'success', ...paginatedResults };
                 },
-                { query: movieQuerySchema }
+                { query: movieQuerySchema, detail: { summary: 'List Movies' } }
             )
 
-            .get('/featured', async ({ user }) => {
-                const movieDto = await MoviesService.getFeatured({ userId: user.id });
-                if (!movieDto) throw new AppError('Movie not found', { statusCode: 404 });
+            .get(
+                '/featured',
+                async ({ user }) => {
+                    const movieDto = await MoviesService.getFeatured({ userId: user.id });
+                    if (!movieDto) throw new AppError('Movie not found', { statusCode: 404 });
 
-                return { status: 'success', data: { movie: movieDto } };
-            })
+                    return { status: 'success', data: { movie: movieDto } };
+                },
+                { detail: { summary: 'Featured' } }
+            )
 
             .get(
                 '/:id',
@@ -67,7 +76,7 @@ export const moviesRouter = new Elysia({ prefix: '/movies', detail: { tags: ['Mo
 
                     return { status: 'success', data: { movie: movieDto } };
                 },
-                { params: movieParamsSchema }
+                { params: movieParamsSchema, detail: { summary: 'Details' } }
             )
 
             .patch(
@@ -86,6 +95,7 @@ export const moviesRouter = new Elysia({ prefix: '/movies', detail: { tags: ['Mo
                     guard: { auth: 'contributor' },
                     params: movieParamsSchema,
                     body: updateMovieSchema,
+                    detail: { summary: 'Update' },
                 }
             )
     );

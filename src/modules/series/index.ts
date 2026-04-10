@@ -27,6 +27,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
                 },
                 {
                     params: seriesParamSchema,
+                    detail: { summary: 'Details' },
                 }
             )
 
@@ -39,6 +40,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
                 {
                     params: seriesParamSchema,
                     guard: { auth: 'contributor' },
+                    detail: { summary: 'Remove' },
                 }
             )
     )
@@ -53,6 +55,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
                 },
                 {
                     params: seasonParamSchema,
+                    detail: { summary: 'Details' },
                 }
             )
 
@@ -65,6 +68,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
                 {
                     params: seasonParamSchema,
                     guard: { auth: 'contributor' },
+                    detail: { summary: 'Remove' },
                 }
             )
     )
@@ -78,6 +82,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
             },
             {
                 params: episodeParamSchema,
+                detail: { summary: 'Details' },
             }
         )
     );

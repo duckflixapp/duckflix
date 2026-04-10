@@ -16,7 +16,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
             const system = await systemSettings.get();
             return { status: 'success', data: { system: toSystemDTO(system) } };
         },
-        { detail: { tags: ['Admin'] } }
+        { detail: { tags: ['Admin'], summary: 'Details' } }
     )
     .patch(
         '/system',
@@ -29,7 +29,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
             const system = await systemSettings.update(body);
             return { status: 'success', data: { system: toSystemDTO(system) } };
         },
-        { body: systemSettingsUpdateSchema, detail: { tags: ['Admin'] } }
+        { body: systemSettingsUpdateSchema, detail: { tags: ['Admin'], summary: 'Update' } }
     )
     .get(
         '/users',
@@ -37,7 +37,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
             const users = await AdminService.getUsersWithRoles();
             return { status: 'success', data: { users } };
         },
-        { detail: { tags: ['Admin'] } }
+        { detail: { tags: ['Admin'], summary: 'List Users' } }
     )
     .patch(
         '/users',
@@ -45,7 +45,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
             await AdminService.changeUserRole(body.email, body.role, { userId: user.id });
             return new Response(null, { status: 204 });
         },
-        { body: changeUserRoleSchema, detail: { tags: ['Admin'] } }
+        { body: changeUserRoleSchema, detail: { tags: ['Admin'], summary: 'Update Roles' } }
     )
     .delete(
         '/users',
@@ -53,7 +53,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
             await AdminService.deleteUser(body.email, { userId: user.id });
             return new Response(null, { status: 204 });
         },
-        { body: userSchema, detail: { tags: ['Admin'] } }
+        { body: userSchema, detail: { tags: ['Admin'], summary: 'Remove User' } }
     )
     .get(
         '/stats',
@@ -61,5 +61,5 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
             const statistics = await AdminService.getSystemStatistics();
             return { status: 'success', data: { statistics } };
         },
-        { detail: { tags: ['Admin'] } }
+        { detail: { tags: ['Admin'], summary: 'Statistics' } }
     );

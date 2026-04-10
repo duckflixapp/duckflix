@@ -35,7 +35,7 @@ export const searchRouter = new Elysia({ prefix: '/search' })
             query: searchQuerySchema,
             detail: {
                 tags: ['Search'],
-                summary: 'Unified search for movies and series',
+                summary: 'Search Unified',
             },
         }
     );

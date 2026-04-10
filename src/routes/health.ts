@@ -25,5 +25,5 @@ const healthController = async ({ set }: Context) => {
 export const healthRouter = new Elysia({ name: 'health', prefix: '/health' })
     .use(createRateLimit({ max: 30, duration: 3000 }))
     .get('/', healthController, {
-        detail: { tags: ['Health'] },
+        detail: { tags: ['Health'], summary: 'Details' },
     });

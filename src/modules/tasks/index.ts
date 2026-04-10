@@ -39,7 +39,7 @@ export const tasksRouter = new Elysia({ prefix: '/tasks', detail: { tags: ['Task
             params: killTaskSchema,
             detail: {
                 tags: ['Tasks'],
-                summary: 'Terminate a video version processing task',
+                summary: 'Terminate',
             },
         }
     );

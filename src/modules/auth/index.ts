@@ -29,7 +29,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
             set.status = 201;
             return { status: 'success' };
         },
-        { body: registerSchema, detail: { tags: ['Auth'] } }
+        { body: registerSchema, detail: { tags: ['Auth'], summary: 'Register' } }
     )
     .post(
         '/verify-email',
@@ -37,7 +37,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
             await AuthService.verifyEmail(body.token);
             return { status: 'success' };
         },
-        { body: verifyEmailSchema, detail: { tags: ['Auth'] } }
+        { body: verifyEmailSchema, detail: { tags: ['Auth'], summary: 'Verify Email' } }
     )
     .post(
         '/login',
@@ -60,7 +60,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
 
             return { status: 'success', user: result.user };
         },
-        { body: loginSchema, detail: { tags: ['Auth'] } }
+        { body: loginSchema, detail: { tags: ['Auth'], summary: 'Login' } }
     )
     .post(
         '/refresh',
@@ -85,7 +85,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
 
             return { status: 'success' };
         },
-        { detail: { tags: ['Auth'] } }
+        { detail: { tags: ['Auth'], summary: 'Refresh' } }
     )
     .post(
         '/logout',
@@ -102,5 +102,5 @@ export const authRouter = new Elysia({ prefix: '/auth' })
 
             return { status: 'success' };
         },
-        { auth: { verified: false }, detail: { tags: ['Auth'] } }
+        { auth: { verified: false }, detail: { tags: ['Auth'], summary: 'Logout' } }
     );

@@ -29,7 +29,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
             const video = await VideoService.getVideoById(id);
             return { status: 'success', data: { video } };
         },
-        { params: videoParamsSchema }
+        { params: videoParamsSchema, detail: { summary: 'Details' } }
     )
 
     .get(
@@ -38,7 +38,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
             const watchHistory = await VideoService.getVideoProgressById({ userId: user.id, videoId: id });
             return { status: 'success', data: { watchHistory } };
         },
-        { params: videoParamsSchema }
+        { params: videoParamsSchema, detail: { summary: 'Progress' } }
     )
 
     .post(
@@ -47,7 +47,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
             const watchHistory = await VideoService.saveVideoProgressById({ userId: user.id, videoId: id, positionSec });
             return { status: 'success', data: { watchHistory } };
         },
-        { params: videoParamsSchema, body: createProgressSchema }
+        { params: videoParamsSchema, body: createProgressSchema, detail: { summary: 'Save Progress' } }
     )
 
     .get(
@@ -56,7 +56,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
             const content = await VideoService.resolveVideo(id);
             return { status: 'success', data: { content } };
         },
-        { params: videoParamsSchema }
+        { params: videoParamsSchema, detail: { summary: 'Resolve' } }
     )
 
     .group('', (app) =>
@@ -177,6 +177,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                     use: uploadLimiter,
                     type: 'multipart',
                     body: createVideoSchema,
+                    detail: { summary: 'Upload' },
                 }
             )
 
@@ -186,7 +187,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                     await VideoService.deleteVideoById(id);
                     set.status = 204;
                 },
-                { params: videoParamsSchema }
+                { params: videoParamsSchema, detail: { summary: 'Remove' } }
             )
 
             .group('/:id/versions', (app) =>
@@ -197,7 +198,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             const versions = await VersionService.getAllVideoVersions(id);
                             return { status: 'success', data: { versions } };
                         },
-                        { params: videoParamsSchema, detail: { tags: ['Video Versions'] } }
+                        { params: videoParamsSchema, detail: { tags: ['Video Versions'], summary: 'List Versions' } }
                     )
 
                     .post(
@@ -207,7 +208,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             set.status = 201;
                             return { status: 'success' };
                         },
-                        { params: videoParamsSchema, body: addVersionSchema, detail: { tags: ['Video Versions'] } }
+                        { params: videoParamsSchema, body: addVersionSchema, detail: { tags: ['Video Versions'], summary: 'Add Version' } }
                     )
 
                     .delete(
@@ -216,7 +217,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             await VersionService.deleteVideoVersion(id, versionId);
                             set.status = 204;
                         },
-                        { params: videoVersionParamsSchema, detail: { tags: ['Video Versions'] } }
+                        { params: videoVersionParamsSchema, detail: { tags: ['Video Versions'], summary: 'Remove Version' } }
                     )
             )
 
@@ -258,7 +259,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             type: 'multipart',
                             params: videoParamsSchema,
                             body: uploadBodySchema,
-                            detail: { tags: ['Video Subtitles'] },
+                            detail: { tags: ['Video Subtitles'], summary: 'Upload' },
                         }
                     )
 
@@ -268,7 +269,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             await SubtitlesService.deleteSubtitleById({ videoId, subtitleId });
                             set.status = 204;
                         },
-                        { params: subtitleParamsSchema, detail: { tags: ['Video Subtitles'] } }
+                        { params: subtitleParamsSchema, detail: { tags: ['Video Subtitles'], summary: 'Remove' } }
                     )
 
                     .get(
@@ -277,7 +278,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             const subtitles = await SubtitlesService.searchOpenSubtitles({ videoId: id, language });
                             return { status: 'success', data: { subtitles } };
                         },
-                        { params: videoParamsSchema, query: searchQuerySchema, detail: { tags: ['Video Subtitles'] } }
+                        { params: videoParamsSchema, query: searchQuerySchema, detail: { tags: ['Video Subtitles'], summary: 'Search' } }
                     )
 
                     .post(
@@ -288,7 +289,11 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             set.status = 201;
                             return { status: 'success', data: { subtitle } };
                         },
-                        { params: videoParamsSchema, body: importBodySchema, detail: { tags: ['Video Subtitles'] } }
+                        {
+                            params: videoParamsSchema,
+                            body: importBodySchema,
+                            detail: { tags: ['Video Subtitles'], summary: 'External Import' },
+                        }
                     )
             )
     );

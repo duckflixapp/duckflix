@@ -15,7 +15,7 @@ export const usersRouter = new Elysia({ prefix: '/users' })
             return { status: 'success', data: { user: data } };
         },
         {
-            detail: { tags: ['Users'] },
+            detail: { tags: ['User'], summary: 'Profile' },
             auth: { verified: false },
         }
     )
@@ -26,7 +26,7 @@ export const usersRouter = new Elysia({ prefix: '/users' })
             return { status: 'success', data: { notifications } };
         },
         {
-            detail: { tags: ['Users'] },
+            detail: { tags: ['User'], summary: 'List Notifications' },
         }
     )
     .patch(
@@ -41,7 +41,7 @@ export const usersRouter = new Elysia({ prefix: '/users' })
         },
         {
             body: validateMarkUserNotifications,
-            detail: { tags: ['Users'] },
+            detail: { tags: ['User'], summary: 'Mark' },
         }
     )
     .delete(
@@ -51,6 +51,6 @@ export const usersRouter = new Elysia({ prefix: '/users' })
             set.status = 204;
         },
         {
-            detail: { tags: ['Users'] },
+            detail: { tags: ['User'], summary: 'Remove' },
         }
     );
