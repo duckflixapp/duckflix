@@ -1,14 +1,14 @@
-import helmet from 'helmet';
+import { helmet } from 'elysia-helmet';
 import { env } from '@core/env';
 
-export const helmetConfiguration = helmet({
+export const helmetPlugin = helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-            imgSrc: ["'self'", 'data:', 'https://image.tmdb.org'],
+            scriptSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net'],
+            imgSrc: ["'self'", 'data:', 'https://image.tmdb.org', 'https://cdn.jsdelivr.net'],
+            connectSrc: ["'self'", env.BASE_URL, env.ORIGIN, 'https://www.gstatic.com', 'https://cdn.jsdelivr.net'],
             mediaSrc: ["'self'", 'blob:', 'data:', env.BASE_URL, env.ORIGIN, 'https://www.gstatic.com'],
-            connectSrc: ["'self'", env.BASE_URL, env.ORIGIN, 'https://www.gstatic.com'],
             upgradeInsecureRequests: env.NODE_ENV === 'production' ? [] : null,
         },
     },

@@ -17,4 +17,8 @@ export const loginSchema = z.object({
     password: z.string().max(64, 'Password must be less than 65 characters'),
 });
 
+export const verifyEmailSchema = z.object({
+    token: z.string().min(1),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;

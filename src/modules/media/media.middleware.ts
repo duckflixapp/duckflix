@@ -1,12 +1,26 @@
-import type { NextFunction, Request, Response } from 'express';
-import { authQuerySchema } from './media.validator';
+import { Elysia, type Context } from 'elysia';
 import { sessionClient } from './session/session.client';
-import { catchAsync } from '@shared/utils/catchAsync';
+import { AppError } from '@shared/errors';
 
-export const validateMediaSession = (getVideoId: (req: Request) => string) =>
-    catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-        const { session } = authQuerySchema.parse(req.query);
-        const videoId = getVideoId(req);
-        res.locals.session = await sessionClient.validate(session, videoId);
-        next();
-    });
+export const sessionPlugin = new Elysia({ name: 'session-plugin' }).derive({ as: 'global' }, ({ query }) => ({
+    resolveMedia: async (videoId: string | undefined) => {
+        const session = query.session as string | undefined;
+
+        if (!session || !videoId) {
+            throw new AppError('Missing session token or resource ID', { statusCode: 400 });
+        }
+
+        return await sessionClient.validate(session, videoId);
+    },
+}));
+
+export const sessionGuard = new Elysia({ name: 'session-guard' }).use(sessionPlugin).macro({
+    mediaSession: (getVideoId: (context: Context) => undefined | string | Promise<string>) => ({
+        async resolve({ resolveMedia, ...context }) {
+            const videoId = await getVideoId(context);
+
+            const mediaSession = await resolveMedia(videoId);
+            return { mediaSession };
+        },
+    }),
+});

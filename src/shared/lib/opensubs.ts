@@ -1,6 +1,10 @@
 import axios from 'axios';
 import { AppError } from '@shared/errors';
 import type { DownloadSubResponse, SearchSubsResponse, SubtitleData } from '@shared/types/opensubs';
+import { systemSettings } from '@shared/services/system.service';
+import { env } from '@core/env';
+import type { SystemSettingsT } from '@shared/schema';
+import { logger } from '@shared/configs/logger';
 
 export class OpenSubsError extends AppError {
     constructor(err: unknown) {
@@ -126,3 +130,19 @@ export class OpenSubtitlesClient {
         return data;
     }
 }
+
+const sysSettings = await systemSettings.get();
+export const subtitlesClient = new OpenSubtitlesClient({
+    baseUrl: env.OPENSUBS_URL,
+    apiKey: sysSettings.external.openSubtitles.apiKey,
+    username: sysSettings.external.openSubtitles.username,
+    password: sysSettings.external.openSubtitles.password,
+    login: sysSettings.external.openSubtitles.useLogin,
+});
+
+systemSettings.addListener('update', (settings: SystemSettingsT) => {
+    const openSubtitles = settings.external.openSubtitles;
+    if (!subtitlesClient.updateCredentials(openSubtitles.apiKey, openSubtitles.username, openSubtitles.password, openSubtitles.useLogin))
+        return;
+    logger.info({ context: 'external_api', service: 'opensubtitles' }, 'OpenSubtitles credentials updated successfully');
+});

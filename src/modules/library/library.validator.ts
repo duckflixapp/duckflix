@@ -19,6 +19,10 @@ export const newLibraryScheme = z.object({
         .transform((val) => val.replace(/\s+/g, ' ')),
 });
 
+export const libraryScheme = z.object({
+    libraryId: z.uuid(),
+});
+
 export const libraryItemScheme = z.object({
     libraryId: z.union([z.literal('watchlist'), z.uuid()]),
     contentId: z.uuid(),
@@ -26,8 +30,4 @@ export const libraryItemScheme = z.object({
 
 export const libraryItemTypeScheme = z.object({
     type: z.enum(['series', 'movie']),
-});
-
-export const libraryScheme = z.object({
-    id: z.uuid(),
 });

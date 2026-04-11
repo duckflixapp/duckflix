@@ -1,31 +1,57 @@
-import express from 'express';
-import cookieParser from 'cookie-parser';
-import { globalErrorHandler } from '@shared/errors';
-import router from '../routes/v1';
-import { env } from './env';
-import { httpLogger } from '@shared/configs/logger';
-import { helmetConfiguration } from '@shared/configs/helmet';
-import { corsConfiguration } from '@shared/configs/cors';
-import swaggerUi from 'swagger-ui-express';
-import { swaggerDoc } from '@shared/configs/swagger';
+import { Elysia } from 'elysia';
+import { env } from '@core/env';
+import { corsPlugin } from '@shared/configs/cors';
+import { helmetPlugin } from '@shared/configs/helmet';
+import { loggerPlugin } from '@shared/configs/httpLogger';
+import { documentationTags } from '@shared/configs/openapi';
+import { errorPlugin } from '@shared/errors';
+import { openapi } from '@elysiajs/openapi';
+import { v1 } from '../routes/v1';
 
-const app = express();
-
-app.set('trust proxy', env.PROXIES);
-app.use(httpLogger);
-
-app.use(helmetConfiguration);
-app.use(corsConfiguration);
+const app = new Elysia().use(loggerPlugin).use(errorPlugin).use(corsPlugin).use(helmetPlugin).use(v1);
 
 if (env.NODE_ENV !== 'production') {
-    app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDoc));
+    app.use(
+        openapi({
+            specPath: '/openapi.json',
+            path: '/swagger',
+            scalar: {
+                showDeveloperTools: 'never',
+                layout: 'modern',
+                defaultOpenAllTags: true,
+            },
+            documentation: {
+                info: {
+                    title: 'Duckflix API Documentation',
+                    description:
+                        'High-performance media streaming engine powered by Bun & Elysia. Handles video processing, HLS streaming, and metadata management.',
+                    version: env.VERSION,
+                    contact: {
+                        name: 'Nikola Nedeljković',
+                        url: 'https://github.com/nikola04',
+                        email: 'nikolanedeljkovicc@icloud.com',
+                    },
+                },
+                tags: documentationTags,
+                components: {
+                    securitySchemes: {
+                        JwtAuth: {
+                            type: 'http',
+                            scheme: 'bearer',
+                            bearerFormat: 'JWT',
+                            description: 'Standard Authorization header: Bearer <token>',
+                        },
+                        CookieAuth: {
+                            type: 'apiKey',
+                            in: 'cookie',
+                            name: 'auth_token',
+                            description: 'Authentication cookie: auth_token=<token>',
+                        },
+                    },
+                },
+            },
+        })
+    );
 }
-
-app.use(express.json());
-app.use(cookieParser());
-
-app.use('/v1/', router);
-
-app.use(globalErrorHandler);
 
 export { app };

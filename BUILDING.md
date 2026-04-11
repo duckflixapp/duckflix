@@ -63,10 +63,10 @@ bun install
 ### Database Migration
 
 ```bash
-bun db:push
+bun db:migrate
 ```
 
-> **Note:** Runs automatically via `prestart` script.
+> **Note:** Runs in docker automatically via `start` script.
 
 ### Start
 
@@ -80,10 +80,11 @@ bun dev
 bun db:studio
 ```
 
-Open [https://local.drizzle.studio](https://local.drizzle.studio).
+Open [local.drizzle.studio](https://local.drizzle.studio).
 
 ## 6. Endpoints
 
-- Backend API: http://localhost:3000
+- API: http://localhost:3000
+- API Documentation: http://localhost:3000/swagger
 - rqbit API: http://localhost:3030
 - Database: port 5432

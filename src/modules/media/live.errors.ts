@@ -2,13 +2,13 @@ import { AppError } from '@shared/errors';
 
 export class VideoNotFoundError extends AppError {
     constructor() {
-        super('Movie not found', { statusCode: 404 });
+        super('Video not found', { statusCode: 404 });
     }
 }
 
 export class NoVideoMediaFoundError extends AppError {
     constructor() {
-        super('There is no media for movie', { statusCode: 404 });
+        super('There is no media for video', { statusCode: 404 });
     }
 }
 

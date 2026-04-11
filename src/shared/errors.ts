@@ -1,6 +1,5 @@
-import type { NextFunction, Request, Response } from 'express';
-import { ZodError } from 'zod';
 import { logger } from '@shared/configs/logger';
+import Elysia, { NotFoundError, ValidationError } from 'elysia';
 
 export class AppError extends Error {
     public readonly originalError?: unknown;
@@ -21,46 +20,31 @@ export class AppError extends Error {
     }
 }
 
-export const globalErrorHandler = (err: unknown, req: Request, res: Response, _next: NextFunction) => {
-    if (err instanceof ZodError) {
-        return res.status(400).json({
-            error: 'Validation error',
-            details: err.issues.map((issue) => ({
-                field: issue.path.join('.'),
-                message: issue.message,
-            })),
-        });
+export const errorPlugin = new Elysia().onError({ as: 'global' }, ({ error, request, set, server, status }) => {
+    if (error instanceof ValidationError) {
+        set.status = 400;
+        return { error: 'Validation error', details: error.all.map((i) => ({ field: i.path, message: i.message })) };
     }
-
-    if (err instanceof AppError) {
-        if (!err.statusCode || err.statusCode >= 500) {
-            logger.error(
-                {
-                    path: req.path,
-                    method: req.method,
-                    user: req.user,
-                    ip: req.ip,
-                    userAgent: req.get('user-agent'),
-                    err,
-                },
-                `AppError 500: ${err.message}`
-            );
+    if (error instanceof NotFoundError) {
+        return status(404);
+    }
+    if (error instanceof AppError) {
+        if (!error.statusCode || error.statusCode >= 500) {
+            logger.error({ path: new URL(request.url).pathname, method: request.method, err: error }, `AppError 500`);
         }
-        return res.status(err.statusCode ?? 500).json({
-            status: err.statusCode && err.statusCode < 500 ? 'fail' : 'error',
-            message: err.message,
-        });
+        set.status = error.statusCode ?? 500;
+        return { status: error.statusCode && error.statusCode < 500 ? 'fail' : 'error', message: error.message };
     }
     logger.error(
         {
-            path: req.path,
-            method: req.method,
-            user: req.user,
-            ip: req.ip,
-            userAgent: req.get('user-agent'),
-            err,
+            path: new URL(request.url).pathname,
+            method: request.method,
+            ip: server?.requestIP(request)?.address,
+            userAgent: request.headers.get('user-agent'),
+            err: error,
         },
         `Unexpected Server Error`
     );
-    return res.status(500).json({ error: 'Internal server error' });
-};
+    set.status = 500;
+    return { error: 'Internal server error' };
+});

@@ -3,10 +3,10 @@ import { db } from '@shared/configs/db';
 import { videos, videoVersions } from '@shared/schema/video.schema';
 import { AppError } from '@shared/errors';
 import { capitalize } from '@utils/string';
-import { io } from '@server';
 import type { DownloadProgress, JobProgress } from '@duckflixapp/shared';
 import { notifyJobStatus } from '@shared/services/notifications/notification.helper';
 import { logger } from '@shared/configs/logger';
+import { socket } from '@server';
 
 export const handleWorkflowError = async (videoId: string, error: unknown, context: 'video' | 'torrent') => {
     try {
@@ -106,7 +106,7 @@ export const emitVideoProgress = (
     progress?: JobProgress | DownloadProgress,
     versionId?: string
 ) => {
-    io.to(`video:${videoId}`).emit('video:progress', {
+    socket.to(`video:${videoId}`).emit('video:progress', {
         status,
         versionId,
         progress,

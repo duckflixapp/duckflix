@@ -2,6 +2,8 @@ import z from 'zod';
 
 const baseVideoSchema = z.object({
     dbUrl: z.url().max(1000).optional().nullable(),
+    video: z.file().optional(),
+    torrent: z.file().optional(),
 });
 
 const createMovieSchema = baseVideoSchema.extend({
@@ -12,7 +14,7 @@ const createMovieSchema = baseVideoSchema.extend({
         .number()
         .int()
         .min(1888)
-        .max(new Date().getFullYear() + 5)
+        .max(new Date().getFullYear() + 10)
         .optional()
         .nullable(),
     bannerUrl: z.url().max(1000).optional().nullable(),
@@ -48,7 +50,7 @@ export const videoVersionParamsSchema = videoParamsSchema.extend({
 });
 
 export const createProgressSchema = z.object({
-    positionSec: z.number().int().positive(),
+    positionSec: z.number().int().nonnegative(),
 });
 
 export type CreateMovieInput = z.infer<typeof createMovieSchema>;

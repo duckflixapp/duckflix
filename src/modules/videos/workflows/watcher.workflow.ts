@@ -8,7 +8,7 @@ import chokidar from 'chokidar';
 import { handleWorkflowError } from '../video.handler';
 import { notifyJobStatus } from '@shared/services/notifications/notification.helper';
 import { AppError } from '@shared/errors';
-import { initiateUpload } from '../video.service';
+import { initiateUpload } from '../services/video.service';
 
 export const processWatcherWorkflow = async (data: { filePath: string; fileName: string; fileSize: number }, systemUserId: string) => {
     const metadata = await identifyVideoWorkflow({ filePath: data.filePath });

@@ -5,7 +5,7 @@ High-performance media streaming backend built with Bun and TypeScript.
 ## Tech Stack
 
 - **Runtime:** [Bun](https://bun.com/)
-- **Framework:** [Express.js](https://expressjs.com/)
+- **Framework:** [Elysia.js](https://elysiajs.com/)
 - **Database:** [PostgreSQL](https://www.postgresql.org/) with [Drizzle ORM](https://orm.drizzle.team/)
 - **Media Processing:** [FFmpeg](https://ffmpeg.org/)
 - **Torrent Client:** [ikatson/rqbit](https://github.com/ikatson/rqbit)
