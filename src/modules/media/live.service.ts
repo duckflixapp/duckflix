@@ -102,7 +102,7 @@ export const generateManifestFile = async (
     options = { segmentDuration: 6 }
 ) => {
     if (height > original.height) throw new TooBigResolutionError();
-    if (!presetHeights.includes(height)) throw new NotStandardResolutionError();
+    if (!presetHeights.includes(height) && height !== original.height) throw new NotStandardResolutionError();
 
     const totalSegments = Math.ceil(video.duration! / options.segmentDuration);
 

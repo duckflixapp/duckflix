@@ -29,8 +29,19 @@ export const handleStream = async ({ params, query, set }: Context) => {
         throw new AppError('Media file not found', { statusCode: 404 });
     }
 
-    if (requestedFile.endsWith('.m3u8')) set.headers['content-type'] = 'application/x-mpegURL';
-    else if (requestedFile.endsWith('.ts')) set.headers['content-type'] = 'video/MP2T';
+    if (requestedFile.endsWith('.m3u8')) {
+        let content = await bunFile.text();
+
+        content = content.replace(/^(?!#)(.+\.(ts|m3u8|vtt|aac|mp4)(\?.*)?)$/gm, (match) => {
+            const separator = match.includes('?') ? '&' : '?';
+            return `${match}${separator}session=${session}`;
+        });
+
+        set.headers['content-type'] = 'application/x-mpegURL';
+        return content;
+    }
+
+    if (requestedFile.endsWith('.ts')) set.headers['content-type'] = 'video/MP2T';
     else if (version.mimeType) set.headers['content-type'] = version.mimeType;
 
     return bunFile;
