@@ -15,8 +15,14 @@ import { sendVerificationMail } from '@shared/services/mailer.service';
 import { systemSettings } from '@shared/services/system.service';
 import { logger } from '@shared/configs/logger';
 import { isDuplicateKey } from '@shared/db.errors';
+import { authAttemptLimiter } from './auth-attempt-limiter';
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 export const register = async (name: string, email: string, pass: string): Promise<UserDTO> => {
+    const normalizedEmail = normalizeEmail(email);
+    authAttemptLimiter.checkRegister(normalizedEmail);
+
     const sysSettings = await systemSettings.get();
     const registration = sysSettings.features.registration;
 
@@ -32,51 +38,58 @@ export const register = async (name: string, email: string, pass: string): Promi
     const hashedPassword = await argon2.hash(pass);
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
-    const user = await db.transaction(async (tx) => {
-        const existingUser = await tx.select({ id: users.id }).from(users).where(eq(users.system, false)).limit(1);
+    try {
+        const user = await db.transaction(async (tx) => {
+            const existingUser = await tx.select({ id: users.id }).from(users).where(eq(users.system, false)).limit(1);
 
-        const [user] = await tx
-            .insert(users)
-            .values({
-                name,
-                email,
-                password: hashedPassword,
-                verified_email: registration.trustEmails,
-                role: existingUser.length === 0 ? 'admin' : 'watcher',
-            })
-            .returning()
-            .catch((e) => {
-                if (isDuplicateKey(e)) throw new EmailAlreadyExistsError();
-                throw e;
-            });
-        if (!user) throw new UserNotCreatedError();
+            const [user] = await tx
+                .insert(users)
+                .values({
+                    name,
+                    email: normalizedEmail,
+                    password: hashedPassword,
+                    verified_email: registration.trustEmails,
+                    role: existingUser.length === 0 ? 'admin' : 'watcher',
+                })
+                .returning()
+                .catch((e) => {
+                    if (isDuplicateKey(e)) throw new EmailAlreadyExistsError();
+                    throw e;
+                });
+            if (!user) throw new UserNotCreatedError();
 
-        // create initial libraries
-        await tx.insert(libraries).values([
-            {
-                userId: user.id,
-                name: 'My Watchlist',
-                type: 'watchlist',
-            },
-        ]);
+            // create initial libraries
+            await tx.insert(libraries).values([
+                {
+                    userId: user.id,
+                    name: 'My Watchlist',
+                    type: 'watchlist',
+                },
+            ]);
 
-        if (!registration.trustEmails)
-            await tx.insert(accountTokens).values({
-                userId: user.id,
-                token: verificationToken,
-                type: 'email_verification',
-                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-            });
+            if (!registration.trustEmails)
+                await tx.insert(accountTokens).values({
+                    userId: user.id,
+                    token: verificationToken,
+                    type: 'email_verification',
+                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+                });
 
-        return user;
-    });
-
-    if (!registration.trustEmails)
-        await sendVerificationMail(user.name, user.email, verificationToken).catch((e) => {
-            logger.error({ err: e, email: user.email }, 'Failed to send verification email');
+            return user;
         });
 
-    return toUserDTO(user);
+        authAttemptLimiter.resetRegister(normalizedEmail);
+
+        if (!registration.trustEmails)
+            await sendVerificationMail(user.name, user.email, verificationToken).catch((e) => {
+                logger.error({ err: e, email: user.email }, 'Failed to send verification email');
+            });
+
+        return toUserDTO(user);
+    } catch (error) {
+        authAttemptLimiter.recordFailedRegister(normalizedEmail);
+        throw error;
+    }
 };
 
 export const verifyEmail = async (token: string) => {
@@ -101,12 +114,21 @@ export const login = async (
     pass: string,
     context: { ip?: string; userAgent?: string }
 ): Promise<{ token: string; refreshToken: string; user: UserDTO }> => {
-    const user = await db.query.users.findFirst({ where: and(eq(users.email, email), eq(users.system, false)) });
+    const normalizedEmail = normalizeEmail(email);
+    authAttemptLimiter.checkLogin(normalizedEmail);
 
-    if (!user) throw new InvalidCredentialsError();
+    const user = await db.query.users.findFirst({ where: and(eq(users.email, normalizedEmail), eq(users.system, false)) });
+
+    if (!user) {
+        authAttemptLimiter.recordFailedLogin(normalizedEmail);
+        throw new InvalidCredentialsError();
+    }
 
     const isPasswordValid = await argon2.verify(user.password, pass);
-    if (!isPasswordValid) throw new InvalidCredentialsError();
+    if (!isPasswordValid) {
+        authAttemptLimiter.recordFailedLogin(normalizedEmail);
+        throw new InvalidCredentialsError();
+    }
 
     const token = signToken({ sub: user.id, role: user.role, isVerified: user.verified_email });
     const refreshToken = crypto.randomUUID();
@@ -118,6 +140,8 @@ export const login = async (
         userAgent: context.userAgent,
         expiresAt: new Date(Date.now() + limits.authentication.session_expiry_ms),
     });
+
+    authAttemptLimiter.resetLogin(normalizedEmail);
 
     return { token, refreshToken, user: toUserDTO(user) };
 };

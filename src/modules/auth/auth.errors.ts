@@ -17,3 +17,25 @@ export class InvalidCredentialsError extends AppError {
         super('Invalid email or password', { statusCode: 401 });
     }
 }
+
+export class TooManyAuthAttemptsError extends AppError {
+    constructor(retryAfterMs: number) {
+        const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+        super('Too many authentication attempts. Try again later.', {
+            statusCode: 429,
+            headers: { 'Retry-After': String(retryAfterSeconds) },
+            details: { retryAfterSeconds },
+        });
+    }
+}
+
+export class AuthTemporarilyLockedError extends AppError {
+    constructor(retryAfterMs: number) {
+        const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+        super('Too many authentication attempts. Try again later.', {
+            statusCode: 429,
+            headers: { 'Retry-After': String(retryAfterSeconds) },
+            details: { retryAfterSeconds },
+        });
+    }
+}
