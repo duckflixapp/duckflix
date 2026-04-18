@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { AuthTemporarilyLockedError, TooManyAuthAttemptsError } from './auth.errors';
+import { AuthTemporarilyLockedError } from './auth.errors';
 import { AuthAttemptLimiter } from './auth-attempt-limiter';
 
 describe('AuthAttemptLimiter', () => {

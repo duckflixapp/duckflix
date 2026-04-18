@@ -1,8 +1,19 @@
-import { describe, test, expect, beforeEach } from 'bun:test';
-import { TaskHandler } from '../taskHandler';
+import { beforeEach, describe, expect, mock, test } from 'bun:test';
+
+mock.module('@shared/services/system.service', () => ({
+    systemSettings: {
+        get: async () => ({
+            features: {
+                concurrentProcessing: 1,
+            },
+        }),
+    },
+}));
+
+const { TaskHandler } = await import('../taskHandler');
 
 describe('TaskHandler', () => {
-    let handler: TaskHandler;
+    let handler: InstanceType<typeof TaskHandler>;
 
     beforeEach(() => {
         handler = new TaskHandler();
@@ -33,42 +44,59 @@ describe('TaskHandler', () => {
         expect(results).toEqual([1, 2, 3]);
     });
 
-    test('should emit "start" and "completed" events', (done) => {
+    test('should emit "start" and "completed" events', async () => {
         const createTask = (val: number, ms: number) => async () => {
             await new Promise((resolve) => setTimeout(resolve, ms));
             return val;
         };
-        handler.addListener('started', () => {
-            try {
-                expect(handler.status).toBe('working');
-            } catch (e) {
-                done(e);
-            }
+
+        const started = new Promise<void>((resolve, reject) => {
+            handler.addListener('started', () => {
+                try {
+                    expect(handler.status).toBe('working');
+                    resolve();
+                } catch (e) {
+                    reject(e);
+                }
+            });
         });
 
-        handler.addListener('completed', () => {
-            try {
-                expect(handler.status).toBe('waiting');
-                done();
-            } catch (e) {
-                done(e);
-            }
+        const completed = new Promise<void>((resolve, reject) => {
+            handler.addListener('completed', () => {
+                try {
+                    expect(handler.status).toBe('waiting');
+                    resolve();
+                } catch (e) {
+                    reject(e);
+                }
+            });
         });
 
-        handler.handle(createTask(10, 50));
+        handler.handle(createTask(0, 50));
+
+        await started;
+        await completed;
     });
 
-    test('should emit "error" event when task fails', (done) => {
+    test('should emit "error" event when task fails', async () => {
         const errorMsg = 'Boom!';
-        const taskId = handler.handle(async () => {
-            throw new Error(errorMsg);
+        const errorEvent = new Promise<void>((resolve, reject) => {
+            const taskId = handler.handle(async () => {
+                throw new Error(errorMsg);
+            });
+
+            handler.addListener('error', (id: string, err: unknown) => {
+                try {
+                    expect(id).toBe(taskId);
+                    expect((err as Error).message).toBe(errorMsg);
+                    resolve();
+                } catch (e) {
+                    reject(e);
+                }
+            });
         });
 
-        handler.addListener('error', (id: string, err: unknown) => {
-            expect(id).toBe(taskId);
-            expect((err as Error).message).toBe(errorMsg);
-            done();
-        });
+        await errorEvent;
     });
 
     test('should correctly report status via check()', async () => {
@@ -86,7 +114,7 @@ describe('TaskHandler', () => {
         expect(handler.check(task1Id)).toBeUndefined();
     });
 
-    test('should be able to remove listeners', () => {
+    test('should be able to remove listeners', async () => {
         let callCount = 0;
         const callback = () => {
             callCount++;
@@ -97,9 +125,9 @@ describe('TaskHandler', () => {
 
         handler.handle(async () => 0);
 
-        setTimeout(() => {
-            expect(callCount).toBe(0);
-        }, 10);
+        await new Promise((resolve) => setTimeout(resolve, 25));
+
+        expect(callCount).toBe(0);
     });
 
     test('should respect concurrency limit (max 2 active tasks)', async () => {
