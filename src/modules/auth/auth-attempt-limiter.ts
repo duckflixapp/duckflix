@@ -93,11 +93,15 @@ export class AuthAttemptLimiter {
     }
 
     private check(scope: Scope, email: string) {
-        const { state, config } = this.getState(scope, email);
+        const { state, config, now } = this.getState(scope, email);
         if (!state) return;
 
-        if (state.lockedUntil) throw new AuthTemporarilyLockedError();
-        if (state.attempts.length >= config.maxAttempts) throw new TooManyAuthAttemptsError();
+        if (state.lockedUntil) throw new AuthTemporarilyLockedError(state.lockedUntil - now);
+        if (state.attempts.length >= config.maxAttempts) {
+            const oldestAttempt = state.attempts[0];
+            const retryAfterMs = oldestAttempt ? config.windowMs - (now - oldestAttempt) : config.windowMs;
+            throw new TooManyAuthAttemptsError(retryAfterMs);
+        }
     }
 
     private recordFailure(scope: Scope, email: string) {

@@ -19,13 +19,23 @@ export class InvalidCredentialsError extends AppError {
 }
 
 export class TooManyAuthAttemptsError extends AppError {
-    constructor() {
-        super('Too many authentication attempts. Try again later.', { statusCode: 429 });
+    constructor(retryAfterMs: number) {
+        const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+        super('Too many authentication attempts. Try again later.', {
+            statusCode: 429,
+            headers: { 'Retry-After': String(retryAfterSeconds) },
+            details: { retryAfterSeconds },
+        });
     }
 }
 
 export class AuthTemporarilyLockedError extends AppError {
-    constructor() {
-        super('Too many authentication attempts. Try again later.', { statusCode: 429 });
+    constructor(retryAfterMs: number) {
+        const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+        super('Too many authentication attempts. Try again later.', {
+            statusCode: 429,
+            headers: { 'Retry-After': String(retryAfterSeconds) },
+            details: { retryAfterSeconds },
+        });
     }
 }

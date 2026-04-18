@@ -4,16 +4,20 @@ import Elysia, { NotFoundError, ValidationError } from 'elysia';
 export class AppError extends Error {
     public readonly originalError?: unknown;
     public readonly statusCode?: number;
+    public readonly headers?: Record<string, string>;
+    public readonly details?: Record<string, unknown>;
 
     constructor(
         public override message: string,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        options?: { cause?: any; statusCode?: number }
+        options?: { cause?: any; statusCode?: number; headers?: Record<string, string>; details?: Record<string, unknown> }
     ) {
         super(message);
         this.name = 'AppError';
         this.statusCode = options?.statusCode;
         this.originalError = options?.cause;
+        this.headers = options?.headers;
+        this.details = options?.details;
         if (options?.cause?.stack) {
             this.stack += `\nCAUSED BY: ${options.cause.stack}`;
         }
@@ -32,8 +36,13 @@ export const errorPlugin = new Elysia().onError({ as: 'global' }, ({ error, requ
         if (!error.statusCode || error.statusCode >= 500) {
             logger.error({ path: new URL(request.url).pathname, method: request.method, err: error }, `AppError 500`);
         }
+        if (error.headers) Object.assign(set.headers, error.headers);
         set.status = error.statusCode ?? 500;
-        return { status: error.statusCode && error.statusCode < 500 ? 'fail' : 'error', message: error.message };
+        return {
+            status: error.statusCode && error.statusCode < 500 ? 'fail' : 'error',
+            message: error.message,
+            ...(error.details ?? {}),
+        };
     }
     logger.error(
         {
