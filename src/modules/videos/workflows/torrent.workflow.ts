@@ -11,9 +11,9 @@ import { notifyJobStatus } from '@shared/services/notifications/notification.hel
 import { env } from '@core/env';
 import { logger } from '@shared/configs/logger';
 import { eq } from 'drizzle-orm';
-import { processVideoWorkflow } from './video.workflow';
 import { videos } from '@shared/schema/video.schema';
 import { TorrentDownloadError } from '../video.errors';
+import { processVideoWorkflow } from './video.workflow';
 
 const rqbitClient = new RqbitClient({ baseUrl: env.RQBIT_URL! });
 const torrentClient = new TorrentClient({ rqbit: rqbitClient });

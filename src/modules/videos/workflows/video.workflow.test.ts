@@ -236,7 +236,7 @@ describe('processVideoWorkflow', () => {
             imdbId: null,
         });
 
-        expect(promise).rejects.toBeInstanceOf(InvalidVideoFileError);
+        await expect(promise).rejects.toBeInstanceOf(InvalidVideoFileError);
         expect(calls.unlink).toContain('/tmp/upload.mkv');
     });
 
@@ -253,7 +253,7 @@ describe('processVideoWorkflow', () => {
             imdbId: null,
         });
 
-        expect(promise).rejects.toMatchObject({ statusCode: 507, message: 'There is not enough space in storage' });
+        await expect(promise).rejects.toMatchObject({ statusCode: 507, message: 'There is not enough space in storage' });
         expect(calls.unlink).toContain('/tmp/upload.mkv');
     });
 
@@ -306,7 +306,7 @@ describe('processVideoWorkflow', () => {
             imdbId: null,
         });
 
-        expect(promise).rejects.toMatchObject({ message: 'Video could not be saved in database' });
+        await expect(promise).rejects.toMatchObject({ message: 'Video could not be saved in database' });
         expect(calls.unlink.some((entry) => entry.startsWith('/storage/videos/video-1/'))).toBe(true);
     });
 
@@ -316,13 +316,13 @@ describe('processVideoWorkflow', () => {
         };
         systemSettingsGetImpl = async () => ({ features: { autoTranscoding: 'compatibility' } });
 
-        expect(
+        await expect(
             processVideoWorkflow({
                 userId: 'user-1',
                 videoId: 'video-1',
                 tempPath: '/tmp/upload.mkv',
                 originalName: 'movie.mkv',
-                fileSize: 4096,
+                fileSize: 4_096,
                 type: 'movie',
                 imdbId: 'tt1234567',
             })
