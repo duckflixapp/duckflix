@@ -10,6 +10,47 @@ import { env } from '@core/env';
 import { taskHandler } from '@utils/taskHandler';
 import { liveSessionManager } from '@modules/media/live.service';
 import { createAuditLog } from '@shared/services/audit.service';
+import { systemSettings } from '@shared/services/system.service';
+import type { SystemSettingsT } from '@shared/schema';
+
+type DeepPartial<T> = {
+    [K in keyof T]?: NonNullable<T[K]> extends Array<infer U>
+        ? DeepPartial<U>[]
+        : NonNullable<T[K]> extends object
+          ? DeepPartial<NonNullable<T[K]>>
+          : T[K];
+};
+
+const SENSITIVE_SYSTEM_SETTING_PATHS = new Set([
+    'external.tmdb.apiKey',
+    'external.openSubtitles.apiKey',
+    'external.openSubtitles.password',
+    'external.email.smtpSettings.password',
+]);
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const collectPatchPaths = (value: unknown, prefix = ''): string[] => {
+    if (!isRecord(value)) return prefix ? [prefix] : [];
+
+    const entries = Object.entries(value);
+    if (entries.length === 0) return prefix ? [prefix] : [];
+
+    return entries.flatMap(([key, nestedValue]) => {
+        const path = prefix ? `${prefix}.${key}` : key;
+        if (Array.isArray(nestedValue) || !isRecord(nestedValue)) return [path];
+        return collectPatchPaths(nestedValue, path);
+    });
+};
+
+const summarizeSystemSettingsPatch = (patch: unknown) => {
+    const paths = [...new Set(collectPatchPaths(patch))];
+
+    return {
+        updatedPaths: paths.filter((path) => !SENSITIVE_SYSTEM_SETTING_PATHS.has(path)),
+        sensitivePathsUpdated: paths.filter((path) => SENSITIVE_SYSTEM_SETTING_PATHS.has(path)),
+    };
+};
 
 export const getUsersWithRoles = async (): Promise<UserDTO[]> => {
     const rolesIncluded = roles.filter((r) => isAtLeast(r, 'watcher'));
@@ -72,6 +113,24 @@ export const deleteUser = async (email: string, context: { userId: string }): Pr
             tx
         );
     });
+};
+
+export const updateSystemSettings = async (
+    settings: DeepPartial<SystemSettingsT>,
+    context: { userId: string }
+): Promise<SystemSettingsT> => {
+    const system = await systemSettings.update(settings);
+    const summary = summarizeSystemSettingsPatch(settings);
+
+    await createAuditLog({
+        actorUserId: context.userId,
+        action: 'admin.system.updated',
+        targetType: 'system_settings',
+        targetId: '1',
+        metadata: summary,
+    });
+
+    return system;
 };
 
 export const getSystemStatistics = async (): Promise<SystemStatisticsDTO> => {

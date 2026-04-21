@@ -16,8 +16,13 @@ import { systemSettings } from '@shared/services/system.service';
 import { logger } from '@shared/configs/logger';
 import { isDuplicateKey } from '@shared/db.errors';
 import { authAttemptLimiter } from './auth-attempt-limiter';
+import { createAuditLog } from '@shared/services/audit.service';
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
+const getAuthMetadata = (context: { ip?: string; userAgent?: string }) => ({
+    ip: context.ip ?? null,
+    userAgent: context.userAgent ?? null,
+});
 
 export const register = async (name: string, email: string, pass: string): Promise<UserDTO> => {
     const normalizedEmail = normalizeEmail(email);
@@ -121,12 +126,32 @@ export const login = async (
 
     if (!user) {
         authAttemptLimiter.recordFailedLogin(normalizedEmail);
+        await createAuditLog({
+            action: 'auth.login.failed',
+            targetType: 'user',
+            metadata: {
+                email: normalizedEmail,
+                reason: 'user_not_found',
+                ...getAuthMetadata(context),
+            },
+        });
         throw new InvalidCredentialsError();
     }
 
     const isPasswordValid = await argon2.verify(user.password, pass);
     if (!isPasswordValid) {
         authAttemptLimiter.recordFailedLogin(normalizedEmail);
+        await createAuditLog({
+            actorUserId: user.id,
+            action: 'auth.login.failed',
+            targetType: 'user',
+            targetId: user.id,
+            metadata: {
+                email: normalizedEmail,
+                reason: 'invalid_password',
+                ...getAuthMetadata(context),
+            },
+        });
         throw new InvalidCredentialsError();
     }
 
@@ -142,12 +167,39 @@ export const login = async (
     });
 
     authAttemptLimiter.resetLogin(normalizedEmail);
+    await createAuditLog({
+        actorUserId: user.id,
+        action: 'auth.login.succeeded',
+        targetType: 'user',
+        targetId: user.id,
+        metadata: {
+            email: normalizedEmail,
+            ...getAuthMetadata(context),
+        },
+    });
 
     return { token, refreshToken, user: toUserDTO(user) };
 };
 
 export const logout = async (refreshToken: string) => {
+    const session = await db.query.sessions.findFirst({
+        where: eq(sessions.token, refreshToken),
+    });
+
     await db.delete(sessions).where(eq(sessions.token, refreshToken));
+
+    if (!session) return;
+
+    await createAuditLog({
+        actorUserId: session.userId,
+        action: 'auth.logout',
+        targetType: 'session',
+        targetId: session.id,
+        metadata: {
+            ip: session.ipAddress ?? null,
+            userAgent: session.userAgent ?? null,
+        },
+    });
 };
 
 export const refresh = async (oldToken: string) => {
@@ -159,11 +211,31 @@ export const refresh = async (oldToken: string) => {
 
     if (session.isUsed) {
         await db.delete(sessions).where(eq(sessions.userId, session.userId));
+        await createAuditLog({
+            actorUserId: session.userId,
+            action: 'auth.refresh.reuse_detected',
+            targetType: 'session',
+            targetId: session.id,
+            metadata: {
+                ip: session.ipAddress ?? null,
+                userAgent: session.userAgent ?? null,
+            },
+        });
         throw new ForbiddenError('Security breach detected. All sessions invalidated.');
     }
 
     if (new Date() > session.expiresAt) {
         await db.delete(sessions).where(eq(sessions.id, session.id));
+        await createAuditLog({
+            actorUserId: session.userId,
+            action: 'auth.refresh.expired',
+            targetType: 'session',
+            targetId: session.id,
+            metadata: {
+                ip: session.ipAddress ?? null,
+                userAgent: session.userAgent ?? null,
+            },
+        });
         throw new AppError('Session expired', { statusCode: 401 });
     }
 
@@ -179,16 +251,34 @@ export const refresh = async (oldToken: string) => {
         isVerified: user.verified_email,
     });
     const refreshToken = crypto.randomUUID();
+    let newSessionId = '';
 
     await db.transaction(async (tx) => {
         await tx.update(sessions).set({ isUsed: true }).where(eq(sessions.id, session.id));
-        await tx.insert(sessions).values({
-            userId: user.id,
-            token: refreshToken,
-            expiresAt: new Date(Date.now() + limits.authentication.session_expiry_ms),
-            userAgent: session.userAgent,
-            ipAddress: session.ipAddress,
-        });
+        const [newSession] = await tx
+            .insert(sessions)
+            .values({
+                userId: user.id,
+                token: refreshToken,
+                expiresAt: new Date(Date.now() + limits.authentication.session_expiry_ms),
+                userAgent: session.userAgent,
+                ipAddress: session.ipAddress,
+            })
+            .returning({ id: sessions.id });
+
+        if (newSession) newSessionId = newSession.id;
+    });
+
+    await createAuditLog({
+        actorUserId: user.id,
+        action: 'auth.refresh.succeeded',
+        targetType: 'session',
+        targetId: newSessionId || session.id,
+        metadata: {
+            previousSessionId: session.id,
+            ip: session.ipAddress ?? null,
+            userAgent: session.userAgent ?? null,
+        },
     });
 
     return {
