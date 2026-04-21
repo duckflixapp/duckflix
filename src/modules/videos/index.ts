@@ -183,8 +183,8 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
 
             .delete(
                 '/:id',
-                async ({ params: { id }, set }) => {
-                    await VideoService.deleteVideoById(id);
+                async ({ params: { id }, user, set }) => {
+                    await VideoService.deleteVideoById(id, { userId: user.id });
                     set.status = 204;
                 },
                 { params: videoParamsSchema, detail: { summary: 'Remove' } }

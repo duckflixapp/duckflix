@@ -6,6 +6,7 @@ import { toLibraryDTO, toLibraryItemDTO, toLibraryMinDTO } from '@shared/mappers
 import { AppError } from '@shared/errors';
 import { isDuplicateKey } from '@shared/db.errors';
 import { LibraryNotFoundError } from './library.errors';
+import { createAuditLog } from '@shared/services/audit.service';
 
 export const getUserLibraries = async (userId: string, options?: { custom?: boolean }): Promise<LibraryMinDTO[]> => {
     const custom = !!options?.custom ? eq(libraries.type, 'custom') : null;
@@ -43,6 +44,20 @@ export const createUserLibrary = async (userId: string, context: { name: string 
 
             if (!result) throw new AppError('Library not created', { statusCode: 500 });
 
+            await createAuditLog(
+                {
+                    actorUserId: userId,
+                    action: 'library.created',
+                    targetType: 'library',
+                    targetId: result.id,
+                    metadata: {
+                        name: result.name,
+                        type: result.type,
+                    },
+                },
+                tx
+            );
+
             return result;
         });
 
@@ -56,7 +71,7 @@ export const createUserLibrary = async (userId: string, context: { name: string 
 export const deleteUserLibrary = async (userId: string, libraryId: string): Promise<void> => {
     await db.transaction(async (tx) => {
         const [library] = await tx
-            .select({ id: libraries.id, type: libraries.type })
+            .select({ id: libraries.id, type: libraries.type, name: libraries.name })
             .from(libraries)
             .where(and(eq(libraries.userId, userId), eq(libraries.id, libraryId)));
 
@@ -65,6 +80,19 @@ export const deleteUserLibrary = async (userId: string, libraryId: string): Prom
         if (library.type !== 'custom') throw new AppError(`You can only delete custom playlists`, { statusCode: 403 });
 
         await tx.delete(libraries).where(eq(libraries.id, library.id));
+        await createAuditLog(
+            {
+                actorUserId: userId,
+                action: 'library.deleted',
+                targetType: 'library',
+                targetId: library.id,
+                metadata: {
+                    name: library.name,
+                    type: library.type,
+                },
+            },
+            tx
+        );
     });
 };
 export const addContentToUserLibrary = async (

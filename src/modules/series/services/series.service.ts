@@ -4,6 +4,7 @@ import { series, seriesSeasons } from '@schema/series.schema';
 import { and, count, eq, sql } from 'drizzle-orm';
 import { SeriesNotFound } from '../errors';
 import { libraries, libraryItems } from '@shared/schema';
+import { createAuditLog } from '@shared/services/audit.service';
 
 export const getSeriesById = async (seriesId: string, options: { userId?: string }) => {
     const tvSeries = await db.query.series.findFirst({
@@ -42,6 +43,19 @@ export const deleteSeriesById = async (data: { seriesId: string; userId: string 
         if (!tvSeries) throw new SeriesNotFound();
 
         await tx.delete(series).where(eq(series.id, data.seriesId));
+        await createAuditLog(
+            {
+                actorUserId: data.userId,
+                action: 'series.deleted',
+                targetType: 'series',
+                targetId: tvSeries.id,
+                metadata: {
+                    title: tvSeries.title,
+                    tmdbId: tvSeries.tmdbId,
+                },
+            },
+            tx
+        );
     });
 
     return;

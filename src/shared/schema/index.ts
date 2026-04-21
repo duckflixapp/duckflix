@@ -1,4 +1,5 @@
 export * from './system.schema';
+export * from './audit.schema';
 
 export * from './user.schema';
 

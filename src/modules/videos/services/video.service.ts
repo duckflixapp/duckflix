@@ -16,6 +16,7 @@ import fs from 'node:fs/promises';
 import { paths } from '@shared/configs/path.config';
 import { tmdbClient } from '@shared/lib/tmdb';
 import { isDuplicateKey } from '@shared/db.errors';
+import { createAuditLog } from '@shared/services/audit.service';
 
 // ----- Video Upload -----
 type UploadHandler<T extends VideoMetadata> = (tx: Transaction, video: Video, data: T) => Promise<void>;
@@ -223,8 +224,15 @@ export const getVideoById = async (videoId: string): Promise<VideoDTO> => {
     return dto;
 };
 
-export const deleteVideoById = async (videoId: string) => {
-    const video = await db.query.videos.findFirst({ where: eq(videos.id, videoId), with: { versions: true } });
+export const deleteVideoById = async (videoId: string, context: { userId: string }) => {
+    const video = await db.query.videos.findFirst({
+        where: eq(videos.id, videoId),
+        with: {
+            versions: true,
+            movie: { columns: { id: true, title: true } },
+            episode: { columns: { id: true, name: true } },
+        },
+    });
 
     if (!video) throw new VideoNotFoundError();
 
@@ -242,6 +250,19 @@ export const deleteVideoById = async (videoId: string) => {
     const videoDir = path.resolve(paths.storage, 'videos', video.id);
     await fs.rm(videoDir, { recursive: true, force: true }).catch(() => {});
     await db.delete(videos).where(eq(videos.id, video.id));
+    await createAuditLog({
+        actorUserId: context.userId,
+        action: 'video.deleted',
+        targetType: 'video',
+        targetId: video.id,
+        metadata: {
+            videoType: video.type,
+            movieId: video.movie?.id ?? null,
+            movieTitle: video.movie?.title ?? null,
+            episodeId: video.episode?.id ?? null,
+            episodeName: video.episode?.name ?? null,
+        },
+    });
 };
 
 export const getVideoProgressById = async (data: { videoId: string; userId: string }) => {

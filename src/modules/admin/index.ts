@@ -1,10 +1,10 @@
 import { Elysia } from 'elysia';
 import { authGuard } from '@shared/middlewares/auth.middleware';
-import { systemSettings } from '@shared/services/system.service';
 import { toSystemDTO } from '@shared/mappers/system.mapper';
-import { changeUserRoleSchema, systemSettingsUpdateSchema, userSchema } from './admin.validator';
+import { auditLogsQuerySchema, changeUserRoleSchema, systemSettingsUpdateSchema, userSchema } from './admin.validator';
 import * as AdminService from './admin.service';
 import { createRateLimit } from '@shared/configs/ratelimit';
+import { systemSettings } from '@shared/services/system.service';
 
 export const adminRouter = new Elysia({ prefix: '/admin' })
     .use(authGuard)
@@ -20,13 +20,13 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
     )
     .patch(
         '/system',
-        async ({ body }) => {
+        async ({ body, user }) => {
             if (body?.external?.tmdb?.apiKey?.includes('**********')) delete body.external.tmdb.apiKey;
             if (body?.external?.openSubtitles?.apiKey?.includes('**********')) delete body.external.openSubtitles.apiKey;
             if (body?.external?.openSubtitles?.password?.includes('**********')) delete body.external.openSubtitles.password;
             if (body?.external?.email?.smtpSettings?.password?.includes('**********')) delete body.external.email.smtpSettings.password;
 
-            const system = await systemSettings.update(body);
+            const system = await AdminService.updateSystemSettings(body, { userId: user.id });
             return { status: 'success', data: { system: toSystemDTO(system) } };
         },
         { body: systemSettingsUpdateSchema, detail: { tags: ['Admin'], summary: 'Update' } }
@@ -38,6 +38,14 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
             return { status: 'success', data: { users } };
         },
         { detail: { tags: ['Admin'], summary: 'List Users' } }
+    )
+    .get(
+        '/audit-logs',
+        async ({ query }) => {
+            const auditLogs = await AdminService.listAuditLogs(query);
+            return { status: 'success', ...auditLogs };
+        },
+        { query: auditLogsQuerySchema, detail: { tags: ['Admin'], summary: 'Audit Logs' } }
     )
     .patch(
         '/users',

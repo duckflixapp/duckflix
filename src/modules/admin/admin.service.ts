@@ -9,6 +9,49 @@ import { toSystemStatisticsDTO } from '@shared/mappers/system.mapper';
 import { env } from '@core/env';
 import { taskHandler } from '@utils/taskHandler';
 import { liveSessionManager } from '@modules/media/live.service';
+import { createAuditLog, getAuditLogs, type AuditLogListItem } from '@shared/services/audit.service';
+import { systemSettings } from '@shared/services/system.service';
+import type { SystemSettingsT } from '@shared/schema';
+import type { PaginatedResponse } from '@duckflixapp/shared';
+
+type DeepPartial<T> = {
+    [K in keyof T]?: NonNullable<T[K]> extends Array<infer U>
+        ? DeepPartial<U>[]
+        : NonNullable<T[K]> extends object
+          ? DeepPartial<NonNullable<T[K]>>
+          : T[K];
+};
+
+const SENSITIVE_SYSTEM_SETTING_PATHS = new Set([
+    'external.tmdb.apiKey',
+    'external.openSubtitles.apiKey',
+    'external.openSubtitles.password',
+    'external.email.smtpSettings.password',
+]);
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const collectPatchPaths = (value: unknown, prefix = ''): string[] => {
+    if (!isRecord(value)) return prefix ? [prefix] : [];
+
+    const entries = Object.entries(value);
+    if (entries.length === 0) return prefix ? [prefix] : [];
+
+    return entries.flatMap(([key, nestedValue]) => {
+        const path = prefix ? `${prefix}.${key}` : key;
+        if (Array.isArray(nestedValue) || !isRecord(nestedValue)) return [path];
+        return collectPatchPaths(nestedValue, path);
+    });
+};
+
+const summarizeSystemSettingsPatch = (patch: unknown) => {
+    const paths = [...new Set(collectPatchPaths(patch))];
+
+    return {
+        updatedPaths: paths.filter((path) => !SENSITIVE_SYSTEM_SETTING_PATHS.has(path)),
+        sensitivePathsUpdated: paths.filter((path) => SENSITIVE_SYSTEM_SETTING_PATHS.has(path)),
+    };
+};
 
 export const getUsersWithRoles = async (): Promise<UserDTO[]> => {
     const rolesIncluded = roles.filter((r) => isAtLeast(r, 'watcher'));
@@ -23,27 +66,81 @@ export const getUsersWithRoles = async (): Promise<UserDTO[]> => {
 export const changeUserRole = async (email: string, role: UserRole, context: { userId: string }): Promise<void> => {
     return await db.transaction(async (tx) => {
         const [user] = await tx
-            .select({ id: users.id })
+            .select({ id: users.id, email: users.email, role: users.role })
             .from(users)
             .where(and(eq(users.email, email), eq(users.system, false)));
         if (!user) throw new AppError('User not found, no changes were made', { statusCode: 404 });
         if (user.id == context.userId) throw new AppError('You are not allowed to change your own role', { statusCode: 403 });
 
         await tx.update(users).set({ role }).where(eq(users.id, user.id));
+        await createAuditLog(
+            {
+                actorUserId: context.userId,
+                action: 'admin.user.role_changed',
+                targetType: 'user',
+                targetId: user.id,
+                metadata: {
+                    email: user.email,
+                    previousRole: user.role,
+                    nextRole: role,
+                },
+            },
+            tx
+        );
     });
 };
 
 export const deleteUser = async (email: string, context: { userId: string }): Promise<void> => {
     return await db.transaction(async (tx) => {
         const [user] = await tx
-            .select({ id: users.id })
+            .select({ id: users.id, email: users.email, role: users.role })
             .from(users)
             .where(and(eq(users.email, email), eq(users.system, false)));
         if (!user) throw new AppError('User not found, no changes were made', { statusCode: 404 });
         if (user.id == context.userId) throw new AppError('You are not allowed to delete your own account', { statusCode: 403 });
 
         await tx.delete(users).where(eq(users.id, user.id));
+        await createAuditLog(
+            {
+                actorUserId: context.userId,
+                action: 'admin.user.deleted',
+                targetType: 'user',
+                targetId: user.id,
+                metadata: {
+                    email: user.email,
+                    role: user.role,
+                },
+            },
+            tx
+        );
     });
+};
+
+export const updateSystemSettings = async (
+    settings: DeepPartial<SystemSettingsT>,
+    context: { userId: string }
+): Promise<SystemSettingsT> => {
+    const system = await systemSettings.update(settings);
+    const summary = summarizeSystemSettingsPatch(settings);
+
+    await createAuditLog({
+        actorUserId: context.userId,
+        action: 'admin.system.updated',
+        targetType: 'system_settings',
+        targetId: '1',
+        metadata: summary,
+    });
+
+    return system;
+};
+
+export const listAuditLogs = async (options: {
+    page: number;
+    limit: number;
+    action?: string;
+    actorUserId?: string;
+}): Promise<PaginatedResponse<AuditLogListItem>> => {
+    return getAuditLogs(options);
 };
 
 export const getSystemStatistics = async (): Promise<SystemStatisticsDTO> => {
