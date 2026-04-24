@@ -5,6 +5,9 @@ import { seriesEpisodes } from './series.schema';
 
 export type CastCreditType = 'cast' | 'guest_star';
 
+// ------------------------------------
+// Schema
+// ------------------------------------
 export const casts = pgTable(
     'casts',
     {
@@ -63,4 +66,7 @@ export const episodesToCasts = pgTable(
     ]
 );
 
+// ------------------------------------
+// Types
+// ------------------------------------
 export type Cast = InferSelectModel<typeof casts>;

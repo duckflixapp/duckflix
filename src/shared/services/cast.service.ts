@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm';
 import { db, type Transaction } from '@shared/configs/db';
 import { tmdbClient } from '@shared/lib/tmdb';
-import { toCastMemberDTOFromDB, toCastProfileUrl } from '@shared/mappers/cast.mapper';
+import { toCastMemberDTOFromDB, toCastProfileImageUrl } from '@shared/mappers/cast.mapper';
 import { casts, episodesToCasts, moviesToCasts, type CastCreditType } from '@shared/schema/cast.schema';
 
 type DBExecutor = Transaction | typeof db;
@@ -30,7 +30,7 @@ const upsertCastMember = async (
         gender: member.gender,
         knownForDepartment: member.known_for_department,
         popularity: member.popularity.toString(),
-        profileUrl: toCastProfileUrl(member.profile_path),
+        profileUrl: toCastProfileImageUrl(member.profile_path),
     };
 
     const [cast] = await executor
