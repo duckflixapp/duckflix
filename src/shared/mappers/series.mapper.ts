@@ -1,5 +1,5 @@
 // series.mapper.ts
-import type { Series, SeriesSeason, SeriesEpisode, SeriesGenre } from '@schema/series.schema';
+import { type Series, type SeriesSeason, type SeriesEpisode, type SeriesGenre } from '@schema/series.schema';
 import type {
     SeriesMinDTO,
     SeriesDTO,
@@ -16,6 +16,8 @@ import { toVideoDTO } from './video.mapper';
 const TMDB_SHOW_BASE_URL = 'https://www.themoviedb.org/tv/';
 
 export const toShowTMDbUrl = (tmdbId: number | null) => (tmdbId ? TMDB_SHOW_BASE_URL + tmdbId : null);
+export const toSeriesTMDbUrl = (showTmdbId: number | null, seasonNumber: number) =>
+    showTmdbId ? TMDB_SHOW_BASE_URL + showTmdbId + '/season/' + seasonNumber : null;
 export const toEpisodeTMDbUrl = (tmdbId: number | null) => (tmdbId ? TMDB_SHOW_BASE_URL + 'episode/' + tmdbId : null);
 
 // ---- Genre ----
@@ -60,6 +62,7 @@ export const toSeasonMinDTO = (season: SeriesSeason & { episodeCount?: number })
 
 export const toSeasonDTO = (season: SeriesSeason & { series: Series; episodes: SeriesEpisode[] }): SeasonDTO => ({
     ...toSeasonMinDTO(season),
+    tmdbUrl: toSeriesTMDbUrl(season.series.tmdbId, season.seasonNumber),
     overview: season.overview ?? null,
     series: toSeriesMinDTO(season.series),
     episodes: season.episodes.map(toEpisodeMinDTO),
