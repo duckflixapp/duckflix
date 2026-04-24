@@ -1,7 +1,12 @@
 import axios, { AxiosError } from 'axios';
-import type { TMDBFindByExternalIdResponse, TMDBMovieDetails, TMDBSearchResponse } from '@shared/types/movie.tmdb';
+import type {
+    TMDBFindByExternalIdResponse,
+    TMDBMovieCreditsResponse,
+    TMDBMovieDetails,
+    TMDBSearchResponse,
+} from '@shared/types/movie.tmdb';
 import { AppError } from '@shared/errors';
-import type { TMDBEpisodeDetails, TMDBSeasonDetails, TMDBSeriesDetails } from '@shared/types/series.tmdb';
+import type { TMDBEpisodeCreditsResponse, TMDBEpisodeDetails, TMDBSeasonDetails, TMDBSeriesDetails } from '@shared/types/series.tmdb';
 import { systemSettings } from '@shared/services/system.service';
 import { env } from '@core/env';
 import type { SystemSettingsT } from '@schema/system.schema';
@@ -34,6 +39,12 @@ export class TMDBGenresError extends AppError {
 export class TMDBEpisodeDetailsError extends AppError {
     constructor(err: unknown) {
         super('Could not fetch TMDB TV Episode API', { statusCode: 500, cause: err });
+    }
+}
+
+export class TMDBCreditsError extends AppError {
+    constructor(err: unknown) {
+        super('Could not fetch TMDB Credits API', { statusCode: 500, cause: err });
     }
 }
 
@@ -89,6 +100,17 @@ export class TMDBClient {
         return data;
     }
 
+    public async getEpisodeCredits(seriesId: number, seasonNumber: number, episodeNumber: number) {
+        const { data } = await this.api
+            .get<TMDBEpisodeCreditsResponse>(`/tv/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}/credits`)
+            .catch((err) => {
+                if (err instanceof AxiosError && err.response?.status === 404)
+                    throw new AppError('Could not find episode credits on TMDB', { statusCode: 404 });
+                throw new TMDBCreditsError(err);
+            });
+        return data;
+    }
+
     public async getSeasonDetails(seriesId: number, seasonNumber: number, options?: { append: 'external_ids' }) {
         const { data } = await this.api
             .get<TMDBSeasonDetails>(`/tv/${seriesId}/season/${seasonNumber}`, {
@@ -133,6 +155,15 @@ export class TMDBClient {
     public async getMovieDetails(movieId: string) {
         const { data } = await this.api.get<TMDBMovieDetails>(`/movie/${movieId}`).catch((err) => {
             throw new TMDBMovieDetailsError(err);
+        });
+        return data;
+    }
+
+    public async getMovieCredits(movieId: number | string) {
+        const { data } = await this.api.get<TMDBMovieCreditsResponse>(`/movie/${movieId}/credits`).catch((err) => {
+            if (err instanceof AxiosError && err.response?.status === 404)
+                throw new AppError('Could not find movie credits on TMDB', { statusCode: 404 });
+            throw new TMDBCreditsError(err);
         });
         return data;
     }

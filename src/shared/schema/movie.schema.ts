@@ -23,15 +23,15 @@ export const movies = pgTable(
         tmdbId: integer('tmdb_id').unique(),
         createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
     },
-    (t) => ({
-        createdAtIndex: index('movies_created_at_idx').on(t.createdAt),
-        ratingIndex: index('movies_rating_idx').on(t.rating),
-        ftsIndex: index('movies_fts_idx').using(
+    (t) => [
+        index('movies_created_at_idx').on(t.createdAt),
+        index('movies_rating_idx').on(t.rating),
+        index('movies_fts_idx').using(
             'gin',
             sql`(setweight(to_tsvector('english', ${t.title}), 'A') || 
             setweight(to_tsvector('english', coalesce(${t.overview}, '')), 'B'))`
         ),
-    })
+    ]
 );
 
 export const movieGenres = pgTable('movie_genres', {

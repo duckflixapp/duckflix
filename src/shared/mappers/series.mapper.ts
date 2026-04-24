@@ -1,5 +1,5 @@
 // series.mapper.ts
-import type { Series, SeriesSeason, SeriesEpisode, SeriesGenre } from '@schema/series.schema';
+import { type Series, type SeriesSeason, type SeriesEpisode, type SeriesGenre } from '@schema/series.schema';
 import type {
     SeriesMinDTO,
     SeriesDTO,
@@ -13,6 +13,13 @@ import type {
 import type { RichVideo } from './video.mapper';
 import { toVideoDTO } from './video.mapper';
 
+const TMDB_SHOW_BASE_URL = 'https://www.themoviedb.org/tv/';
+
+export const toShowTMDbUrl = (tmdbId: number | null) => (tmdbId ? TMDB_SHOW_BASE_URL + tmdbId : null);
+export const toSeriesTMDbUrl = (showTmdbId: number | null, seasonNumber: number) =>
+    showTmdbId ? TMDB_SHOW_BASE_URL + showTmdbId + '/season/' + seasonNumber : null;
+export const toEpisodeTMDbUrl = (tmdbId: number | null) => (tmdbId ? TMDB_SHOW_BASE_URL + 'episode/' + tmdbId : null);
+
 // ---- Genre ----
 export const toSeriesGenreDTO = (genre: SeriesGenre): SeriesGenreDTO => ({
     id: genre.id,
@@ -24,6 +31,8 @@ export const toEpisodeMinDTO = (episode: SeriesEpisode): EpisodeMinDTO => ({
     id: episode.id,
     seasonId: episode.seasonId,
     episodeNumber: episode.episodeNumber,
+    tmdbId: episode.tmdbId,
+    tmdbUrl: toEpisodeTMDbUrl(episode.tmdbId),
     name: episode.name,
     stillUrl: episode.stillUrl,
     airDate: episode.airDate,
@@ -37,6 +46,7 @@ export const toEpisodeDTO = (episode: SeriesEpisode & { season: SeriesSeason; vi
     overview: episode.overview ?? null,
     season: toSeasonMinDTO(episode.season),
     video: episode.video ? toVideoDTO(episode.video) : null,
+    cast: [],
 });
 
 // ---- Season ----
@@ -52,6 +62,7 @@ export const toSeasonMinDTO = (season: SeriesSeason & { episodeCount?: number })
 
 export const toSeasonDTO = (season: SeriesSeason & { series: Series; episodes: SeriesEpisode[] }): SeasonDTO => ({
     ...toSeasonMinDTO(season),
+    tmdbUrl: toSeriesTMDbUrl(season.series.tmdbId, season.seasonNumber),
     overview: season.overview ?? null,
     series: toSeriesMinDTO(season.series),
     episodes: season.episodes.map(toEpisodeMinDTO),
@@ -60,6 +71,8 @@ export const toSeasonDTO = (season: SeriesSeason & { series: Series; episodes: S
 // ---- Series ----
 export const toSeriesMinDTO = (s: Series): SeriesMinDTO => ({
     id: s.id,
+    tmdbId: s.tmdbId,
+    tmdbUrl: toShowTMDbUrl(s.tmdbId),
     title: s.title,
     overview: s.overview ?? null,
     posterUrl: s.posterUrl ?? null,
@@ -88,7 +101,6 @@ export const toSeriesDetailedDTO = (
     inUserLibrary?: boolean | null
 ): SeriesDetailedDTO => ({
     ...toSeriesDTO(s),
-    tmdbId: s.tmdbId ? String(s.tmdbId) : null,
     lastAirDate: s.lastAirDate ?? null,
     inUserLibrary: inUserLibrary ?? null,
 });

@@ -17,6 +17,8 @@ import { paths } from '@shared/configs/path.config';
 import { tmdbClient } from '@shared/lib/tmdb';
 import { isDuplicateKey } from '@shared/db.errors';
 import { createAuditLog } from '@shared/services/audit.service';
+import { syncEpisodeCast, syncMovieCast } from '@shared/services/cast.service';
+import { logger } from '@shared/configs/logger';
 
 // ----- Video Upload -----
 type UploadHandler<T extends VideoMetadata> = (tx: Transaction, video: Video, data: T) => Promise<void>;
@@ -48,6 +50,12 @@ const movieUploadHandler: UploadHandler<MovieMetadata> = async (tx, video, data)
 
             const genreIds = movieGenresRaw.map(({ id }) => id);
             if (genreIds.length > 0) await tx.insert(moviesToGenres).values(genreIds.map((genreId) => ({ movieId: movie.id, genreId })));
+        }
+
+        if (data.tmdbId) {
+            await syncMovieCast(movie.id, data.tmdbId, tx).catch((err) => {
+                logger.warn({ err, movieId: movie.id, tmdbId: data.tmdbId }, 'Failed to sync movie cast during upload');
+            });
         }
     } catch (e) {
         if (isDuplicateKey(e)) throw new AppError('Movie already exists', { statusCode: 409 });
@@ -128,18 +136,44 @@ const episodeUploadHandler: UploadHandler<EpisodeMetadata> = async (tx, video, d
     }
 
     try {
-        await tx.insert(seriesEpisodes).values({
-            seasonId,
-            videoId: video.id,
-            episodeNumber: data.episodeNumber,
-            name: data.name,
-            overview: data.overview,
-            airDate: data.airDate?.toDateString() ?? null,
-            runtime: data.runtime,
-            stillUrl: data.stillUrl,
-            rating: data.rating?.toString() ?? null,
-            tmdbId: data.tmdbId,
-        });
+        const [episode] = await tx
+            .insert(seriesEpisodes)
+            .values({
+                seasonId,
+                videoId: video.id,
+                episodeNumber: data.episodeNumber,
+                name: data.name,
+                overview: data.overview,
+                airDate: data.airDate?.toDateString() ?? null,
+                runtime: data.runtime,
+                stillUrl: data.stillUrl,
+                rating: data.rating?.toString() ?? null,
+                tmdbId: data.tmdbId,
+            })
+            .returning({ id: seriesEpisodes.id });
+
+        if (episode && data.tmdbShowId) {
+            await syncEpisodeCast(
+                episode.id,
+                {
+                    seriesId: data.tmdbShowId,
+                    seasonNumber: data.seasonNumber,
+                    episodeNumber: data.episodeNumber,
+                },
+                tx
+            ).catch((err) => {
+                logger.warn(
+                    {
+                        err,
+                        episodeId: episode.id,
+                        tmdbSeriesId: data.tmdbShowId,
+                        seasonNumber: data.seasonNumber,
+                        episodeNumber: data.episodeNumber,
+                    },
+                    'Failed to sync episode cast during upload'
+                );
+            });
+        }
     } catch (e) {
         if (isDuplicateKey(e)) throw new AppError('Episode already exists', { statusCode: 409 });
         throw e;

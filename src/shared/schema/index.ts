@@ -6,6 +6,7 @@ export * from './user.schema';
 export * from './video.schema';
 
 export * from './movie.schema';
+export * from './cast.schema';
 
 export * from './notification.schema';
 

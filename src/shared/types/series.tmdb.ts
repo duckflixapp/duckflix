@@ -1,3 +1,5 @@
+import type { TMDBCastMember, TMDBCrewMember } from './movie.tmdb';
+
 export interface TMDBExternalIds {
     imdb_id: string | null;
 }
@@ -77,4 +79,11 @@ export interface TMDBEpisodeDetails extends TMDBSeriesBase {
     vote_count: number;
     episode_number: number;
     season_number: number;
+}
+
+export interface TMDBEpisodeCreditsResponse {
+    id: number;
+    cast: TMDBCastMember[];
+    crew: TMDBCrewMember[];
+    guest_stars: TMDBCastMember[];
 }

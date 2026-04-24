@@ -56,6 +56,36 @@ export interface TMDBMovieDetails {
     vote_count: number;
 }
 
+export interface TMDBCreditPerson {
+    adult: boolean;
+    gender: number;
+    id: number;
+    known_for_department: string;
+    name: string;
+    original_name: string;
+    popularity: number;
+    profile_path: string | null;
+}
+
+export interface TMDBCastMember extends TMDBCreditPerson {
+    cast_id?: number;
+    character: string;
+    credit_id: string;
+    order: number;
+}
+
+export interface TMDBCrewMember extends TMDBCreditPerson {
+    credit_id: string;
+    department: string;
+    job: string;
+}
+
+export interface TMDBMovieCreditsResponse {
+    id: number;
+    cast: TMDBCastMember[];
+    crew: TMDBCrewMember[];
+}
+
 export interface TMDBFindMovieResult {
     adult: boolean;
     backdrop_path: string | null;
