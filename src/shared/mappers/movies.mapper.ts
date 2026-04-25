@@ -17,7 +17,7 @@ export const toMovieMinDTO = (movie: Movie): MovieMinDTO => ({
     overview: movie.overview,
     bannerUrl: movie.bannerUrl,
     posterUrl: movie.posterUrl,
-    rating: movie.rating,
+    rating: String(movie.rating),
     releaseYear: movie.releaseYear,
     runtime: movie.runtime,
 });

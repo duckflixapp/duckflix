@@ -1,19 +1,19 @@
 import { type InferSelectModel } from 'drizzle-orm';
-import { integer, jsonb, pgTable } from 'drizzle-orm/pg-core';
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 // ------------------------------------
 // Schema
 // ------------------------------------
-export const systemSettings = pgTable('system_settings', {
+export const systemSettings = sqliteTable('system_settings', {
     id: integer('id').primaryKey().default(1),
-    settings: jsonb('settings')
+    settings: text('settings', { mode: 'json' })
         .$type<{
             features: {
                 autoTranscoding: 'off' | 'compatibility' | 'smart';
                 concurrentProcessing: number;
                 registration: {
-                    enabled: boolean; // is registration allowed
-                    trustEmails: boolean; // verify users automatically
+                    enabled: boolean;
+                    trustEmails: boolean;
                 };
             };
             preferences: {
@@ -42,7 +42,6 @@ export const systemSettings = pgTable('system_settings', {
         }>()
         .notNull(),
 });
-
 // ------------------------------------
 // Types
 // ------------------------------------

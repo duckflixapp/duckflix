@@ -1,4 +1,4 @@
-import { decimal, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, text, uniqueIndex, sqliteTable, real } from 'drizzle-orm/sqlite-core';
 import type { InferSelectModel } from 'drizzle-orm';
 import { movies } from './movie.schema';
 import { seriesEpisodes } from './series.schema';
@@ -8,29 +8,33 @@ export type CastCreditType = 'cast' | 'guest_star';
 // ------------------------------------
 // Schema
 // ------------------------------------
-export const casts = pgTable(
+export const casts = sqliteTable(
     'casts',
     {
-        id: uuid('id').defaultRandom().primaryKey(),
+        id: text('id')
+            .primaryKey()
+            .$defaultFn(() => crypto.randomUUID()),
         tmdbId: integer('tmdb_id').notNull().unique(),
         name: text('name').notNull(),
         originalName: text('original_name'),
         gender: integer('gender'),
         knownForDepartment: text('known_for_department'),
-        popularity: decimal('popularity', { precision: 8, scale: 3 }),
+        popularity: real('popularity'),
         profileUrl: text('profile_url'),
-        createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+        createdAt: text('created_at')
+            .notNull()
+            .$defaultFn(() => new Date().toISOString()),
     },
     (t) => [index('casts_name_idx').on(t.name), index('casts_created_at_idx').on(t.createdAt)]
 );
 
-export const moviesToCasts = pgTable(
+export const moviesToCasts = sqliteTable(
     'movies_to_casts',
     {
-        movieId: uuid('movie_id')
+        movieId: text('movie_id')
             .notNull()
             .references(() => movies.id, { onDelete: 'cascade' }),
-        castId: uuid('cast_id')
+        castId: text('cast_id')
             .notNull()
             .references(() => casts.id, { onDelete: 'cascade' }),
         creditId: text('credit_id').notNull(),
@@ -45,13 +49,13 @@ export const moviesToCasts = pgTable(
     ]
 );
 
-export const episodesToCasts = pgTable(
+export const episodesToCasts = sqliteTable(
     'episodes_to_casts',
     {
-        episodeId: uuid('episode_id')
+        episodeId: text('episode_id')
             .notNull()
             .references(() => seriesEpisodes.id, { onDelete: 'cascade' }),
-        castId: uuid('cast_id')
+        castId: text('cast_id')
             .notNull()
             .references(() => casts.id, { onDelete: 'cascade' }),
         creditId: text('credit_id').notNull(),

@@ -1,42 +1,52 @@
 import type { UserRole } from '@duckflixapp/shared';
 import { type InferSelectModel } from 'drizzle-orm';
-import { boolean, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
 // ------------------------------------
 // Schema
 // ------------------------------------
-export const users = pgTable('users', {
-    id: uuid('id').defaultRandom().primaryKey(),
+export const users = sqliteTable('users', {
+    id: text('id')
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
     name: text('name').notNull(),
     email: text('email').notNull().unique(),
-    verified_email: boolean('is_verified_email').notNull().default(false),
+    verified_email: integer('is_verified_email', { mode: 'boolean' }).notNull().default(false),
     password: text('password').notNull(),
     role: text('role').$type<UserRole>().default('watcher').notNull(),
-    system: boolean('system').default(false).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    system: integer('system', { mode: 'boolean' }).default(false).notNull(),
+    createdAt: text('created_at')
+        .notNull()
+        .$defaultFn(() => new Date().toISOString()),
 });
 
-export const sessions = pgTable('sessions', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id')
+export const sessions = sqliteTable('sessions', {
+    id: text('id')
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text('user_id')
         .notNull()
         .references(() => users.id, { onDelete: 'cascade' }),
     token: text('token').notNull().unique(),
-    isUsed: boolean('is_used').default(false).notNull(),
+    isUsed: integer('is_used', { mode: 'boolean' }).default(false).notNull(),
     userAgent: text('user_agent'),
     ipAddress: text('ip_address'),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: text('expires_at').notNull(),
+    createdAt: text('created_at')
+        .notNull()
+        .$defaultFn(() => new Date().toISOString()),
 });
 
-export const accountTokens = pgTable('account_tokens', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id')
+export const accountTokens = sqliteTable('account_tokens', {
+    id: text('id')
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text('user_id')
         .notNull()
         .references(() => users.id, { onDelete: 'cascade' }),
     token: text('token').notNull(),
     type: text('type').$type<AccountTokenType>().notNull(),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    expiresAt: text('expires_at').notNull(),
 });
 
 // ------------------------------------

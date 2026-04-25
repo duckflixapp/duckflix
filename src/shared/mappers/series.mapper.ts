@@ -37,7 +37,7 @@ export const toEpisodeMinDTO = (episode: SeriesEpisode): EpisodeMinDTO => ({
     stillUrl: episode.stillUrl,
     airDate: episode.airDate,
     runtime: episode.runtime,
-    rating: episode.rating,
+    rating: String(episode.rating),
     videoId: episode.videoId ?? null,
 });
 
@@ -77,7 +77,7 @@ export const toSeriesMinDTO = (s: Series): SeriesMinDTO => ({
     overview: s.overview ?? null,
     posterUrl: s.posterUrl ?? null,
     bannerUrl: s.bannerUrl ?? null,
-    rating: s.rating ?? null,
+    rating: s.rating ? String(s.rating) : null,
     firstAirDate: s.firstAirDate ?? null,
     status: s.status ?? null,
 });

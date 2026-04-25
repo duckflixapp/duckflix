@@ -1,5 +1,5 @@
-import { decimal, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
-import { relations, sql, type InferSelectModel } from 'drizzle-orm';
+import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { relations, type InferSelectModel } from 'drizzle-orm';
 
 import { videos } from './video.schema';
 
@@ -8,37 +8,39 @@ export type SeriesStatus = 'returning' | 'ended' | 'canceled' | 'in_production';
 // ------------------------------------
 // Schema
 // ------------------------------------
-export const series = pgTable(
+export const series = sqliteTable(
     'series',
     {
-        id: uuid('id').defaultRandom().primaryKey(),
+        id: text('id')
+            .primaryKey()
+            .$defaultFn(() => crypto.randomUUID()),
         title: text('title').notNull(),
         overview: text('overview'),
         posterUrl: text('poster_url'),
         bannerUrl: text('banner_url'),
-        rating: decimal('rating', { precision: 3, scale: 1 }),
+        rating: real('rating'),
         firstAirDate: text('first_air_date'),
         lastAirDate: text('last_air_date'),
         status: text('status').$type<SeriesStatus>(),
         tmdbId: integer('tmdb_id').unique(),
-        createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+        createdAt: text('created_at')
+            .notNull()
+            .$defaultFn(() => new Date().toISOString()),
     },
     (t) => [
         index('series_created_at_idx').on(t.createdAt),
         index('series_rating_idx').on(t.rating),
-        index('series_fts_idx').using(
-            'gin',
-            sql`(setweight(to_tsvector('english', ${t.title}), 'A') || 
-            setweight(to_tsvector('english', coalesce(${t.overview}, '')), 'B'))`
-        ),
+        // GIN FTS index izbačen — koristiti LIKE ili FTS5 virtual table
     ]
 );
 
-export const seriesSeasons = pgTable(
+export const seriesSeasons = sqliteTable(
     'series_seasons',
     {
-        id: uuid('id').defaultRandom().primaryKey(),
-        seriesId: uuid('series_id')
+        id: text('id')
+            .primaryKey()
+            .$defaultFn(() => crypto.randomUUID()),
+        seriesId: text('series_id')
             .notNull()
             .references(() => series.id, { onDelete: 'cascade' }),
         seasonNumber: integer('season_number').notNull(),
@@ -46,19 +48,23 @@ export const seriesSeasons = pgTable(
         overview: text('overview'),
         posterUrl: text('poster_url'),
         airDate: text('air_date'),
-        createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+        createdAt: text('created_at')
+            .notNull()
+            .$defaultFn(() => new Date().toISOString()),
     },
     (t) => [uniqueIndex('series_season_unique').on(t.seriesId, t.seasonNumber)]
 );
 
-export const seriesEpisodes = pgTable(
+export const seriesEpisodes = sqliteTable(
     'series_episodes',
     {
-        id: uuid('id').defaultRandom().primaryKey(),
-        seasonId: uuid('season_id')
+        id: text('id')
+            .primaryKey()
+            .$defaultFn(() => crypto.randomUUID()),
+        seasonId: text('season_id')
             .notNull()
             .references(() => seriesSeasons.id, { onDelete: 'cascade' }),
-        videoId: uuid('video_id')
+        videoId: text('video_id')
             .notNull()
             .references(() => videos.id, { onDelete: 'cascade' }),
         episodeNumber: integer('episode_number').notNull(),
@@ -67,26 +73,30 @@ export const seriesEpisodes = pgTable(
         airDate: text('air_date'),
         runtime: integer('runtime'),
         stillUrl: text('still_url'),
-        rating: decimal('rating', { precision: 3, scale: 1 }),
+        rating: real('rating'),
         tmdbId: integer('tmdb_id').unique(),
-        createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+        createdAt: text('created_at')
+            .notNull()
+            .$defaultFn(() => new Date().toISOString()),
     },
     (t) => [uniqueIndex('season_episode_unique').on(t.seasonId, t.episodeNumber)]
 );
 
 // ----- Genres -----
-export const seriesGenres = pgTable('series_genres', {
-    id: uuid('id').defaultRandom().primaryKey(),
+export const seriesGenres = sqliteTable('series_genres', {
+    id: text('id')
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
     name: text('name').notNull().unique(),
 });
 
-export const seriesToGenres = pgTable(
+export const seriesToGenres = sqliteTable(
     'series_to_genres',
     {
-        seriesId: uuid('series_id')
+        seriesId: text('series_id')
             .notNull()
             .references(() => series.id, { onDelete: 'cascade' }),
-        genreId: uuid('genre_id')
+        genreId: text('genre_id')
             .notNull()
             .references(() => seriesGenres.id, { onDelete: 'cascade' }),
     },
@@ -104,7 +114,6 @@ export type SeriesGenre = InferSelectModel<typeof seriesGenres>;
 // ------------------------------------
 // Relations
 // ------------------------------------
-
 export const seriesRelations = relations(series, ({ many }) => ({
     seasons: many(seriesSeasons),
     genres: many(seriesToGenres),

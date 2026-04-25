@@ -1,5 +1,5 @@
 import type { VideoStatus, VideoType, VideoVersionStatus } from '@duckflixapp/shared';
-import { pgTable, uuid, integer, text, timestamp, boolean, bigint, uniqueIndex } from 'drizzle-orm/pg-core';
+import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { relations, type InferSelectModel } from 'drizzle-orm';
 
 import { users } from './user.schema';
@@ -9,55 +9,71 @@ import { seriesEpisodes } from './series.schema';
 // ------------------------------------
 // Schema
 // ------------------------------------
-export const videos = pgTable('videos', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    uploaderId: uuid('uploader_id').references(() => users.id, { onDelete: 'set null' }),
-    duration: integer('duration'), // null while uploading or similar - seconds
+export const videos = sqliteTable('videos', {
+    id: text('id')
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    uploaderId: text('uploader_id').references(() => users.id, { onDelete: 'set null' }),
+    duration: integer('duration'),
     status: text('status').$type<VideoStatus>().default('processing').notNull(),
     type: text('type').$type<VideoType>().notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    createdAt: text('created_at')
+        .notNull()
+        .$defaultFn(() => new Date().toISOString()),
 });
 
-export const videoVersions = pgTable('video_versions', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    videoId: uuid('video_id')
+export const videoVersions = sqliteTable('video_versions', {
+    id: text('id')
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    videoId: text('video_id')
         .notNull()
         .references(() => videos.id, { onDelete: 'cascade' }),
-    width: integer('width'), // can be null while task is in process
+    width: integer('width'),
     height: integer('height').notNull(),
-    isOriginal: boolean('is_original').default(false).notNull(),
+    isOriginal: integer('is_original', { mode: 'boolean' }).default(false).notNull(),
     status: text('status').$type<VideoVersionStatus>().default('processing').notNull(),
     storageKey: text('storage_key').notNull(),
-    fileSize: bigint('file_size', { mode: 'number' }),
+    fileSize: integer('file_size'),
     mimeType: text('mime_type'),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    createdAt: text('created_at')
+        .notNull()
+        .$defaultFn(() => new Date().toISOString()),
 });
 
-export const subtitles = pgTable('subtitles', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    videoId: uuid('video_id')
+export const subtitles = sqliteTable('subtitles', {
+    id: text('id')
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    videoId: text('video_id')
         .notNull()
         .references(() => videos.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     language: text('language').notNull(),
     storageKey: text('storage_key').notNull(),
     externalId: text('external_id'),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    createdAt: text('created_at')
+        .notNull()
+        .$defaultFn(() => new Date().toISOString()),
 });
 
-export const watchHistory = pgTable(
+export const watchHistory = sqliteTable(
     'watch_history',
     {
-        id: uuid('id').defaultRandom().primaryKey(),
-        userId: uuid('user_id')
+        id: text('id')
+            .primaryKey()
+            .$defaultFn(() => crypto.randomUUID()),
+        userId: text('user_id')
             .notNull()
             .references(() => users.id, { onDelete: 'cascade' }),
-        videoId: uuid('video_id')
+        videoId: text('video_id')
             .notNull()
             .references(() => videos.id, { onDelete: 'cascade' }),
         lastPosition: integer('last_position').default(0).notNull(),
-        isFinished: boolean('is_finished').default(false).notNull(),
-        updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+        isFinished: integer('is_finished', { mode: 'boolean' }).default(false).notNull(),
+        updatedAt: text('updated_at')
+            .notNull()
+            .$defaultFn(() => new Date().toISOString()),
     },
     (table) => [uniqueIndex('user_video_idx').on(table.userId, table.videoId)]
 );

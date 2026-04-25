@@ -1,20 +1,24 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { index, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { users } from './user.schema';
 
 // ------------------------------------
 // Schema
 // ------------------------------------
-export const auditLogs = pgTable(
+export const auditLogs = sqliteTable(
     'audit_logs',
     {
-        id: uuid('id').defaultRandom().primaryKey(),
-        actorUserId: uuid('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
+        id: text('id')
+            .primaryKey()
+            .$defaultFn(() => crypto.randomUUID()),
+        actorUserId: text('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
         action: text('action').notNull(),
         targetType: text('target_type').notNull(),
         targetId: text('target_id'),
-        metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull(),
-        createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+        metadata: text('metadata', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
+        createdAt: text('created_at')
+            .notNull()
+            .$defaultFn(() => new Date().toISOString()),
     },
     (table) => [
         index('audit_logs_actor_user_id_idx').on(table.actorUserId),

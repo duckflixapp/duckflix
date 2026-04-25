@@ -1,15 +1,17 @@
-import { pgTable, uuid, text, decimal, integer, timestamp, index } from 'drizzle-orm/pg-core';
+import { text, integer, index, sqliteTable, real } from 'drizzle-orm/sqlite-core';
 import { videos } from './video.schema';
-import { relations, sql, type InferSelectModel } from 'drizzle-orm';
+import { relations, type InferSelectModel } from 'drizzle-orm';
 
 // ------------------------------------
 // Schema
 // ------------------------------------
-export const movies = pgTable(
+export const movies = sqliteTable(
     'movies',
     {
-        id: uuid('id').defaultRandom().primaryKey(),
-        videoId: uuid('video_id')
+        id: text('id')
+            .primaryKey()
+            .$defaultFn(() => crypto.randomUUID()),
+        videoId: text('video_id')
             .references(() => videos.id, { onDelete: 'cascade' })
             .notNull()
             .unique(),
@@ -17,36 +19,31 @@ export const movies = pgTable(
         overview: text('overview'),
         bannerUrl: text('banner_url'),
         posterUrl: text('poster_url'),
-        rating: decimal('rating', { precision: 3, scale: 1 }).default('0.0'),
+        rating: real('rating').default(0.0),
         releaseYear: integer('release_year'),
         runtime: integer('runtime'),
         tmdbId: integer('tmdb_id').unique(),
-        createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+        createdAt: text('created_at')
+            .notNull()
+            .$defaultFn(() => new Date().toISOString()),
     },
-    (t) => [
-        index('movies_created_at_idx').on(t.createdAt),
-        index('movies_rating_idx').on(t.rating),
-        index('movies_fts_idx').using(
-            'gin',
-            sql`(setweight(to_tsvector('english', ${t.title}), 'A') || 
-            setweight(to_tsvector('english', coalesce(${t.overview}, '')), 'B'))`
-        ),
-    ]
+    (t) => [index('movies_created_at_idx').on(t.createdAt), index('movies_rating_idx').on(t.rating)]
 );
 
-export const movieGenres = pgTable('movie_genres', {
-    id: uuid('id').defaultRandom().primaryKey(),
+export const movieGenres = sqliteTable('movie_genres', {
+    id: text('id')
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
     name: text('name').notNull().unique(),
 });
 
-// pivot table
-export const moviesToGenres = pgTable(
+export const moviesToGenres = sqliteTable(
     'movies_to_genres',
     {
-        movieId: uuid('movie_id')
+        movieId: text('movie_id')
             .notNull()
             .references(() => movies.id, { onDelete: 'cascade' }),
-        genreId: uuid('genre_id')
+        genreId: text('genre_id')
             .notNull()
             .references(() => movieGenres.id, { onDelete: 'cascade' }),
     },

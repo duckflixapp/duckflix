@@ -7,7 +7,7 @@ export const toContentDTO = (type: 'movie' | 'series', item: Movie | Series): Co
     id: item.id,
     title: item.title,
     image: item.posterUrl ?? null,
-    rating: item.rating ? parseFloat(item.rating) : null,
+    rating: item.rating ? item.rating : null,
     createdAt: item.createdAt,
     release: type === 'movie' ? ((item as Movie).releaseYear?.toString() ?? '') : ((item as Series).firstAirDate?.slice(0, 4) ?? ''),
 });

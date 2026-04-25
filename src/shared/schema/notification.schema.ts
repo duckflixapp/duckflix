@@ -1,20 +1,24 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { pgTable, uuid, text, boolean, timestamp } from 'drizzle-orm/pg-core';
+import { text, sqliteTable, integer } from 'drizzle-orm/sqlite-core';
 import { videos, videoVersions } from './video.schema';
 
 // ------------------------------------
 // Schema
 // ------------------------------------
-export const notifications = pgTable('notifications', {
-    id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id'),
-    videoId: uuid('video_id').references(() => videos.id, { onDelete: 'cascade' }),
-    videoVerId: uuid('movie_version_id').references(() => videoVersions.id, { onDelete: 'cascade' }),
+export const notifications = sqliteTable('notifications', {
+    id: text('id')
+        .primaryKey()
+        .$defaultFn(() => crypto.randomUUID()),
+    userId: text('user_id'),
+    videoId: text('video_id').references(() => videos.id, { onDelete: 'cascade' }),
+    videoVerId: text('movie_version_id').references(() => videoVersions.id, { onDelete: 'cascade' }),
     type: text('type').$type<'info' | 'error' | 'success' | 'warning'>().default('info').notNull(),
     title: text('title').notNull(),
     message: text('message').notNull(),
-    isRead: boolean('is_read').notNull().default(false),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+    isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
+    createdAt: text('created_at')
+        .notNull()
+        .$defaultFn(() => new Date().toISOString()),
 });
 
 // ------------------------------------
