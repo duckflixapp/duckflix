@@ -27,13 +27,11 @@ export const orderFromSort = (table: SortableTable, sort: SortValue, order: Sort
 export const searchFromQuery = (table: SortableTable, q: string | null) => {
     if (!q) return { filter: undefined, rank: sql`1` };
 
-    const document = sql`setweight(to_tsvector('english', ${table.title}), 'A') || 
-                         setweight(to_tsvector('english', coalesce(${table.overview}, '')), 'B')`;
+    const searchTerm = `%${q.toLowerCase()}%`;
 
-    const query = sql`plainto_tsquery('english', ${q})`;
+    const filter = sql`(lower(${table.title}) LIKE ${searchTerm} OR lower(coalesce(${table.overview}, '')) LIKE ${searchTerm})`;
+    const rank = sql`(CASE WHEN lower(${table.title}) LIKE ${searchTerm} THEN 1 ELSE 0 END)`;
 
-    const filter = sql`${document} @@ ${query}`;
-    const rank = sql`ts_rank(${document}, ${query})`;
     return { filter, rank };
 };
 

@@ -27,11 +27,7 @@ export const series = sqliteTable(
             .notNull()
             .$defaultFn(() => new Date().toISOString()),
     },
-    (t) => [
-        index('series_created_at_idx').on(t.createdAt),
-        index('series_rating_idx').on(t.rating),
-        // GIN FTS index izbačen — koristiti LIKE ili FTS5 virtual table
-    ]
+    (t) => [index('series_created_at_idx').on(t.createdAt), index('series_rating_idx').on(t.rating)]
 );
 
 export const seriesSeasons = sqliteTable(
