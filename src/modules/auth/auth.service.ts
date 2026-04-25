@@ -108,7 +108,7 @@ export const register = async (name: string, email: string, pass: string): Promi
                     userId: user.id,
                     token: verificationToken,
                     type: 'email_verification',
-                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
                 });
 
             return user;
@@ -146,7 +146,7 @@ export const verifyEmail = async (token: string) => {
         .from(accountTokens)
         .where(and(eq(accountTokens.token, token), eq(accountTokens.type, 'email_verification')));
 
-    if (!storedToken || new Date() > storedToken.expiresAt) {
+    if (!storedToken || new Date() > new Date(storedToken.expiresAt)) {
         throw new AppError('Invalid or expired token', { statusCode: 400 });
     }
 
@@ -228,7 +228,7 @@ export const login = async (
             token: refreshToken,
             ipAddress: context.ip,
             userAgent: context.userAgent,
-            expiresAt: new Date(Date.now() + limits.authentication.session_expiry_ms),
+            expiresAt: new Date(Date.now() + limits.authentication.session_expiry_ms).toISOString(),
         })
         .returning({ id: sessions.id });
 
@@ -302,7 +302,7 @@ export const refresh = async (oldToken: string) => {
         throw new ForbiddenError('Security breach detected. All sessions invalidated.');
     }
 
-    if (new Date() > session.expiresAt) {
+    if (new Date() > new Date(session.expiresAt)) {
         await db.delete(sessions).where(eq(sessions.id, session.id));
         await createAuditLog({
             actorUserId: session.userId,
@@ -338,7 +338,7 @@ export const refresh = async (oldToken: string) => {
             .values({
                 userId: user.id,
                 token: refreshToken,
-                expiresAt: new Date(Date.now() + limits.authentication.session_expiry_ms),
+                expiresAt: new Date(Date.now() + limits.authentication.session_expiry_ms).toISOString(),
                 userAgent: session.userAgent,
                 ipAddress: session.ipAddress,
             })

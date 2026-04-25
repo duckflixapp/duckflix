@@ -151,8 +151,10 @@ export const removeContentFromUserLibrary = async (
                 ? and(eq(libraryItems.libraryId, library.id), eq(libraryItems.movieId, contentId))
                 : and(eq(libraryItems.libraryId, library.id), eq(libraryItems.seriesId, contentId));
 
-        const modified = await tx.delete(libraryItems).where(deleteFilter);
-        if (modified.rowCount === 0) throw new AppError('Content not found in library', { statusCode: 404 });
+        const [item] = await tx.select({ id: libraryItems.id }).from(libraryItems).where(deleteFilter);
+        if (!item) throw new AppError('Content not found in library', { statusCode: 404 });
+
+        await tx.delete(libraryItems).where(deleteFilter);
     });
 };
 

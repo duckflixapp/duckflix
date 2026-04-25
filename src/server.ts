@@ -1,5 +1,5 @@
 import { app } from '@core/app';
-import { pool } from '@shared/configs/db';
+import { db } from '@shared/configs/db';
 import { env } from '@core/env';
 import { initalize } from '@core/initialize';
 import { logger } from '@shared/configs/logger';
@@ -22,7 +22,7 @@ export const socket = new Socket(app.server);
 
 process.on('SIGINT', async () => {
     app.stop();
-    await pool.end();
+    db.$client.close();
     liveSessionManager.destroyAll();
     process.exit(0);
 });

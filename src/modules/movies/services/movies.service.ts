@@ -107,7 +107,7 @@ export const updateMovieById = async (id: string, data: Partial<MovieMetadata>):
                 title: data.title,
                 overview: data.overview,
                 releaseYear: data.releaseYear,
-                rating: data.rating?.toString() ?? null,
+                rating: data.rating ?? null,
                 bannerUrl: data.bannerUrl,
                 posterUrl: data.posterUrl,
                 tmdbId: data.tmdbId,

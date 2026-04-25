@@ -29,7 +29,7 @@ const upsertCastMember = async (
         originalName: member.original_name,
         gender: member.gender,
         knownForDepartment: member.known_for_department,
-        popularity: member.popularity.toString(),
+        popularity: member.popularity,
         profileUrl: toCastProfileImageUrl(member.profile_path),
     };
 

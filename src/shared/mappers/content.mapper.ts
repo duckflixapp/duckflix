@@ -17,7 +17,7 @@ export const toContentDTOFromRow = (row: {
     id: string;
     title: string;
     image: string | null;
-    rating: string | null;
+    rating: number | null;
     createdAt: string;
     release: string;
 }): ContentDTO => ({
@@ -25,7 +25,7 @@ export const toContentDTOFromRow = (row: {
     id: row.id,
     title: row.title,
     image: row.image,
-    rating: row.rating ? parseFloat(row.rating) : null,
+    rating: row.rating ? row.rating : null,
     createdAt: row.createdAt,
     release: row.release,
 });

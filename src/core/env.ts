@@ -21,7 +21,7 @@ const envSchema = z.object({
     LOG_FOLDER: z.string().min(1),
 
     // Database
-    DATABASE_URL: z.url(),
+    DATABASE_PATH: z.string(),
 
     // SMTP
     SMTP_HOST: z.string().optional(),

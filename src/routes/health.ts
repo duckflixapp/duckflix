@@ -6,7 +6,7 @@ import { createRateLimit } from '@shared/configs/ratelimit';
 
 const healthController = async ({ set }: Context) => {
     try {
-        await db.execute(sql`SELECT 1`);
+        db.run(sql`SELECT 1`);
         return {
             status: 'healthy',
             uptime: `${Math.floor(process.uptime())}s`,

@@ -4,8 +4,8 @@ import { series } from '@schema/series.schema';
 import { and, asc, count, desc, sql } from 'drizzle-orm';
 import { db } from '@shared/configs/db';
 import { searchFromQuery, toSeriesGenresFilter, toMovieGenresFilter } from './search.helper';
-import { unionAll } from 'drizzle-orm/pg-core';
 import { toContentDTOFromRow } from '@shared/mappers/content.mapper';
+import { unionAll } from 'drizzle-orm/sqlite-core';
 
 interface SearchOptions {
     q: string | null;

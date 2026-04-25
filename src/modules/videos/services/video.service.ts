@@ -33,7 +33,7 @@ const movieUploadHandler: UploadHandler<MovieMetadata> = async (tx, video, data)
                 overview: data.overview,
                 bannerUrl: data.bannerUrl,
                 posterUrl: data.posterUrl,
-                rating: data.rating?.toString() ?? null,
+                rating: data.rating ?? null,
                 tmdbId: data.tmdbId,
                 releaseYear: data.releaseYear,
             })
@@ -83,7 +83,7 @@ const episodeUploadHandler: UploadHandler<EpisodeMetadata> = async (tx, video, d
             overview: raw.overview,
             posterUrl: raw.poster_path ? `https://image.tmdb.org/t/p/w500${raw.poster_path}` : undefined,
             bannerUrl: raw.backdrop_path ? `https://image.tmdb.org/t/p/original${raw.backdrop_path}` : undefined,
-            rating: raw.vote_average.toString(),
+            rating: raw.vote_average,
             firstAirDate: raw.first_air_date,
             lastAirDate: raw.last_air_date,
             status,
@@ -147,7 +147,7 @@ const episodeUploadHandler: UploadHandler<EpisodeMetadata> = async (tx, video, d
                 airDate: data.airDate?.toDateString() ?? null,
                 runtime: data.runtime,
                 stillUrl: data.stillUrl,
-                rating: data.rating?.toString() ?? null,
+                rating: data.rating ?? null,
                 tmdbId: data.tmdbId,
             })
             .returning({ id: seriesEpisodes.id });
