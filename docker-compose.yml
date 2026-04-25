@@ -1,23 +1,5 @@
 name: 'duckflix'
 services:
-    # postgres:
-    #     image: postgres:16-alpine
-    #     container_name: duckflix_db
-    #     restart: always
-    #     environment:
-    #         POSTGRES_USER: duck_admin
-    #         POSTGRES_PASSWORD: duck_pswd
-    #         POSTGRES_DB: duckflix_db
-    #     volumes:
-    #         - postgres_data:/var/lib/postgresql/data
-    #     networks:
-    #         - duckflix_network
-    #     healthcheck:
-    #         test: ['CMD-SHELL', 'pg_isready -U duck_admin -d duckflix_db']
-    #         interval: 5s
-    #         timeout: 5s
-    #         retries: 5
-
     rqbit:
         image: ikatson/rqbit:latest
         container_name: duckflix_rqbit
@@ -42,9 +24,6 @@ services:
         restart: always
         init: true
         command: sh -c "bun run db:migrate && bun run start"
-        # depends_on:
-        #     postgres:
-        #         condition: service_healthy
         ports:
             - '3000:3000'
         environment:
