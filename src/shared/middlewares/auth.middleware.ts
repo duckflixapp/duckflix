@@ -1,9 +1,9 @@
-import { Elysia } from 'elysia';
+import { Elysia, type Context } from 'elysia';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 
 import { AppError } from '@shared/errors';
-import { verifyToken } from '@utils/jwt';
+import { verifyStepUpToken, verifyToken } from '@utils/jwt';
 import { roleHierarchy, type UserRole } from '@duckflixapp/shared';
 import { csrfPlugin } from './csrf.middleware';
 
@@ -79,6 +79,33 @@ export const authGuard = new Elysia({ name: 'auth-guard' }).use(authPlugin).macr
             }
 
             return { user };
+        },
+    }),
+
+    stepUp: (requiredScope: string) => ({
+        beforeHandle: ({ headers }: Context) => {
+            const stepUpToken = headers['x-step-up-token'];
+            if (!stepUpToken) throw new ForbiddenError('Step-up authentication required');
+
+            try {
+                const payload = verifyStepUpToken(stepUpToken);
+                if (!payload.stepUp || payload.scope !== requiredScope) {
+                    throw new ForbiddenError('Invalid step-up scope');
+                }
+            } catch {
+                throw new ForbiddenError('Step-up token expired or invalid');
+            }
+        },
+        detail: {
+            parameters: [
+                {
+                    name: 'x-step-up-token',
+                    in: 'header',
+                    required: true,
+                    schema: { type: 'string' },
+                    description: `Step-up token with scope: ${requiredScope}`,
+                },
+            ],
         },
     }),
 });

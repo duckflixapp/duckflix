@@ -10,11 +10,13 @@ import { seriesRouter } from '@modules/series';
 import { healthRouter } from './health';
 import { tasksRouter } from '@modules/tasks';
 import { mediaRouter } from '@modules/media';
+import { accountRouter } from '@modules/account';
 
 export const v1 = new Elysia({ prefix: '/v1' })
     .use(healthRouter)
     .use(authRouter)
     .use(usersRouter)
+    .use(accountRouter)
     .use(adminRouter)
     .use(libraryRouter)
     .use(searchRouter)

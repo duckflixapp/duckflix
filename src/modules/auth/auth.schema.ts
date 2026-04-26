@@ -21,4 +21,10 @@ export const verifyEmailSchema = z.object({
     token: z.string().min(1),
 });
 
+export const stepUpSchema = z.object({
+    scope: z.enum(['sensitive:read', 'sensitive:write']),
+    method: z.enum(['password']),
+    credential: z.string(),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;

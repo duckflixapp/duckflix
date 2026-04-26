@@ -378,3 +378,34 @@ export const refresh = async (oldToken: string) => {
         user: toUserDTO(user),
     };
 };
+
+export const stepUp = async (
+    userId: string,
+    scope: string,
+    method: string,
+    credential: string
+): Promise<{ token: string; expiresIn: number }> => {
+    const user = await db.query.users.findFirst({
+        where: and(eq(users.id, userId), eq(users.system, false)),
+    });
+
+    if (!user) throw new InvalidCredentialsError();
+
+    if (method === 'password') {
+        const isValid = await argon2.verify(user.password, credential);
+        if (!isValid) throw new InvalidCredentialsError();
+    } else throw new AppError('Unsupported method', { statusCode: 400 });
+
+    const expiresIn = 7 * 60 * 1000;
+    const token = signToken({ sub: userId, scope, stepUp: true }, expiresIn);
+
+    await createAuditLog({
+        actorUserId: userId,
+        action: 'auth.step_up.succeeded',
+        targetType: 'user',
+        targetId: userId,
+        metadata: { scope, method },
+    });
+
+    return { token, expiresIn };
+};

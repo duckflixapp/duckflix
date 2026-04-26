@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import crypto from 'node:crypto';
 import * as AuthService from './auth.service';
-import { registerSchema, loginSchema, verifyEmailSchema } from './auth.schema';
+import { registerSchema, loginSchema, verifyEmailSchema, stepUpSchema } from './auth.schema';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { UnauthorizedError } from '@shared/middlewares/auth.middleware';
 import { env } from '@core/env';
@@ -103,4 +103,16 @@ export const authRouter = new Elysia({ prefix: '/auth' })
             return { status: 'success' };
         },
         { auth: { verified: false }, detail: { tags: ['Auth'], summary: 'Logout' } }
+    )
+    .post(
+        '/step-up',
+        async ({ body, user }) => {
+            const result = await AuthService.stepUp(user.id, body.scope, body.method, body.credential);
+            return { status: 'success', data: result };
+        },
+        {
+            body: stepUpSchema,
+            detail: { tags: ['Auth'], summary: 'Step up authentication' },
+            auth: { verified: false },
+        }
     );
