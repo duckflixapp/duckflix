@@ -2,7 +2,7 @@ import { AppError } from '@shared/errors';
 import { InMemorySessionRepository } from './session.memory.repository';
 import type { SessionData, SessionRepository } from './session.repository';
 
-const SESSION_TTL_MS = 60 * 60 * 16; // 16h
+const SESSION_TTL_MS = 60 * 60 * 16 * 1000; // 16h
 
 class UnauthorizedSession extends AppError {
     constructor() {
