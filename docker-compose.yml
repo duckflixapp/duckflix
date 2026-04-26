@@ -58,6 +58,5 @@ networks:
         driver: bridge
 
 volumes:
-    postgres_data:
     rqbit_db:
     rqbit_cache:
