@@ -5,9 +5,10 @@
 ### Local Development
 
 - **Bun**: [https://bun.sh/](https://bun.sh/)
-- **PostgreSQL**: [https://www.postgresql.org/](https://www.postgresql.org/)
 - **rqbit**: [https://github.com/ikatson/rqbit](https://github.com/ikatson/rqbit)
 - **FFmpeg**: [https://ffmpeg.org/](https://ffmpeg.org/)
+
+Make sure that you have `data/` folder in root
 
 ### Containerized
 
@@ -50,7 +51,7 @@ docker compose up --build -d
 docker compose down
 ```
 
-The backend waits for Postgres health check before starting. The `certs/` folder is mounted as read-only volume.
+The `certs/` folder is mounted as read-only volume.
 
 ## 5. Local Development
 
