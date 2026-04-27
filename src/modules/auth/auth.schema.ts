@@ -21,10 +21,18 @@ export const verifyEmailSchema = z.object({
     token: z.string().min(1),
 });
 
-export const stepUpSchema = z.object({
+const stepUpSchemaBase = z.object({
     scope: z.enum(['sensitive:read', 'sensitive:write']),
-    method: z.enum(['password', 'totp']),
-    credential: z.string(),
 });
+export const stepUpSchema = z.discriminatedUnion('method', [
+    stepUpSchemaBase.extend({
+        method: z.literal('password'),
+        credential: z.string().min(1),
+    }),
+    stepUpSchemaBase.extend({
+        method: z.literal('totp'),
+        credential: z.string().length(6).regex(/^\d+$/, 'Must be a 6-digit number'),
+    }),
+]);
 
 export type RegisterInput = z.infer<typeof registerSchema>;

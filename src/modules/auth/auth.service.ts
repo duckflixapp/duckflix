@@ -394,12 +394,12 @@ export const stepUp = async (
 
     if (method === 'password') {
         const isValid = await argon2.verify(user.password, credential);
-        if (!isValid) throw new InvalidCredentialsError();
+        if (!isValid) throw new AppError('Invalid password', { statusCode: 401 });
     } else if (method === 'totp') {
         if (!user.totpSecret || !user.totpEnabled) throw new AppError('TOTP not configured', { statusCode: 400 });
 
         const result = await verify({ token: credential, secret: user.totpSecret });
-        if (!result.valid) throw new AppError('Invalid code', { statusCode: 400 });
+        if (!result.valid) throw new AppError('Invalid code', { statusCode: 401 });
     } else throw new AppError('Unsupported method', { statusCode: 400 });
 
     const expiresIn = 5 * 60 * 1000;

@@ -15,35 +15,38 @@ export const accountRouter = new Elysia({ prefix: '/account' })
         },
         { body: resetPasswordSchema, detail: { tags: ['Account'], summary: 'Change Password' } }
     )
-    .get(
-        '/authenticator/setup',
-        async ({ user }) => {
-            const data = await getTotpSetup(user.id);
-            return { status: 'success', data };
-        },
-        { detail: { tags: ['Account'], summary: 'Get TOTP Setup QR' } }
-    )
-    .delete(
-        '/authenticator/setup',
-        async ({ user, status }) => {
-            await cancelTotpSetup(user.id);
-            return status(204, { status: 'success' });
-        },
-        { detail: { tags: ['Account'], summary: 'Activate TOTP' } }
-    )
-    .post(
-        '/authenticator/setup',
-        async ({ body, user }) => {
-            const data = await activateTotp(user.id, body.code);
-            return { status: 'success', data };
-        },
-        { body: setupTotpSchema, detail: { tags: ['Account'], summary: 'Activate TOTP' } }
-    )
-    .delete(
-        '/authenticator',
-        async ({ user }) => {
-            await deactivateTotp(user.id);
-            return { status: 'success' };
-        },
-        { detail: { tags: ['Account'], summary: 'Disable TOTP' } }
+    .group('/authenticator', (app) =>
+        app
+            .get(
+                '/setup',
+                async ({ user }) => {
+                    const data = await getTotpSetup(user.id);
+                    return { status: 'success', data };
+                },
+                { detail: { tags: ['Account'], summary: 'Get TOTP Setup QR' } }
+            )
+            .delete(
+                '/setup',
+                async ({ user, status }) => {
+                    await cancelTotpSetup(user.id);
+                    return status(204, { status: 'success' });
+                },
+                { detail: { tags: ['Account'], summary: 'Cancel TOTP setup' } }
+            )
+            .post(
+                '/setup',
+                async ({ body, user }) => {
+                    const data = await activateTotp(user.id, body.code);
+                    return { status: 'success', data };
+                },
+                { body: setupTotpSchema, detail: { tags: ['Account'], summary: 'Activate TOTP' } }
+            )
+            .delete(
+                '/',
+                async ({ user }) => {
+                    await deactivateTotp(user.id);
+                    return { status: 'success' };
+                },
+                { detail: { tags: ['Account'], summary: 'Disable TOTP' } }
+            )
     );
