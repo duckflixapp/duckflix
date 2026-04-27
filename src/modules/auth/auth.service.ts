@@ -1,9 +1,9 @@
 import argon2 from 'argon2';
 import crypto from 'node:crypto';
 import { db } from '@shared/configs/db';
-import { accountTokens, sessions, users } from '@shared/schema';
+import { accountTokens, sessions, totpBackupCodes, users, type User } from '@shared/schema';
 import { libraries } from '@schema/library.schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import {
     AuthTemporarilyLockedError,
     EmailAlreadyExistsError,
@@ -30,6 +30,21 @@ const getAuthMetadata = (context: { ip?: string; userAgent?: string }) => ({
     ip: context.ip ?? null,
     userAgent: context.userAgent ?? null,
 });
+const loginChallengeExpiryMs = 5 * 60 * 1000;
+
+type AuthContext = { ip?: string; userAgent?: string };
+type LoginChallengeMethod = 'totp' | 'backup_code';
+type AuthenticatedSession = { token: string; refreshToken: string; user: UserDTO };
+type LoginResult =
+    | ({ requires2fa: false } & AuthenticatedSession)
+    | {
+          requires2fa: true;
+          challengeToken: string;
+          expiresIn: number;
+          methods: LoginChallengeMethod[];
+      };
+
+const getLoginChallengeLimiterKey = (email: string) => `loginChallenge:${normalizeEmail(email)}`;
 
 const auditAuthRateLimit = async (
     scope: 'login' | 'register',
@@ -47,6 +62,115 @@ const auditAuthRateLimit = async (
                     : null,
         },
     });
+};
+
+const verifyTotpCredential = async (user: Pick<User, 'totpEnabled' | 'totpSecret'>, credential: string) => {
+    if (!user.totpSecret || !user.totpEnabled) return false;
+
+    const result = await verify({ token: credential, secret: user.totpSecret });
+    return result.valid;
+};
+
+const verifyBackupCode = async (userId: string, credential: string) => {
+    const backupCodes = await db
+        .select({ id: totpBackupCodes.id, codeHash: totpBackupCodes.codeHash })
+        .from(totpBackupCodes)
+        .where(and(eq(totpBackupCodes.userId, userId), isNull(totpBackupCodes.usedAt)));
+
+    const normalizedCredential = credential.trim().toUpperCase();
+
+    for (const backupCode of backupCodes) {
+        if (!(await argon2.verify(backupCode.codeHash, normalizedCredential))) continue;
+
+        const [used] = await db
+            .update(totpBackupCodes)
+            .set({ usedAt: new Date() })
+            .where(and(eq(totpBackupCodes.id, backupCode.id), isNull(totpBackupCodes.usedAt)))
+            .returning({ id: totpBackupCodes.id });
+
+        return !!used;
+    }
+
+    return false;
+};
+
+const getLoginChallengeMethods = async (user: Pick<User, 'id' | 'totpEnabled' | 'totpSecret'>): Promise<LoginChallengeMethod[]> => {
+    if (!user.totpEnabled || !user.totpSecret) return [];
+
+    const methods: LoginChallengeMethod[] = ['totp'];
+    const [backupCode] = await db
+        .select({ id: totpBackupCodes.id })
+        .from(totpBackupCodes)
+        .where(and(eq(totpBackupCodes.userId, user.id), isNull(totpBackupCodes.usedAt)))
+        .limit(1);
+
+    if (backupCode) methods.push('backup_code');
+
+    return methods;
+};
+
+const createLoginChallenge = async (userId: string) => {
+    const challengeToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + loginChallengeExpiryMs).toISOString();
+
+    await db.transaction(async (tx) => {
+        await tx.delete(accountTokens).where(and(eq(accountTokens.userId, userId), eq(accountTokens.type, 'login_challenge')));
+        await tx.insert(accountTokens).values({
+            userId,
+            token: challengeToken,
+            type: 'login_challenge',
+            expiresAt,
+        });
+    });
+
+    return { challengeToken, expiresIn: loginChallengeExpiryMs };
+};
+
+const createAuthenticatedSession = async (
+    user: User,
+    context: AuthContext,
+    source: 'login' | 'loginChallenge'
+): Promise<AuthenticatedSession> => {
+    const token = signToken({ sub: user.id, role: user.role, isVerified: user.verified_email });
+    const refreshToken = crypto.randomUUID();
+    let sessionId = '';
+
+    const [session] = await db
+        .insert(sessions)
+        .values({
+            userId: user.id,
+            token: refreshToken,
+            ipAddress: context.ip,
+            userAgent: context.userAgent,
+            expiresAt: new Date(Date.now() + limits.authentication.session_expiry_ms).toISOString(),
+        })
+        .returning({ id: sessions.id });
+
+    if (session) sessionId = session.id;
+
+    await createAuditLog({
+        actorUserId: user.id,
+        action: 'session.created',
+        targetType: 'session',
+        targetId: sessionId || null,
+        metadata: {
+            source,
+            ...getAuthMetadata(context),
+        },
+    });
+    await createAuditLog({
+        actorUserId: user.id,
+        action: 'auth.login.succeeded',
+        targetType: 'user',
+        targetId: user.id,
+        metadata: {
+            email: user.email,
+            twoFactor: source === 'loginChallenge',
+            ...getAuthMetadata(context),
+        },
+    });
+
+    return { token, refreshToken, user: toUserDTO(user) };
 };
 
 export const register = async (name: string, email: string, pass: string): Promise<UserDTO> => {
@@ -170,11 +294,7 @@ export const verifyEmail = async (token: string) => {
     });
 };
 
-export const login = async (
-    email: string,
-    pass: string,
-    context: { ip?: string; userAgent?: string }
-): Promise<{ token: string; refreshToken: string; user: UserDTO }> => {
+export const login = async (email: string, pass: string, context: AuthContext): Promise<LoginResult> => {
     const normalizedEmail = normalizeEmail(email);
     try {
         authAttemptLimiter.checkLogin(normalizedEmail);
@@ -218,46 +338,106 @@ export const login = async (
         throw new InvalidCredentialsError();
     }
 
-    const token = signToken({ sub: user.id, role: user.role, isVerified: user.verified_email });
-    const refreshToken = crypto.randomUUID();
-    let sessionId = '';
-
-    const [session] = await db
-        .insert(sessions)
-        .values({
-            userId: user.id,
-            token: refreshToken,
-            ipAddress: context.ip,
-            userAgent: context.userAgent,
-            expiresAt: new Date(Date.now() + limits.authentication.session_expiry_ms).toISOString(),
-        })
-        .returning({ id: sessions.id });
-
-    if (session) sessionId = session.id;
-
     authAttemptLimiter.resetLogin(normalizedEmail);
-    await createAuditLog({
-        actorUserId: user.id,
-        action: 'session.created',
-        targetType: 'session',
-        targetId: sessionId || null,
-        metadata: {
-            source: 'login',
-            ...getAuthMetadata(context),
-        },
-    });
-    await createAuditLog({
-        actorUserId: user.id,
-        action: 'auth.login.succeeded',
-        targetType: 'user',
-        targetId: user.id,
-        metadata: {
-            email: normalizedEmail,
-            ...getAuthMetadata(context),
-        },
+
+    const loginChallengeMethods = await getLoginChallengeMethods(user);
+    if (loginChallengeMethods.length > 0) {
+        const loginChallenge = await createLoginChallenge(user.id);
+
+        await createAuditLog({
+            actorUserId: user.id,
+            action: 'auth.login.2fa_required',
+            targetType: 'user',
+            targetId: user.id,
+            metadata: {
+                email: normalizedEmail,
+                methods: loginChallengeMethods,
+                ...getAuthMetadata(context),
+            },
+        });
+
+        return {
+            requires2fa: true,
+            ...loginChallenge,
+            methods: loginChallengeMethods,
+        };
+    }
+
+    const session = await createAuthenticatedSession(user, context, 'login');
+
+    return { requires2fa: false, ...session };
+};
+
+export const verifyLoginChallenge = async (
+    challengeToken: string,
+    method: LoginChallengeMethod,
+    credential: string,
+    context: AuthContext
+): Promise<AuthenticatedSession> => {
+    const [storedToken] = await db
+        .select()
+        .from(accountTokens)
+        .where(and(eq(accountTokens.token, challengeToken), eq(accountTokens.type, 'login_challenge')))
+        .limit(1);
+
+    if (!storedToken) throw new AppError('Invalid or expired two-factor challenge', { statusCode: 401 });
+
+    if (new Date() > new Date(storedToken.expiresAt)) {
+        await db.delete(accountTokens).where(eq(accountTokens.id, storedToken.id));
+        throw new AppError('Invalid or expired two-factor challenge', { statusCode: 401 });
+    }
+
+    const user = await db.query.users.findFirst({
+        where: and(eq(users.id, storedToken.userId), eq(users.system, false)),
     });
 
-    return { token, refreshToken, user: toUserDTO(user) };
+    if (!user) {
+        await db.delete(accountTokens).where(eq(accountTokens.id, storedToken.id));
+        throw new AppError('Invalid or expired two-factor challenge', { statusCode: 401 });
+    }
+
+    const limiterKey = getLoginChallengeLimiterKey(user.email);
+    try {
+        authAttemptLimiter.checkLogin(limiterKey);
+    } catch (error) {
+        if (error instanceof TooManyAuthAttemptsError || error instanceof AuthTemporarilyLockedError) {
+            await auditAuthRateLimit('login', user.email, error);
+        }
+        throw error;
+    }
+
+    const isValid = method === 'totp' ? await verifyTotpCredential(user, credential) : await verifyBackupCode(user.id, credential);
+
+    if (!isValid) {
+        authAttemptLimiter.recordFailedLogin(limiterKey);
+        await createAuditLog({
+            actorUserId: user.id,
+            action: 'auth.login.2fa_failed',
+            targetType: 'user',
+            targetId: user.id,
+            metadata: {
+                email: user.email,
+                method,
+                ...getAuthMetadata(context),
+            },
+        });
+        throw new AppError('Invalid authentication code', { statusCode: 401 });
+    }
+
+    await db.delete(accountTokens).where(eq(accountTokens.id, storedToken.id));
+    authAttemptLimiter.resetLogin(limiterKey);
+
+    if (method === 'backup_code') {
+        await createAuditLog({
+            actorUserId: user.id,
+            action: 'auth.login.backup_code_used',
+            targetType: 'user',
+            targetId: user.id,
+            metadata: getAuthMetadata(context),
+        });
+    }
+
+    return createAuthenticatedSession(user, context, 'loginChallenge');
 };
 
 export const logout = async (refreshToken: string) => {
@@ -398,8 +578,8 @@ export const stepUp = async (
     } else if (method === 'totp') {
         if (!user.totpSecret || !user.totpEnabled) throw new AppError('TOTP not configured', { statusCode: 400 });
 
-        const result = await verify({ token: credential, secret: user.totpSecret });
-        if (!result.valid) throw new AppError('Invalid code', { statusCode: 401 });
+        const isValid = await verifyTotpCredential(user, credential);
+        if (!isValid) throw new AppError('Invalid code', { statusCode: 401 });
     } else throw new AppError('Unsupported method', { statusCode: 400 });
 
     const expiresIn = 5 * 60 * 1000;

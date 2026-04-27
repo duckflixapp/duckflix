@@ -73,4 +73,4 @@ export type UserWithoutPassword = Omit<User, 'password'>;
 export type Session = InferSelectModel<typeof sessions>;
 
 export type AccountToken = InferSelectModel<typeof accountTokens>;
-export type AccountTokenType = 'email_verification'; // email verification, phone verification, password reset
+export type AccountTokenType = 'email_verification' | 'login_challenge'; // email verification, phone verification, password reset

@@ -17,6 +17,24 @@ export const loginSchema = z.object({
     password: z.string().max(64, 'Password must be less than 65 characters'),
 });
 
+const totpCredentialSchema = z.string().length(6).regex(/^\d+$/, 'Must be a 6-digit number');
+
+export const loginChallengeSchema = z.discriminatedUnion('method', [
+    z.object({
+        challengeToken: z.string().min(1),
+        method: z.literal('totp'),
+        credential: totpCredentialSchema,
+    }),
+    z.object({
+        challengeToken: z.string().min(1),
+        method: z.literal('backup_code'),
+        credential: z
+            .string()
+            .trim()
+            .regex(/^[a-fA-F0-9]{8}$/, 'Must be an 8-character backup code'),
+    }),
+]);
+
 export const verifyEmailSchema = z.object({
     token: z.string().min(1),
 });
@@ -31,7 +49,7 @@ export const stepUpSchema = z.discriminatedUnion('method', [
     }),
     stepUpSchemaBase.extend({
         method: z.literal('totp'),
-        credential: z.string().length(6).regex(/^\d+$/, 'Must be a 6-digit number'),
+        credential: totpCredentialSchema,
     }),
 ]);
 

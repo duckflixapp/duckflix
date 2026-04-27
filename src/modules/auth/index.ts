@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import crypto from 'node:crypto';
 import * as AuthService from './auth.service';
-import { registerSchema, loginSchema, verifyEmailSchema, stepUpSchema } from './auth.schema';
+import { registerSchema, loginSchema, loginChallengeSchema, verifyEmailSchema, stepUpSchema } from './auth.schema';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { UnauthorizedError } from '@shared/middlewares/auth.middleware';
 import { env } from '@core/env';
@@ -11,6 +11,43 @@ import { createRateLimit } from '@shared/configs/ratelimit';
 const secure = env.NODE_ENV === 'production';
 const accessMaxAge = limits.authentication.access_token_expiry_ms / 1000;
 const sessionMaxAge = limits.authentication.session_expiry_ms / 1000;
+
+type CookieSetter = {
+    set: (options: {
+        value: string;
+        httpOnly: boolean;
+        secure: boolean;
+        maxAge?: number;
+        sameSite: 'lax' | 'strict';
+        path?: string;
+        domain?: string;
+    }) => void;
+};
+
+const setAuthCookies = (
+    cookie: { refresh_token: CookieSetter; auth_token: CookieSetter; csrf_token: CookieSetter },
+    session: { token: string; refreshToken: string }
+) => {
+    const csrfTokenString = crypto.randomBytes(32).toString('hex');
+
+    cookie.refresh_token.set({
+        value: session.refreshToken,
+        httpOnly: true,
+        secure,
+        maxAge: sessionMaxAge,
+        sameSite: 'lax',
+        path: `${env.BASE_URL}/auth/refresh`,
+    });
+    cookie.auth_token.set({ value: session.token, httpOnly: true, secure, maxAge: accessMaxAge, sameSite: 'lax' });
+    cookie.csrf_token.set({
+        value: csrfTokenString,
+        httpOnly: false,
+        secure,
+        sameSite: 'lax',
+        domain: env.DOMAIN,
+        maxAge: sessionMaxAge,
+    });
+};
 
 const cookieSchema = t.Cookie({
     auth_token: t.Optional(t.String()),
@@ -42,25 +79,40 @@ export const authRouter = new Elysia({ prefix: '/auth' })
     .post(
         '/login',
         async ({ body, headers, cookie, request, server }) => {
-            const { refresh_token, auth_token, csrf_token } = cookie;
             const ip = server?.requestIP(request)?.address ?? headers['x-forwarded-for'] ?? 'unknown';
             const result = await AuthService.login(body.email, body.password, { ip, userAgent: headers['user-agent'] });
-            const csrfTokenString = crypto.randomBytes(32).toString('hex');
 
-            refresh_token.set({
-                value: result.refreshToken,
-                httpOnly: true,
-                secure,
-                maxAge: sessionMaxAge,
-                sameSite: 'lax',
-                path: `${env.BASE_URL}/auth/refresh`,
-            });
-            auth_token.set({ value: result.token, httpOnly: true, secure, maxAge: accessMaxAge, sameSite: 'lax' });
-            csrf_token.set({ value: csrfTokenString, httpOnly: false, secure, sameSite: 'lax', domain: env.DOMAIN, maxAge: sessionMaxAge });
+            if (result.requires2fa) {
+                return {
+                    status: '2fa_required',
+                    data: {
+                        challengeToken: result.challengeToken,
+                        expiresIn: result.expiresIn,
+                        methods: result.methods,
+                    },
+                };
+            }
+
+            setAuthCookies(cookie, result);
 
             return { status: 'success', user: result.user };
         },
         { body: loginSchema, detail: { tags: ['Auth'], summary: 'Login' } }
+    )
+    .post(
+        '/login/verify-2fa',
+        async ({ body, headers, cookie, request, server }) => {
+            const ip = server?.requestIP(request)?.address ?? headers['x-forwarded-for'] ?? 'unknown';
+            const result = await AuthService.verifyLoginChallenge(body.challengeToken, body.method, body.credential, {
+                ip,
+                userAgent: headers['user-agent'],
+            });
+
+            setAuthCookies(cookie, result);
+
+            return { status: 'success', user: result.user };
+        },
+        { body: loginChallengeSchema, detail: { tags: ['Auth'], summary: 'Verify Login 2FA' } }
     )
     .post(
         '/refresh',
