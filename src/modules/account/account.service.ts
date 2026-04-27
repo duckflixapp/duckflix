@@ -1,14 +1,25 @@
 import { db } from '@shared/configs/db';
 import { AppError } from '@shared/errors';
-import { toAccountTwoFactorStatusDTO } from '@shared/mappers/account.mapper';
-import { totpBackupCodes, users } from '@shared/schema';
+import { toAccountSessionDTO, toAccountTwoFactorStatusDTO } from '@shared/mappers/account.mapper';
+import { sessions, totpBackupCodes, users } from '@shared/schema';
 import { createAuditLog } from '@shared/services/audit.service';
-import type { AccountTwoFactorStatusDTO } from '@duckflixapp/shared';
+import type { AccountSessionDTO, AccountTwoFactorStatusDTO } from '@duckflixapp/shared';
 import argon2 from 'argon2';
-import { and, count, eq, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, gt, isNull } from 'drizzle-orm';
 import { generateSecret, generateURI, verify } from 'otplib';
 import qrcode from 'qrcode';
 import crypto from 'node:crypto';
+
+export const getSessions = async (data: { userId: string; currentSessionId?: string | null }): Promise<AccountSessionDTO[]> => {
+    const result = await db
+        .select()
+        .from(sessions)
+        .where(and(eq(sessions.userId, data.userId), isNull(sessions.revokedAt), gt(sessions.expiresAt, new Date().toISOString())))
+        .limit(100)
+        .orderBy(desc(sessions.lastRefreshedAt));
+
+    return result.map((s) => toAccountSessionDTO(s, data.currentSessionId ?? null));
+};
 
 export const resetPassword = async (data: { userId: string; password: string }) => {
     const hashedPassword = await argon2.hash(data.password);

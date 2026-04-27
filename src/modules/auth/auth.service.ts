@@ -24,6 +24,7 @@ import { isDuplicateKey } from '@shared/db.errors';
 import { authAttemptLimiter } from './auth-attempt-limiter';
 import { createAuditLog } from '@shared/services/audit.service';
 import { verify } from 'otplib';
+import { parseDevice, type ClientHints } from '@shared/utils/device';
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 const getAuthMetadata = (context: { ip?: string; userAgent?: string }) => ({
@@ -32,7 +33,7 @@ const getAuthMetadata = (context: { ip?: string; userAgent?: string }) => ({
 });
 const loginChallengeExpiryMs = 5 * 60 * 1000;
 
-type AuthContext = { ip?: string; userAgent?: string };
+type AuthContext = { ip?: string; userAgent?: string; clientHints?: ClientHints };
 type LoginChallengeMethod = 'totp' | 'backup_code';
 type AuthenticatedSession = { token: string; refreshToken: string; user: UserDTO };
 type LoginResult =
@@ -131,28 +132,37 @@ const createAuthenticatedSession = async (
     context: AuthContext,
     source: 'login' | 'loginChallenge'
 ): Promise<AuthenticatedSession> => {
-    const token = signToken({ sub: user.id, role: user.role, isVerified: user.verified_email });
     const refreshToken = crypto.randomUUID();
-    let sessionId = '';
+    const now = new Date().toISOString();
+    const device = parseDevice({ userAgent: context.userAgent, clientHints: context.clientHints });
 
     const [session] = await db
         .insert(sessions)
         .values({
             userId: user.id,
             token: refreshToken,
-            ipAddress: context.ip,
+            deviceName: device.deviceName,
+            deviceType: device.deviceType,
+            browserName: device.browserName,
+            osName: device.osName,
             userAgent: context.userAgent,
+            ipAddress: context.ip,
+            lastIpAddress: context.ip,
+            lastRefreshedAt: now,
+            revokedAt: null,
             expiresAt: new Date(Date.now() + limits.authentication.session_expiry_ms).toISOString(),
         })
         .returning({ id: sessions.id });
 
-    if (session) sessionId = session.id;
+    if (!session) throw new AppError('Session not created', { statusCode: 500 });
+
+    const token = signToken({ sub: user.id, role: user.role, isVerified: user.verified_email, sid: session.id });
 
     await createAuditLog({
         actorUserId: user.id,
         action: 'session.created',
         targetType: 'session',
-        targetId: sessionId || null,
+        targetId: session.id,
         metadata: {
             source,
             ...getAuthMetadata(context),
@@ -445,9 +455,15 @@ export const logout = async (refreshToken: string) => {
         where: eq(sessions.token, refreshToken),
     });
 
-    await db.delete(sessions).where(eq(sessions.token, refreshToken));
-
     if (!session) return;
+
+    const revokedAt = session.revokedAt ?? new Date().toISOString();
+    if (!session.revokedAt) {
+        await db
+            .update(sessions)
+            .set({ revokedAt })
+            .where(and(eq(sessions.id, session.id), isNull(sessions.revokedAt)));
+    }
 
     await createAuditLog({
         actorUserId: session.userId,
@@ -455,44 +471,36 @@ export const logout = async (refreshToken: string) => {
         targetType: 'session',
         targetId: session.id,
         metadata: {
-            ip: session.ipAddress ?? null,
+            ip: session.lastIpAddress ?? session.ipAddress ?? null,
             userAgent: session.userAgent ?? null,
         },
     });
 };
 
-export const refresh = async (oldToken: string) => {
+export const refresh = async (oldToken: string, context: AuthContext) => {
     const session = await db.query.sessions.findFirst({
         where: eq(sessions.token, oldToken),
     });
 
     if (!session) throw new AppError('Invalid refresh token', { statusCode: 401 });
 
-    if (session.isUsed) {
-        await db.delete(sessions).where(eq(sessions.userId, session.userId));
-        await createAuditLog({
-            actorUserId: session.userId,
-            action: 'auth.refresh.reuse_detected',
-            targetType: 'session',
-            targetId: session.id,
-            metadata: {
-                ip: session.ipAddress ?? null,
-                userAgent: session.userAgent ?? null,
-            },
-        });
-        throw new ForbiddenError('Security breach detected. All sessions invalidated.');
+    if (session.revokedAt !== null) {
+        throw new ForbiddenError('Session has been revoked.');
     }
 
     if (new Date() > new Date(session.expiresAt)) {
-        await db.delete(sessions).where(eq(sessions.id, session.id));
+        await db
+            .update(sessions)
+            .set({ revokedAt: new Date().toISOString() })
+            .where(and(eq(sessions.id, session.id), isNull(sessions.revokedAt)));
         await createAuditLog({
             actorUserId: session.userId,
             action: 'auth.refresh.expired',
             targetType: 'session',
             targetId: session.id,
             metadata: {
-                ip: session.ipAddress ?? null,
-                userAgent: session.userAgent ?? null,
+                ip: context.ip ?? session.lastIpAddress ?? session.ipAddress ?? null,
+                userAgent: context.userAgent ?? session.userAgent ?? null,
             },
         });
         throw new AppError('Session expired', { statusCode: 401 });
@@ -508,48 +516,41 @@ export const refresh = async (oldToken: string) => {
         sub: user.id,
         role: user.role,
         isVerified: user.verified_email,
+        sid: session.id,
     });
     const refreshToken = crypto.randomUUID();
-    let newSessionId = '';
+    const now = new Date().toISOString();
+    const userAgent = context.userAgent ?? session.userAgent;
+    const lastIpAddress = context.ip ?? session.lastIpAddress ?? session.ipAddress;
+    const device = parseDevice({ userAgent, clientHints: context.clientHints });
 
-    await db.transaction(async (tx) => {
-        await tx.update(sessions).set({ isUsed: true }).where(eq(sessions.id, session.id));
-        const [newSession] = await tx
-            .insert(sessions)
-            .values({
-                userId: user.id,
-                token: refreshToken,
-                expiresAt: new Date(Date.now() + limits.authentication.session_expiry_ms).toISOString(),
-                userAgent: session.userAgent,
-                ipAddress: session.ipAddress,
-            })
-            .returning({ id: sessions.id });
+    const [updatedSession] = await db
+        .update(sessions)
+        .set({
+            token: refreshToken,
+            userAgent,
+            deviceName: device.deviceName,
+            deviceType: device.deviceType,
+            browserName: device.browserName,
+            osName: device.osName,
+            lastIpAddress,
+            lastRefreshedAt: now,
+            expiresAt: new Date(Date.now() + limits.authentication.session_expiry_ms).toISOString(),
+        })
+        .where(and(eq(sessions.id, session.id), isNull(sessions.revokedAt)))
+        .returning({ id: sessions.id });
 
-        if (newSession) newSessionId = newSession.id;
-    });
-
-    await createAuditLog({
-        actorUserId: user.id,
-        action: 'session.created',
-        targetType: 'session',
-        targetId: newSessionId || session.id,
-        metadata: {
-            source: 'refresh',
-            previousSessionId: session.id,
-            ip: session.ipAddress ?? null,
-            userAgent: session.userAgent ?? null,
-        },
-    });
+    if (!updatedSession) throw new ForbiddenError('Session has been revoked.');
 
     await createAuditLog({
         actorUserId: user.id,
         action: 'auth.refresh.succeeded',
         targetType: 'session',
-        targetId: newSessionId || session.id,
+        targetId: session.id,
         metadata: {
             previousSessionId: session.id,
-            ip: session.ipAddress ?? null,
-            userAgent: session.userAgent ?? null,
+            ip: context.ip ?? session.lastIpAddress ?? session.ipAddress ?? null,
+            userAgent: userAgent ?? null,
         },
     });
 

@@ -31,10 +31,16 @@ export const sessions = sqliteTable('sessions', {
         .notNull()
         .references(() => users.id, { onDelete: 'cascade' }),
     token: text('token').notNull().unique(),
-    isUsed: integer('is_used', { mode: 'boolean' }).default(false).notNull(),
     userAgent: text('user_agent'),
+    deviceName: text('device_name'),
+    deviceType: text('device_type'),
+    browserName: text('browser_name'),
+    osName: text('os_name'),
     ipAddress: text('ip_address'),
+    lastIpAddress: text('last_ip_address'),
+    lastRefreshedAt: text('last_refreshed_at'),
     expiresAt: text('expires_at').notNull(),
+    revokedAt: text('revoked_at'),
     createdAt: text('created_at')
         .notNull()
         .$defaultFn(() => new Date().toISOString()),

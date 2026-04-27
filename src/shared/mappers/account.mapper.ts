@@ -1,4 +1,5 @@
-import type { AccountTwoFactorStatusDTO } from '@duckflixapp/shared';
+import type { AccountSessionDTO, AccountTwoFactorStatusDTO } from '@duckflixapp/shared';
+import type { Session } from '@shared/schema';
 
 type AccountTwoFactorStatusSource = {
     authenticatorEnabled: boolean;
@@ -18,4 +19,18 @@ export const toAccountTwoFactorStatusDTO = (status: AccountTwoFactorStatusSource
             remaining: status.remainingBackupCodes,
         },
     },
+});
+
+export const toAccountSessionDTO = (session: Session, currentSessionId?: string | null): AccountSessionDTO => ({
+    id: session.id,
+    deviceName: session.deviceName,
+    deviceType: session.deviceType as AccountSessionDTO['deviceType'],
+    browserName: session.browserName,
+    osName: session.osName,
+    ipAddress: session.ipAddress,
+    lastIpAddress: session.lastIpAddress,
+    lastRefreshedAt: session.lastRefreshedAt,
+    expiresAt: session.expiresAt,
+    createdAt: session.createdAt,
+    current: session.id === currentSessionId,
 });

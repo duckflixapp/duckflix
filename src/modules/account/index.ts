@@ -1,7 +1,15 @@
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import Elysia from 'elysia';
 import { resetPasswordSchema, setupTotpSchema } from './account.schema';
-import { activateTotp, cancelTotpSetup, deactivateTotp, getTotpSetup, getTwoFactorStatus, resetPassword } from './account.service';
+import {
+    activateTotp,
+    cancelTotpSetup,
+    deactivateTotp,
+    getSessions,
+    getTotpSetup,
+    getTwoFactorStatus,
+    resetPassword,
+} from './account.service';
 
 export const accountRouter = new Elysia({ prefix: '/account' })
     .use(authGuard)
@@ -13,6 +21,18 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             return { status: 'success', data };
         },
         { detail: { tags: ['Account'], summary: 'Get 2FA status' } }
+    )
+    .group('/sessions', (app) =>
+        app.get(
+            '/',
+            async ({ user }) => {
+                const sessions = await getSessions({ userId: user.id, currentSessionId: user.sessionId });
+                return { status: 'success', data: { sessions } };
+            },
+            {
+                detail: { tags: ['Account'], summary: 'Get all account sessions' },
+            }
+        )
     )
     .guard({ stepUp: 'sensitive:write' })
     .patch(

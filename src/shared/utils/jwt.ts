@@ -30,6 +30,7 @@ export interface TokenPayload {
     sub: string;
     role: UserRole;
     isVerified: boolean;
+    sid?: string;
 }
 
 export interface StepUpTokenPayload {

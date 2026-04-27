@@ -12,6 +12,29 @@ const secure = env.NODE_ENV === 'production';
 const accessMaxAge = limits.authentication.access_token_expiry_ms / 1000;
 const sessionMaxAge = limits.authentication.session_expiry_ms / 1000;
 
+const getClientIp = (
+    headers: Record<string, string | undefined>,
+    request: Request,
+    server?: { requestIP: (request: Request) => { address: string } | null } | null
+) => {
+    const forwardedFor = headers['x-forwarded-for']?.split(',')[0]?.trim();
+    return server?.requestIP(request)?.address ?? forwardedFor ?? 'unknown';
+};
+
+const getAuthContext = (
+    headers: Record<string, string | undefined>,
+    request: Request,
+    server?: { requestIP: (request: Request) => { address: string } | null } | null
+) => ({
+    ip: getClientIp(headers, request, server),
+    userAgent: headers['user-agent'],
+    clientHints: {
+        brands: headers['sec-ch-ua'],
+        mobile: headers['sec-ch-ua-mobile'],
+        platform: headers['sec-ch-ua-platform'],
+    },
+});
+
 type CookieSetter = {
     set: (options: {
         value: string;
@@ -79,8 +102,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
     .post(
         '/login',
         async ({ body, headers, cookie, request, server }) => {
-            const ip = server?.requestIP(request)?.address ?? headers['x-forwarded-for'] ?? 'unknown';
-            const result = await AuthService.login(body.email, body.password, { ip, userAgent: headers['user-agent'] });
+            const result = await AuthService.login(body.email, body.password, getAuthContext(headers, request, server));
 
             if (result.requires2fa) {
                 return {
@@ -102,11 +124,12 @@ export const authRouter = new Elysia({ prefix: '/auth' })
     .post(
         '/login/verify-2fa',
         async ({ body, headers, cookie, request, server }) => {
-            const ip = server?.requestIP(request)?.address ?? headers['x-forwarded-for'] ?? 'unknown';
-            const result = await AuthService.verifyLoginChallenge(body.challengeToken, body.method, body.credential, {
-                ip,
-                userAgent: headers['user-agent'],
-            });
+            const result = await AuthService.verifyLoginChallenge(
+                body.challengeToken,
+                body.method,
+                body.credential,
+                getAuthContext(headers, request, server)
+            );
 
             setAuthCookies(cookie, result);
 
@@ -116,12 +139,12 @@ export const authRouter = new Elysia({ prefix: '/auth' })
     )
     .post(
         '/refresh',
-        async ({ cookie }) => {
+        async ({ headers, cookie, request, server }) => {
             const { refresh_token, auth_token, csrf_token } = cookie;
             const oldRefreshToken = refresh_token.value;
             if (!oldRefreshToken) throw new UnauthorizedError('Refresh token missing');
 
-            const result = await AuthService.refresh(oldRefreshToken);
+            const result = await AuthService.refresh(oldRefreshToken, getAuthContext(headers, request, server));
             const csrfTokenString = crypto.randomBytes(32).toString('hex');
 
             refresh_token.set({

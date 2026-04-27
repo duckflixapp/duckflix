@@ -12,6 +12,7 @@ export const AuthUserSchema = z.object({
     id: z.string(),
     role: z.string().describe('User role'),
     isVerified: z.boolean().describe('Is email verified'),
+    sessionId: z.string().optional().describe('Current auth session ID'),
 });
 
 export type AuthUser = z.infer<typeof AuthUserSchema>;
@@ -45,6 +46,7 @@ export const authPlugin = new Elysia({ name: 'auth-plugin' })
                     id: decoded.sub,
                     role: decoded.role as UserRole,
                     isVerified: decoded.isVerified,
+                    sessionId: decoded.sid,
                 };
 
                 if (needsVerification && !user.isVerified) {
@@ -128,6 +130,7 @@ export const socketAuthPlugin = new Elysia({ name: 'socketAuth' }).derive({ as: 
         id: decoded.sub,
         role: decoded.role as UserRole,
         isVerified: decoded.isVerified,
+        sessionId: decoded.sid,
     };
 
     return { user };
