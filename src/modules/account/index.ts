@@ -1,11 +1,19 @@
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import Elysia from 'elysia';
 import { resetPasswordSchema, setupTotpSchema } from './account.schema';
-import { activateTotp, cancelTotpSetup, deactivateTotp, getTotpSetup, resetPassword } from './account.service';
+import { activateTotp, cancelTotpSetup, deactivateTotp, getTotpSetup, getTwoFactorStatus, resetPassword } from './account.service';
 
 export const accountRouter = new Elysia({ prefix: '/account' })
     .use(authGuard)
     .guard({ auth: true })
+    .get(
+        '/2fa',
+        async ({ user }) => {
+            const data = await getTwoFactorStatus(user.id);
+            return { status: 'success', data };
+        },
+        { detail: { tags: ['Account'], summary: 'Get 2FA status' } }
+    )
     .guard({ stepUp: 'sensitive:write' })
     .patch(
         '/password',

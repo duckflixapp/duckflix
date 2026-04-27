@@ -1,9 +1,11 @@
 import { db } from '@shared/configs/db';
 import { AppError } from '@shared/errors';
+import { toAccountTwoFactorStatusDTO } from '@shared/mappers/account.mapper';
 import { totpBackupCodes, users } from '@shared/schema';
 import { createAuditLog } from '@shared/services/audit.service';
+import type { AccountTwoFactorStatusDTO } from '@duckflixapp/shared';
 import argon2 from 'argon2';
-import { and, eq } from 'drizzle-orm';
+import { and, count, eq, isNull } from 'drizzle-orm';
 import { generateSecret, generateURI, verify } from 'otplib';
 import qrcode from 'qrcode';
 import crypto from 'node:crypto';
@@ -24,6 +26,29 @@ export const resetPassword = async (data: { userId: string; password: string }) 
         action: 'account.password_reset.succeeded',
         targetType: 'user',
         targetId: data.userId,
+    });
+};
+
+export const getTwoFactorStatus = async (userId: string): Promise<AccountTwoFactorStatusDTO> => {
+    const user = await db.query.users.findFirst({
+        where: and(eq(users.id, userId), eq(users.system, false)),
+        columns: { totpEnabled: true, totpSecret: true, totpSecretPending: true },
+    });
+
+    if (!user) throw new AppError('User not found', { statusCode: 404 });
+
+    const authenticatorEnabled = user.totpEnabled && !!user.totpSecret;
+    const [backupCodes] = await db
+        .select({ remaining: count() })
+        .from(totpBackupCodes)
+        .where(and(eq(totpBackupCodes.userId, userId), isNull(totpBackupCodes.usedAt)));
+
+    const remainingBackupCodes = backupCodes?.remaining ?? 0;
+
+    return toAccountTwoFactorStatusDTO({
+        authenticatorEnabled,
+        authenticatorPendingSetup: !authenticatorEnabled && !!user.totpSecretPending,
+        remainingBackupCodes,
     });
 };
 
