@@ -396,13 +396,13 @@ export const stepUp = async (
         const isValid = await argon2.verify(user.password, credential);
         if (!isValid) throw new InvalidCredentialsError();
     } else if (method === 'totp') {
-        if (!user.totp_secret || !user.totp_enabled) throw new AppError('TOTP not configured', { statusCode: 400 });
+        if (!user.totpSecret || !user.totpEnabled) throw new AppError('TOTP not configured', { statusCode: 400 });
 
-        const result = await verify({ token: credential, secret: user.totp_secret });
+        const result = await verify({ token: credential, secret: user.totpSecret });
         if (!result.valid) throw new AppError('Invalid code', { statusCode: 400 });
     } else throw new AppError('Unsupported method', { statusCode: 400 });
 
-    const expiresIn = 7 * 60 * 1000;
+    const expiresIn = 5 * 60 * 1000;
     const token = signToken({ sub: userId, scope, stepUp: true }, expiresIn);
 
     await createAuditLog({
@@ -426,7 +426,7 @@ export const getVerificationMethods = async (userId: string): Promise<string[]> 
     const methods: string[] = [];
 
     if (!!user.password) methods.push('password');
-    if (user.totp_enabled && !!user.totp_secret) methods.push('totp');
+    if (user.totpEnabled && !!user.totpSecret) methods.push('totp');
 
     return methods;
 };

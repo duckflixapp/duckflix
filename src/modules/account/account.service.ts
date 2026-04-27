@@ -30,15 +30,15 @@ export const resetPassword = async (data: { userId: string; password: string }) 
 export const getTotpSetup = async (userId: string) => {
     const user = await db.query.users.findFirst({
         where: and(eq(users.id, userId), eq(users.system, false)),
-        columns: { email: true, totp_secret_pending: true },
+        columns: { email: true, totpSecretPending: true },
     });
 
     if (!user) throw new AppError('User not found', { statusCode: 404 });
 
-    const secret = user.totp_secret_pending ?? generateSecret();
+    const secret = user.totpSecretPending ?? generateSecret();
 
-    if (!user.totp_secret_pending) {
-        await db.update(users).set({ totp_secret_pending: secret }).where(eq(users.id, userId));
+    if (!user.totpSecretPending) {
+        await db.update(users).set({ totpSecretPending: secret }).where(eq(users.id, userId));
     }
 
     const otpauth = generateURI({ issuer: 'DuckFlix', label: user.email, secret });
@@ -52,21 +52,21 @@ export const getTotpSetup = async (userId: string) => {
 export const cancelTotpSetup = async (userId: string) => {
     await db
         .update(users)
-        .set({ totp_secret_pending: null })
+        .set({ totpSecretPending: null })
         .where(and(eq(users.id, userId), eq(users.system, false)));
 };
 
 export const activateTotp = async (userId: string, code: string) => {
     const user = await db.query.users.findFirst({
         where: and(eq(users.id, userId), eq(users.system, false)),
-        columns: { totp_secret_pending: true },
+        columns: { totpSecretPending: true },
     });
 
-    if (!user?.totp_secret_pending) {
+    if (!user?.totpSecretPending) {
         throw new AppError('No pending TOTP setup found', { statusCode: 400 });
     }
 
-    const result = await verify({ token: code, secret: user.totp_secret_pending });
+    const result = await verify({ token: code, secret: user.totpSecretPending });
     if (!result.valid) throw new AppError('Invalid code', { statusCode: 400 });
 
     const backupCodes = Array.from({ length: 8 }, () => crypto.randomBytes(4).toString('hex').toUpperCase());
@@ -76,9 +76,9 @@ export const activateTotp = async (userId: string, code: string) => {
         await tx
             .update(users)
             .set({
-                totp_secret: user.totp_secret_pending,
-                totp_secret_pending: null,
-                totp_enabled: true,
+                totpSecret: user.totpSecretPending,
+                totpSecretPending: null,
+                totpEnabled: true,
             })
             .where(eq(users.id, userId));
 
@@ -94,4 +94,23 @@ export const activateTotp = async (userId: string, code: string) => {
     });
 
     return { backupCodes };
+};
+
+export const deactivateTotp = async (userId: string) => {
+    const [updated] = await db
+        .update(users)
+        .set({ totpEnabled: false, totpSecret: null, totpSecretPending: null })
+        .where(and(eq(users.id, userId), eq(users.system, false)))
+        .returning({ id: users.id });
+
+    if (!updated) throw new AppError('User not found', { statusCode: 404 });
+
+    await db.delete(totpBackupCodes).where(eq(totpBackupCodes.userId, userId));
+
+    await createAuditLog({
+        actorUserId: userId,
+        action: 'account.totp.deactivated',
+        targetType: 'user',
+        targetId: userId,
+    });
 };

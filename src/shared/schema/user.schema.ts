@@ -15,9 +15,9 @@ export const users = sqliteTable('users', {
     password: text('password').notNull(),
     role: text('role').$type<UserRole>().default('watcher').notNull(),
     system: integer('system', { mode: 'boolean' }).default(false).notNull(),
-    totp_enabled: integer('totp_enabled', { mode: 'boolean' }).default(false).notNull(),
-    totp_secret: text('totp_secret'),
-    totp_secret_pending: text('totp_secret_pending'),
+    totpEnabled: integer('totp_enabled', { mode: 'boolean' }).default(false).notNull(),
+    totpSecret: text('totp_secret'),
+    totpSecretPending: text('totp_secret_pending'),
     createdAt: text('created_at')
         .notNull()
         .$defaultFn(() => new Date().toISOString()),

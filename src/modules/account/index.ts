@@ -1,7 +1,7 @@
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import Elysia from 'elysia';
 import { resetPasswordSchema, setupTotpSchema } from './account.schema';
-import { activateTotp, cancelTotpSetup, getTotpSetup, resetPassword } from './account.service';
+import { activateTotp, cancelTotpSetup, deactivateTotp, getTotpSetup, resetPassword } from './account.service';
 
 export const accountRouter = new Elysia({ prefix: '/account' })
     .use(authGuard)
@@ -38,4 +38,12 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             return { status: 'success', data };
         },
         { body: setupTotpSchema, detail: { tags: ['Account'], summary: 'Activate TOTP' } }
+    )
+    .delete(
+        '/authenticator',
+        async ({ user }) => {
+            await deactivateTotp(user.id);
+            return { status: 'success' };
+        },
+        { detail: { tags: ['Account'], summary: 'Disable TOTP' } }
     );
