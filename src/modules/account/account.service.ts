@@ -10,6 +10,31 @@ import { generateSecret, generateURI, verify } from 'otplib';
 import qrcode from 'qrcode';
 import crypto from 'node:crypto';
 
+export const deleteAccount = async (userId: string) => {
+    await db.transaction(async (tx) => {
+        const [user] = await tx
+            .select({ id: users.id, email: users.email, system: users.system })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1);
+
+        if (!user || user.system) throw new AppError('User not found', { statusCode: 404 });
+
+        await createAuditLog(
+            {
+                actorUserId: user.id,
+                action: 'account.deleted',
+                targetType: 'user',
+                targetId: user.id,
+                metadata: { email: user.email },
+            },
+            tx
+        );
+
+        await tx.delete(users).where(and(eq(users.id, userId), eq(users.system, false)));
+    });
+};
+
 export const getSessions = async (data: { userId: string; currentSessionId?: string | null }): Promise<AccountSessionMinDTO[]> => {
     const result = await db
         .select()

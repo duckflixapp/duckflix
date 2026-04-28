@@ -5,6 +5,7 @@ import {
     activateTotp,
     cancelTotpSetup,
     deactivateTotp,
+    deleteAccount,
     getSessionById,
     getSessions,
     getTotpSetup,
@@ -12,6 +13,10 @@ import {
     resetPassword,
     revokeSessionById,
 } from './account.service';
+import { env } from '@core/env';
+
+const apiBasePath = new URL(env.BASE_URL).pathname.replace(/\/$/, '');
+const refreshTokenPath = `${apiBasePath}/auth/refresh`;
 
 export const accountRouter = new Elysia({ prefix: '/account' })
     .use(authGuard)
@@ -62,6 +67,20 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             )
     )
     .guard({ stepUp: 'sensitive:write' })
+    .delete(
+        '/',
+        async ({ user, cookie }) => {
+            await deleteAccount(user.id);
+
+            cookie.auth_token!.remove();
+            cookie.csrf_token!.remove();
+            cookie.refresh_token!.path = refreshTokenPath;
+            cookie.refresh_token!.remove();
+
+            return { status: 'success' };
+        },
+        { detail: { tags: ['Account'], summary: 'Delete account' } }
+    )
     .patch(
         '/password',
         async ({ body, user }) => {
