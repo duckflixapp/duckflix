@@ -85,14 +85,23 @@ export const authGuard = new Elysia({ name: 'auth-guard' }).use(authPlugin).macr
     }),
 
     stepUp: (requiredScope: string) => ({
-        beforeHandle: ({ headers }: Context) => {
+        beforeHandle: ({ cookie: { auth_token }, headers }: Context) => {
+            const authHeader = headers.authorization;
+            const token =
+                (auth_token?.value as string | undefined) ?? (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined);
             const stepUpToken = headers['x-step-up-token'];
+
+            if (!token) throw new ForbiddenError('Authentication required');
             if (!stepUpToken) throw new ForbiddenError('Step-up authentication required');
 
             try {
+                const authPayload = verifyToken(token);
                 const payload = verifyStepUpToken(stepUpToken);
                 if (!payload.stepUp || payload.scope !== requiredScope) {
                     throw new ForbiddenError('Invalid step-up scope');
+                }
+                if (payload.sub !== authPayload.sub) {
+                    throw new ForbiddenError('Invalid step-up subject');
                 }
             } catch {
                 throw new ForbiddenError('Step-up token expired or invalid');

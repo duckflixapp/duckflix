@@ -13,7 +13,7 @@ import {
 } from './auth.errors';
 import type { UserDTO } from '@duckflixapp/shared';
 import { toUserDTO } from '@shared/mappers/user.mapper';
-import { signToken } from '@utils/jwt';
+import { signToken, verifyToken } from '@utils/jwt';
 import { AppError } from '@shared/errors';
 import { ForbiddenError } from '@shared/middlewares/auth.middleware';
 import { limits } from '@shared/configs/limits.config';
@@ -450,10 +450,25 @@ export const verifyLoginChallenge = async (
     return createAuthenticatedSession(user, context, 'loginChallenge');
 };
 
-export const logout = async (refreshToken: string) => {
-    const session = await db.query.sessions.findFirst({
-        where: eq(sessions.token, refreshToken),
-    });
+export const logout = async (data: { refreshToken?: string; accessToken?: string }) => {
+    let session = data.refreshToken
+        ? await db.query.sessions.findFirst({
+              where: eq(sessions.token, data.refreshToken),
+          })
+        : null;
+
+    if (!session && data.accessToken) {
+        try {
+            const payload = verifyToken(data.accessToken, { ignoreExpiration: true });
+            if (payload.sid) {
+                session = await db.query.sessions.findFirst({
+                    where: eq(sessions.id, payload.sid),
+                });
+            }
+        } catch {
+            session = null;
+        }
+    }
 
     if (!session) return;
 

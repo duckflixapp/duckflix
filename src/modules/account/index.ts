@@ -16,7 +16,7 @@ import {
 import { env } from '@core/env';
 
 const apiBasePath = new URL(env.BASE_URL).pathname.replace(/\/$/, '');
-const refreshTokenPath = `${apiBasePath}/auth/refresh`;
+const authCookiePath = `${apiBasePath}/auth`;
 
 export const accountRouter = new Elysia({ prefix: '/account' })
     .use(authGuard)
@@ -74,7 +74,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
 
             cookie.auth_token!.remove();
             cookie.csrf_token!.remove();
-            cookie.refresh_token!.path = refreshTokenPath;
+            cookie.refresh_token!.path = authCookiePath;
             cookie.refresh_token!.remove();
 
             return { status: 'success' };

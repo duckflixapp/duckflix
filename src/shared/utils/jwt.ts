@@ -34,6 +34,7 @@ export interface TokenPayload {
 }
 
 export interface StepUpTokenPayload {
+    sub: string;
     scope?: string;
     stepUp?: boolean;
 }
@@ -47,11 +48,12 @@ export const signToken = (payload: TokenPayload | StepUpTokenPayload, expiryMs =
     });
 };
 
-export const verifyToken = (token: string): TokenPayload => {
+export const verifyToken = (token: string, options?: { ignoreExpiration?: boolean }): TokenPayload => {
     return jwt.verify(token, publicKey, {
         algorithms: ['ES384'],
         issuer: 'duckflix-api',
         audience: env.ORIGIN,
+        ignoreExpiration: options?.ignoreExpiration,
     }) as TokenPayload;
 };
 

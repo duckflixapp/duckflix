@@ -12,7 +12,7 @@ const secure = env.NODE_ENV === 'production';
 const accessMaxAge = limits.authentication.access_token_expiry_ms / 1000;
 const sessionMaxAge = limits.authentication.session_expiry_ms / 1000;
 const apiBasePath = new URL(env.BASE_URL).pathname.replace(/\/$/, '');
-const refreshTokenPath = `${apiBasePath}/auth/refresh`;
+const authCookiePath = `${apiBasePath}/auth`;
 
 const getClientIp = (
     headers: Record<string, string | undefined>,
@@ -61,7 +61,7 @@ const setAuthCookies = (
         secure,
         maxAge: sessionMaxAge,
         sameSite: 'lax',
-        path: refreshTokenPath,
+        path: authCookiePath,
     });
     cookie.auth_token.set({ value: session.token, httpOnly: true, secure, maxAge: accessMaxAge, sameSite: 'lax' });
     cookie.csrf_token.set({
@@ -155,7 +155,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
                 secure,
                 maxAge: sessionMaxAge,
                 sameSite: 'strict',
-                path: refreshTokenPath,
+                path: authCookiePath,
             });
             auth_token.set({ value: result.token, httpOnly: true, secure, maxAge: accessMaxAge, sameSite: 'lax' });
             csrf_token.set({ value: csrfTokenString, httpOnly: false, secure, sameSite: 'lax', domain: env.DOMAIN, maxAge: sessionMaxAge });
@@ -168,13 +168,15 @@ export const authRouter = new Elysia({ prefix: '/auth' })
         '/logout',
         async ({ cookie }) => {
             const { refresh_token, auth_token, csrf_token } = cookie;
-            const rToken = refresh_token.value;
-            if (rToken) await AuthService.logout(rToken);
+            await AuthService.logout({
+                refreshToken: refresh_token.value,
+                accessToken: auth_token.value,
+            });
 
             auth_token.remove();
             csrf_token.domain = env.DOMAIN;
             csrf_token.remove();
-            refresh_token.path = refreshTokenPath;
+            refresh_token.path = authCookiePath;
             refresh_token.remove();
 
             return { status: 'success' };
