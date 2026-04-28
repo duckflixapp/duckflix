@@ -11,6 +11,8 @@ import { createRateLimit } from '@shared/configs/ratelimit';
 const secure = env.NODE_ENV === 'production';
 const accessMaxAge = limits.authentication.access_token_expiry_ms / 1000;
 const sessionMaxAge = limits.authentication.session_expiry_ms / 1000;
+const apiBasePath = new URL(env.BASE_URL).pathname.replace(/\/$/, '');
+const refreshTokenPath = `${apiBasePath}/auth/refresh`;
 
 const getClientIp = (
     headers: Record<string, string | undefined>,
@@ -59,7 +61,7 @@ const setAuthCookies = (
         secure,
         maxAge: sessionMaxAge,
         sameSite: 'lax',
-        path: `${env.BASE_URL}/auth/refresh`,
+        path: refreshTokenPath,
     });
     cookie.auth_token.set({ value: session.token, httpOnly: true, secure, maxAge: accessMaxAge, sameSite: 'lax' });
     cookie.csrf_token.set({
@@ -153,7 +155,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
                 secure,
                 maxAge: sessionMaxAge,
                 sameSite: 'strict',
-                path: `${env.BASE_URL}/auth/refresh`,
+                path: refreshTokenPath,
             });
             auth_token.set({ value: result.token, httpOnly: true, secure, maxAge: accessMaxAge, sameSite: 'lax' });
             csrf_token.set({ value: csrfTokenString, httpOnly: false, secure, sameSite: 'lax', domain: env.DOMAIN, maxAge: sessionMaxAge });
@@ -172,7 +174,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
             auth_token.remove();
             csrf_token.domain = env.DOMAIN;
             csrf_token.remove();
-            refresh_token.path = `${env.BASE_URL}/auth/refresh`;
+            refresh_token.path = refreshTokenPath;
             refresh_token.remove();
 
             return { status: 'success' };

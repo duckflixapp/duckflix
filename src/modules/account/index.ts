@@ -1,14 +1,16 @@
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import Elysia from 'elysia';
-import { resetPasswordSchema, setupTotpSchema } from './account.schema';
+import { resetPasswordSchema, sessionIdSchema, setupTotpSchema } from './account.schema';
 import {
     activateTotp,
     cancelTotpSetup,
     deactivateTotp,
+    getSessionById,
     getSessions,
     getTotpSetup,
     getTwoFactorStatus,
     resetPassword,
+    revokeSessionById,
 } from './account.service';
 
 export const accountRouter = new Elysia({ prefix: '/account' })
@@ -23,16 +25,41 @@ export const accountRouter = new Elysia({ prefix: '/account' })
         { detail: { tags: ['Account'], summary: 'Get 2FA status' } }
     )
     .group('/sessions', (app) =>
-        app.get(
-            '/',
-            async ({ user }) => {
-                const sessions = await getSessions({ userId: user.id, currentSessionId: user.sessionId });
-                return { status: 'success', data: { sessions } };
-            },
-            {
-                detail: { tags: ['Account'], summary: 'Get all account sessions' },
-            }
-        )
+        app
+            .get(
+                '/',
+                async ({ user }) => {
+                    const sessions = await getSessions({ userId: user.id, currentSessionId: user.sessionId });
+                    return { status: 'success', data: { sessions } };
+                },
+                {
+                    detail: { tags: ['Account'], summary: 'Get all account sessions' },
+                }
+            )
+            .get(
+                '/:id',
+                async ({ params: { id }, user }) => {
+                    const session = await getSessionById({ userId: user.id, sessionId: id, currentSessionId: user.sessionId });
+                    return { status: 'success', data: { session } };
+                },
+                {
+                    params: sessionIdSchema,
+                    stepUp: 'sensitive:write',
+                    detail: { tags: ['Account'], summary: 'Get session by ID' },
+                }
+            )
+            .delete(
+                '/:id',
+                async ({ params: { id }, user, status }) => {
+                    await revokeSessionById({ userId: user.id, sessionId: id, currentSessionId: user.sessionId });
+                    return status(204);
+                },
+                {
+                    params: sessionIdSchema,
+                    stepUp: 'sensitive:write',
+                    detail: { tags: ['Account'], summary: 'Revoke session by ID' },
+                }
+            )
     )
     .guard({ stepUp: 'sensitive:write' })
     .patch(

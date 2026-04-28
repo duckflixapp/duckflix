@@ -1,16 +1,16 @@
 import { db } from '@shared/configs/db';
 import { AppError } from '@shared/errors';
-import { toAccountSessionDTO, toAccountTwoFactorStatusDTO } from '@shared/mappers/account.mapper';
+import { toAccountSessionDTO, toAccountSessionMinDTO, toAccountTwoFactorStatusDTO } from '@shared/mappers/account.mapper';
 import { sessions, totpBackupCodes, users } from '@shared/schema';
 import { createAuditLog } from '@shared/services/audit.service';
-import type { AccountSessionDTO, AccountTwoFactorStatusDTO } from '@duckflixapp/shared';
+import type { AccountSessionDTO, AccountSessionMinDTO, AccountTwoFactorStatusDTO } from '@duckflixapp/shared';
 import argon2 from 'argon2';
 import { and, count, desc, eq, gt, isNull } from 'drizzle-orm';
 import { generateSecret, generateURI, verify } from 'otplib';
 import qrcode from 'qrcode';
 import crypto from 'node:crypto';
 
-export const getSessions = async (data: { userId: string; currentSessionId?: string | null }): Promise<AccountSessionDTO[]> => {
+export const getSessions = async (data: { userId: string; currentSessionId?: string | null }): Promise<AccountSessionMinDTO[]> => {
     const result = await db
         .select()
         .from(sessions)
@@ -18,7 +18,31 @@ export const getSessions = async (data: { userId: string; currentSessionId?: str
         .limit(100)
         .orderBy(desc(sessions.lastRefreshedAt));
 
-    return result.map((s) => toAccountSessionDTO(s, data.currentSessionId ?? null));
+    return result.map((s) => toAccountSessionMinDTO(s, data.currentSessionId ?? null));
+};
+
+export const getSessionById = async (data: {
+    userId: string;
+    sessionId: string;
+    currentSessionId?: string | null;
+}): Promise<AccountSessionDTO> => {
+    const [session] = await db
+        .select()
+        .from(sessions)
+        .where(and(eq(sessions.userId, data.userId), eq(sessions.id, data.sessionId)))
+        .limit(1);
+
+    if (!session) throw new AppError('Session not found', { statusCode: 404 });
+
+    return toAccountSessionDTO(session, data.currentSessionId);
+};
+
+export const revokeSessionById = async (data: { userId: string; sessionId: string; currentSessionId?: string | null }): Promise<void> => {
+    await db
+        .update(sessions)
+        .set({ revokedAt: new Date().toISOString() })
+        .where(and(eq(sessions.userId, data.userId), eq(sessions.id, data.sessionId)));
+    return;
 };
 
 export const resetPassword = async (data: { userId: string; password: string }) => {

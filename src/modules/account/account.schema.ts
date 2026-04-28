@@ -10,6 +10,10 @@ export const resetPasswordSchema = z.object({
         .regex(/[^a-zA-Z0-9]/, 'Password must contain at least one special character'),
 });
 
+export const sessionIdSchema = z.object({
+    id: z.uuid(),
+});
+
 export const setupTotpSchema = z.object({
     code: z.string().length(6).regex(/^\d+$/),
 });
