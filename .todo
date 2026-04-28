@@ -1,13 +1,10 @@
 PRIORITY: 
 
-- Episode, Season, Series settings
+- Episode, Season, Series settings & delete
 - Better upload form. Wizzard-like
-- Play button on featured
-- Movie, episode cast
 
 SYSTEM
 
-- Login ratelimit/account block
 - Upload for multiple video files in torrent?
 - Notification pagination
 - Pasting magnets
@@ -31,12 +28,11 @@ WATCH
 
 User
 
-- Reset password
+- Reset password mail
 - Edit details
-- 2 FA?
-- Profiles
 
 
 FUTURE
 
 - Generate AI subtitles
+- Profiles & PINS in account
