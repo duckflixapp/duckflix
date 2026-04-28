@@ -12,5 +12,6 @@ export const toUserDTO = (user: User): UserDTO => ({
     ...toUserMinDTO(user),
     email: user.email,
     isVerified: user.verified_email,
+    isTotpEnabled: user.totpEnabled,
     createdAt: user.createdAt,
 });

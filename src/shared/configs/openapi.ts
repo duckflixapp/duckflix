@@ -15,6 +15,10 @@ export const documentationTags = [
         description:
             'Personal profile management and user-specific data. Handles account settings, notification preferences, and personal watch history.',
     },
+    {
+        name: 'Account',
+        description: 'Change account security & privacy settings, authentication methods and other',
+    },
 
     // --- DISCOVERY & COLLECTIONS ---
     {

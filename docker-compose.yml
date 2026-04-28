@@ -26,6 +26,8 @@ services:
         command: sh -c "bun run db:migrate && bun run start"
         ports:
             - '3000:3000'
+        env_file:
+            - .docker.env
         environment:
             - NODE_ENV=production
         volumes:

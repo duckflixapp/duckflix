@@ -30,21 +30,37 @@ export interface TokenPayload {
     sub: string;
     role: UserRole;
     isVerified: boolean;
+    sid?: string;
 }
 
-export const signToken = (payload: TokenPayload): string => {
+export interface StepUpTokenPayload {
+    sub: string;
+    scope?: string;
+    stepUp?: boolean;
+}
+
+export const signToken = (payload: TokenPayload | StepUpTokenPayload, expiryMs = limits.authentication.access_token_expiry_ms): string => {
     return jwt.sign(payload, privateKey, {
-        expiresIn: limits.authentication.access_token_expiry_ms / 1000,
+        expiresIn: expiryMs / 1000,
         algorithm: 'ES384',
         issuer: 'duckflix-api',
         audience: env.ORIGIN,
     });
 };
 
-export const verifyToken = (token: string): TokenPayload => {
+export const verifyToken = (token: string, options?: { ignoreExpiration?: boolean }): TokenPayload => {
     return jwt.verify(token, publicKey, {
         algorithms: ['ES384'],
         issuer: 'duckflix-api',
         audience: env.ORIGIN,
+        ignoreExpiration: options?.ignoreExpiration,
     }) as TokenPayload;
+};
+
+export const verifyStepUpToken = (token: string): StepUpTokenPayload => {
+    return jwt.verify(token, publicKey, {
+        algorithms: ['ES384'],
+        issuer: 'duckflix-api',
+        audience: env.ORIGIN,
+    }) as StepUpTokenPayload;
 };

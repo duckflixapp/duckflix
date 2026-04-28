@@ -5,8 +5,8 @@ export const limits = {
         upload: env.UPLOAD_FILE_LIMIT,
     },
     authentication: {
-        session_expiry_ms: 14 * 24 * 60 * 60 * 1000, // 14 days
-        access_token_expiry_ms: 10 * 60 * 1000, // 10 minutes
+        session_expiry_ms: 28 * 24 * 60 * 60 * 1000, // 28 days
+        access_token_expiry_ms: 5 * 60 * 1000, // 5 minutes
         login_max_failed_attempts: 12,
         login_window_ms: 60 * 1000, // 1 minute
         login_lockout_ms: 2 * 60 * 1000, // 2 minutes

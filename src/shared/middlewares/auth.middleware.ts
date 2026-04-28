@@ -1,9 +1,9 @@
-import { Elysia } from 'elysia';
+import { Elysia, type Context } from 'elysia';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 
 import { AppError } from '@shared/errors';
-import { verifyToken } from '@utils/jwt';
+import { verifyStepUpToken, verifyToken } from '@utils/jwt';
 import { roleHierarchy, type UserRole } from '@duckflixapp/shared';
 import { csrfPlugin } from './csrf.middleware';
 
@@ -12,6 +12,7 @@ export const AuthUserSchema = z.object({
     id: z.string(),
     role: z.string().describe('User role'),
     isVerified: z.boolean().describe('Is email verified'),
+    sessionId: z.string().optional().describe('Current auth session ID'),
 });
 
 export type AuthUser = z.infer<typeof AuthUserSchema>;
@@ -45,6 +46,7 @@ export const authPlugin = new Elysia({ name: 'auth-plugin' })
                     id: decoded.sub,
                     role: decoded.role as UserRole,
                     isVerified: decoded.isVerified,
+                    sessionId: decoded.sid,
                 };
 
                 if (needsVerification && !user.isVerified) {
@@ -81,6 +83,42 @@ export const authGuard = new Elysia({ name: 'auth-guard' }).use(authPlugin).macr
             return { user };
         },
     }),
+
+    stepUp: (requiredScope: string) => ({
+        beforeHandle: ({ cookie: { auth_token }, headers }: Context) => {
+            const authHeader = headers.authorization;
+            const token =
+                (auth_token?.value as string | undefined) ?? (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined);
+            const stepUpToken = headers['x-step-up-token'];
+
+            if (!token) throw new ForbiddenError('Authentication required');
+            if (!stepUpToken) throw new ForbiddenError('Step-up authentication required');
+
+            try {
+                const authPayload = verifyToken(token);
+                const payload = verifyStepUpToken(stepUpToken);
+                if (!payload.stepUp || payload.scope !== requiredScope) {
+                    throw new ForbiddenError('Invalid step-up scope');
+                }
+                if (payload.sub !== authPayload.sub) {
+                    throw new ForbiddenError('Invalid step-up subject');
+                }
+            } catch {
+                throw new ForbiddenError('Step-up token expired or invalid');
+            }
+        },
+        detail: {
+            parameters: [
+                {
+                    name: 'x-step-up-token',
+                    in: 'header',
+                    required: true,
+                    schema: { type: 'string' },
+                    description: `Step-up token with scope: ${requiredScope}`,
+                },
+            ],
+        },
+    }),
 });
 
 // ----- Socket Authentication -----
@@ -101,6 +139,7 @@ export const socketAuthPlugin = new Elysia({ name: 'socketAuth' }).derive({ as: 
         id: decoded.sub,
         role: decoded.role as UserRole,
         isVerified: decoded.isVerified,
+        sessionId: decoded.sid,
     };
 
     return { user };
