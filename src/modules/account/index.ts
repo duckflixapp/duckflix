@@ -3,10 +3,7 @@ import Elysia from 'elysia';
 import { resetPasswordSchema, sessionIdSchema, setupTotpSchema } from './account.schema';
 import { deleteAccount, getSessionById, getSessions, getTwoFactorStatus, resetPassword, revokeSessionById } from './account.service';
 import { activateTotp, cancelTotpSetup, deactivateTotp, getTotpSetup } from './totp.service';
-import { env } from '@core/env';
-
-const apiBasePath = new URL(env.BASE_URL).pathname.replace(/\/$/, '');
-const authCookiePath = `${apiBasePath}/auth`;
+import { clearAuthCookies } from '@shared/utils/cookies';
 
 export const accountRouter = new Elysia({ prefix: '/account' })
     .use(authGuard)
@@ -62,10 +59,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
         async ({ user, cookie }) => {
             await deleteAccount(user.id);
 
-            cookie.auth_token!.remove();
-            cookie.csrf_token!.remove();
-            cookie.refresh_token!.path = authCookiePath;
-            cookie.refresh_token!.remove();
+            clearAuthCookies(cookie);
 
             return { status: 'success' };
         },
