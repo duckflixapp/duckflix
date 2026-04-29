@@ -1,4 +1,5 @@
 import { rateLimit } from 'elysia-rate-limit';
+import { resolveClientIp } from '@shared/plugins/trust-proxy';
 
 interface RateLimitOptions {
     max?: number;
@@ -14,7 +15,7 @@ export const createRateLimit = ({ max = 50, duration = 3000, scoping = 'scoped' 
         generator: (request, server, { user }) => {
             if (user?.id) return user.id;
 
-            return server?.requestIP(request)?.address || request.headers.get('x-forwarded-for') || 'localhost';
+            return resolveClientIp(request, server) ?? 'localhost';
         },
         errorResponse: new Response(
             JSON.stringify({
