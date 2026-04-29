@@ -29,6 +29,13 @@
       "when": 1777321282816,
       "tag": "0003_nappy_marvel_apes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1777499995884,
+      "tag": "0004_fantastic_tarantula",
+      "breakpoints": true
     }
   ]
 }

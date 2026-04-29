@@ -15,7 +15,7 @@ export const AuthUserSchema = z.object({
     id: z.string(),
     role: z.string().describe('User role'),
     isVerified: z.boolean().describe('Is email verified'),
-    sessionId: z.string().optional().describe('Current auth session ID'),
+    sessionId: z.string().describe('Current auth session ID'),
 });
 
 export type AuthUser = z.infer<typeof AuthUserSchema>;

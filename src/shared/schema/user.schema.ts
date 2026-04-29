@@ -1,6 +1,6 @@
 import type { UserRole } from '@duckflixapp/shared';
 import { type InferSelectModel } from 'drizzle-orm';
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 
 // ------------------------------------
 // Schema
@@ -23,28 +23,32 @@ export const users = sqliteTable('users', {
         .$defaultFn(() => new Date().toISOString()),
 });
 
-export const sessions = sqliteTable('sessions', {
-    id: text('id')
-        .primaryKey()
-        .$defaultFn(() => crypto.randomUUID()),
-    userId: text('user_id')
-        .notNull()
-        .references(() => users.id, { onDelete: 'cascade' }),
-    token: text('token').notNull().unique(),
-    userAgent: text('user_agent'),
-    deviceName: text('device_name'),
-    deviceType: text('device_type'),
-    browserName: text('browser_name'),
-    osName: text('os_name'),
-    ipAddress: text('ip_address'),
-    lastIpAddress: text('last_ip_address'),
-    lastRefreshedAt: text('last_refreshed_at'),
-    expiresAt: text('expires_at').notNull(),
-    revokedAt: text('revoked_at'),
-    createdAt: text('created_at')
-        .notNull()
-        .$defaultFn(() => new Date().toISOString()),
-});
+export const sessions = sqliteTable(
+    'sessions',
+    {
+        id: text('id')
+            .primaryKey()
+            .$defaultFn(() => crypto.randomUUID()),
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        token: text('token').notNull().unique(),
+        userAgent: text('user_agent'),
+        deviceName: text('device_name'),
+        deviceType: text('device_type'),
+        browserName: text('browser_name'),
+        osName: text('os_name'),
+        ipAddress: text('ip_address'),
+        lastIpAddress: text('last_ip_address'),
+        lastRefreshedAt: text('last_refreshed_at'),
+        expiresAt: text('expires_at').notNull(),
+        revokedAt: text('revoked_at'),
+        createdAt: text('created_at')
+            .notNull()
+            .$defaultFn(() => new Date().toISOString()),
+    },
+    (t) => [index('session_user_id').on(t.userId)]
+);
 
 export const accountTokens = sqliteTable('account_tokens', {
     id: text('id')

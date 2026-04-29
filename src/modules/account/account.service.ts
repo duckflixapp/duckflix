@@ -5,10 +5,7 @@ import { sessions, totpBackupCodes, users } from '@shared/schema';
 import { createAuditLog } from '@shared/services/audit.service';
 import type { AccountSessionDTO, AccountSessionMinDTO, AccountTwoFactorStatusDTO } from '@duckflixapp/shared';
 import argon2 from 'argon2';
-import { and, count, desc, eq, gt, isNull } from 'drizzle-orm';
-import { generateSecret, generateURI, verify } from 'otplib';
-import qrcode from 'qrcode';
-import crypto from 'node:crypto';
+import { and, count, desc, eq, gt, isNull, ne } from 'drizzle-orm';
 
 export const deleteAccount = async (userId: string) => {
     await db.transaction(async (tx) => {
@@ -35,7 +32,7 @@ export const deleteAccount = async (userId: string) => {
     });
 };
 
-export const getSessions = async (data: { userId: string; currentSessionId?: string | null }): Promise<AccountSessionMinDTO[]> => {
+export const getSessions = async (data: { userId: string; currentSessionId: string }): Promise<AccountSessionMinDTO[]> => {
     const result = await db
         .select()
         .from(sessions)
@@ -62,7 +59,10 @@ export const getSessionById = async (data: {
     return toAccountSessionDTO(session, data.currentSessionId);
 };
 
-export const revokeSessionById = async (data: { userId: string; sessionId: string; currentSessionId?: string | null }): Promise<void> => {
+export const revokeSessionById = async (data: { userId: string; sessionId: string; currentSessionId: string }): Promise<void> => {
+    if (data.sessionId == data.currentSessionId)
+        throw new AppError('User should not be able to revoke his session. Please use logout', { statusCode: 403 });
+
     await db
         .update(sessions)
         .set({ revokedAt: new Date().toISOString() })
@@ -70,22 +70,32 @@ export const revokeSessionById = async (data: { userId: string; sessionId: strin
     return;
 };
 
-export const resetPassword = async (data: { userId: string; password: string }) => {
+export const resetPassword = async (data: { userId: string; password: string; sessionId: string }) => {
     const hashedPassword = await argon2.hash(data.password);
 
-    const [updated] = await db
-        .update(users)
-        .set({ password: hashedPassword })
-        .where(and(eq(users.id, data.userId), eq(users.system, false)))
-        .returning({ id: users.id });
+    await db.transaction(async (tx) => {
+        const [updated] = await tx
+            .update(users)
+            .set({ password: hashedPassword })
+            .where(and(eq(users.id, data.userId), eq(users.system, false)))
+            .returning({ id: users.id });
 
-    if (!updated) throw new AppError('User not found or deleted', { statusCode: 404 });
+        if (!updated) throw new AppError('User not found or deleted', { statusCode: 404 });
 
-    await createAuditLog({
-        actorUserId: data.userId,
-        action: 'account.password_reset.succeeded',
-        targetType: 'user',
-        targetId: data.userId,
+        await tx
+            .update(sessions)
+            .set({ revokedAt: new Date().toISOString() })
+            .where(and(eq(sessions.userId, data.userId), isNull(sessions.revokedAt), ne(sessions.id, data.sessionId)));
+
+        await createAuditLog(
+            {
+                actorUserId: data.userId,
+                action: 'account.password_reset.succeeded',
+                targetType: 'user',
+                targetId: data.userId,
+            },
+            tx
+        );
     });
 };
 
@@ -109,93 +119,5 @@ export const getTwoFactorStatus = async (userId: string): Promise<AccountTwoFact
         authenticatorEnabled,
         authenticatorPendingSetup: !authenticatorEnabled && !!user.totpSecretPending,
         remainingBackupCodes,
-    });
-};
-
-export const getTotpSetup = async (userId: string) => {
-    const user = await db.query.users.findFirst({
-        where: and(eq(users.id, userId), eq(users.system, false)),
-        columns: { email: true, totpSecretPending: true },
-    });
-
-    if (!user) throw new AppError('User not found', { statusCode: 404 });
-
-    const secret = user.totpSecretPending ?? generateSecret();
-
-    if (!user.totpSecretPending) {
-        await db.update(users).set({ totpSecretPending: secret }).where(eq(users.id, userId));
-    }
-
-    const otpauth = generateURI({ issuer: 'DuckFlix', label: user.email, secret });
-    const qrCodeUrl = await qrcode.toDataURL(otpauth);
-
-    const manualKey = secret.match(/.{1,4}/g)?.join(' ') ?? secret;
-
-    return { qrCodeUrl, manualKey };
-};
-
-export const cancelTotpSetup = async (userId: string) => {
-    await db
-        .update(users)
-        .set({ totpSecretPending: null })
-        .where(and(eq(users.id, userId), eq(users.system, false)));
-};
-
-export const activateTotp = async (userId: string, code: string) => {
-    const user = await db.query.users.findFirst({
-        where: and(eq(users.id, userId), eq(users.system, false)),
-        columns: { totpSecretPending: true },
-    });
-
-    if (!user?.totpSecretPending) {
-        throw new AppError('No pending TOTP setup found', { statusCode: 400 });
-    }
-
-    const result = await verify({ token: code, secret: user.totpSecretPending });
-    if (!result.valid) throw new AppError('Invalid code', { statusCode: 400 });
-
-    const backupCodes = Array.from({ length: 8 }, () => crypto.randomBytes(4).toString('hex').toUpperCase());
-    const hashedBackupCodes = await Promise.all(backupCodes.map((c) => argon2.hash(c)));
-
-    await db.transaction(async (tx) => {
-        await tx
-            .update(users)
-            .set({
-                totpSecret: user.totpSecretPending,
-                totpSecretPending: null,
-                totpEnabled: true,
-            })
-            .where(eq(users.id, userId));
-
-        await tx.delete(totpBackupCodes).where(eq(totpBackupCodes.userId, userId));
-        await tx.insert(totpBackupCodes).values(hashedBackupCodes.map((hash) => ({ userId, codeHash: hash })));
-    });
-
-    await createAuditLog({
-        actorUserId: userId,
-        action: 'account.totp.activated',
-        targetType: 'user',
-        targetId: userId,
-    });
-
-    return { backupCodes };
-};
-
-export const deactivateTotp = async (userId: string) => {
-    const [updated] = await db
-        .update(users)
-        .set({ totpEnabled: false, totpSecret: null, totpSecretPending: null })
-        .where(and(eq(users.id, userId), eq(users.system, false)))
-        .returning({ id: users.id });
-
-    if (!updated) throw new AppError('User not found', { statusCode: 404 });
-
-    await db.delete(totpBackupCodes).where(eq(totpBackupCodes.userId, userId));
-
-    await createAuditLog({
-        actorUserId: userId,
-        action: 'account.totp.deactivated',
-        targetType: 'user',
-        targetId: userId,
     });
 };

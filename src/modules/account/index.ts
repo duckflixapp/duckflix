@@ -1,18 +1,8 @@
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import Elysia from 'elysia';
 import { resetPasswordSchema, sessionIdSchema, setupTotpSchema } from './account.schema';
-import {
-    activateTotp,
-    cancelTotpSetup,
-    deactivateTotp,
-    deleteAccount,
-    getSessionById,
-    getSessions,
-    getTotpSetup,
-    getTwoFactorStatus,
-    resetPassword,
-    revokeSessionById,
-} from './account.service';
+import { deleteAccount, getSessionById, getSessions, getTwoFactorStatus, resetPassword, revokeSessionById } from './account.service';
+import { activateTotp, cancelTotpSetup, deactivateTotp, getTotpSetup } from './totp.service';
 import { env } from '@core/env';
 
 const apiBasePath = new URL(env.BASE_URL).pathname.replace(/\/$/, '');
@@ -84,7 +74,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
     .patch(
         '/password',
         async ({ body, user }) => {
-            await resetPassword({ userId: user.id, password: body.password });
+            await resetPassword({ userId: user.id, password: body.password, sessionId: user.sessionId });
             return { status: 'success' };
         },
         { body: resetPasswordSchema, detail: { tags: ['Account'], summary: 'Change Password' } }
