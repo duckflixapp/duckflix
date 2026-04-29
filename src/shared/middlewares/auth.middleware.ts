@@ -6,6 +6,9 @@ import { AppError } from '@shared/errors';
 import { verifyStepUpToken, verifyToken } from '@utils/jwt';
 import { roleHierarchy, type UserRole } from '@duckflixapp/shared';
 import { csrfPlugin } from './csrf.middleware';
+import { and, eq, gt, isNull } from 'drizzle-orm';
+import { sessions } from '@shared/schema';
+import { db } from '@shared/configs/db';
 
 // ----- Schema -----
 export const AuthUserSchema = z.object({
@@ -34,7 +37,7 @@ export class ForbiddenError extends AppError {
 export const authPlugin = new Elysia({ name: 'auth-plugin' })
     .use(csrfPlugin)
     .derive({ as: 'global' }, ({ cookie: { auth_token }, headers }) => ({
-        resolveUser: (needsVerification = true): AuthUser => {
+        resolveUser: async (needsVerification = true): Promise<AuthUser> => {
             const authHeader = headers.authorization;
             const token = auth_token?.value ?? (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined);
 
@@ -42,6 +45,8 @@ export const authPlugin = new Elysia({ name: 'auth-plugin' })
 
             try {
                 const decoded = verifyToken(token as string);
+                if (!decoded.sid) throw new UnauthorizedError('Invalid token');
+
                 const user: AuthUser = {
                     id: decoded.sub,
                     role: decoded.role as UserRole,
@@ -49,12 +54,24 @@ export const authPlugin = new Elysia({ name: 'auth-plugin' })
                     sessionId: decoded.sid,
                 };
 
+                const session = await db.query.sessions.findFirst({
+                    where: and(
+                        eq(sessions.id, decoded.sid),
+                        eq(sessions.userId, user.id),
+                        isNull(sessions.revokedAt),
+                        gt(sessions.expiresAt, new Date().toISOString())
+                    ),
+                });
+
+                if (!session) throw new ForbiddenError('Session has been revoked or expired');
+
                 if (needsVerification && !user.isVerified) {
                     throw new ForbiddenError('Email not verified');
                 }
 
                 return user;
             } catch (err) {
+                if (err instanceof AppError) throw err;
                 if (err instanceof jwt.TokenExpiredError) throw new UnauthorizedError('Expired token');
                 throw new UnauthorizedError('Invalid token');
             }
@@ -64,12 +81,12 @@ export const authPlugin = new Elysia({ name: 'auth-plugin' })
 // ----- Auth Macros -----
 export const authGuard = new Elysia({ name: 'auth-guard' }).use(authPlugin).macro({
     auth: (options: UserRole | boolean | { role?: UserRole; verified?: boolean }) => ({
-        resolve: ({ resolveUser }) => {
+        resolve: async ({ resolveUser }) => {
             const role = typeof options === 'string' ? options : typeof options === 'object' ? (options.role ?? true) : true;
             const needsVerification = typeof options === 'object' && options.verified !== undefined ? options.verified : true;
 
             if (!role) return;
-            const user = resolveUser(needsVerification);
+            const user = await resolveUser(needsVerification);
 
             if (typeof role === 'string') {
                 const currentUserRank = roleHierarchy[user.role as keyof typeof roleHierarchy];
@@ -122,7 +139,7 @@ export const authGuard = new Elysia({ name: 'auth-guard' }).use(authPlugin).macr
 });
 
 // ----- Socket Authentication -----
-export const socketAuthPlugin = new Elysia({ name: 'socketAuth' }).derive({ as: 'global' }, ({ cookie: { auth_token }, set }) => {
+export const socketAuthPlugin = new Elysia({ name: 'socketAuth' }).derive({ as: 'global' }, async ({ cookie: { auth_token }, set }) => {
     const token = auth_token?.value;
     if (!token) {
         set.status = 401;
@@ -130,7 +147,7 @@ export const socketAuthPlugin = new Elysia({ name: 'socketAuth' }).derive({ as: 
     }
 
     const decoded = verifyToken(token as string);
-    if (!decoded || !decoded.sub) {
+    if (!decoded || !decoded.sub || !decoded.sid) {
         set.status = 401;
         throw new Error('Unauthorized: Invalid token');
     }
@@ -141,6 +158,17 @@ export const socketAuthPlugin = new Elysia({ name: 'socketAuth' }).derive({ as: 
         isVerified: decoded.isVerified,
         sessionId: decoded.sid,
     };
+
+    const session = await db.query.sessions.findFirst({
+        where: and(
+            eq(sessions.id, decoded.sid),
+            eq(sessions.userId, user.id),
+            isNull(sessions.revokedAt),
+            gt(sessions.expiresAt, new Date().toISOString())
+        ),
+    });
+
+    if (!session) throw new ForbiddenError('Session has been revoked or expired');
 
     return { user };
 });
