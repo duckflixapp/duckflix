@@ -27,8 +27,6 @@ import { verify } from 'otplib';
 import { parseDevice, type ClientHints } from '@shared/utils/device';
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
-const generateOpaqueToken = () => crypto.randomBytes(32).toString('hex');
-const hashOpaqueToken = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
 const getAuthMetadata = (context: { ip?: string; userAgent?: string }) => ({
     ip: context.ip ?? null,
     userAgent: context.userAgent ?? null,
@@ -113,15 +111,14 @@ const getLoginChallengeMethods = async (user: Pick<User, 'id' | 'totpEnabled' | 
 };
 
 const createLoginChallenge = async (userId: string) => {
-    const challengeToken = generateOpaqueToken();
-    const challengeTokenHash = hashOpaqueToken(challengeToken);
+    const challengeToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + loginChallengeExpiryMs).toISOString();
 
     await db.transaction(async (tx) => {
         await tx.delete(accountTokens).where(and(eq(accountTokens.userId, userId), eq(accountTokens.type, 'login_challenge')));
         await tx.insert(accountTokens).values({
             userId,
-            token: challengeTokenHash,
+            token: challengeToken,
             type: 'login_challenge',
             expiresAt,
         });
@@ -135,8 +132,7 @@ const createAuthenticatedSession = async (
     context: AuthContext,
     source: 'login' | 'loginChallenge'
 ): Promise<AuthenticatedSession> => {
-    const refreshToken = generateOpaqueToken();
-    const refreshTokenHash = hashOpaqueToken(refreshToken);
+    const refreshToken = crypto.randomUUID();
     const now = new Date().toISOString();
     const device = parseDevice({ userAgent: context.userAgent, clientHints: context.clientHints });
 
@@ -144,7 +140,7 @@ const createAuthenticatedSession = async (
         .insert(sessions)
         .values({
             userId: user.id,
-            token: refreshTokenHash,
+            token: refreshToken,
             deviceName: device.deviceName,
             deviceType: device.deviceType,
             browserName: device.browserName,
@@ -211,8 +207,7 @@ export const register = async (name: string, email: string, pass: string): Promi
         );
 
     const hashedPassword = await argon2.hash(pass);
-    const verificationToken = generateOpaqueToken();
-    const verificationTokenHash = hashOpaqueToken(verificationToken);
+    const verificationToken = crypto.randomBytes(32).toString('hex');
 
     try {
         const user = await db.transaction(async (tx) => {
@@ -246,7 +241,7 @@ export const register = async (name: string, email: string, pass: string): Promi
             if (!registration.trustEmails)
                 await tx.insert(accountTokens).values({
                     userId: user.id,
-                    token: verificationTokenHash,
+                    token: verificationToken,
                     type: 'email_verification',
                     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
                 });
@@ -281,11 +276,10 @@ export const register = async (name: string, email: string, pass: string): Promi
 };
 
 export const verifyEmail = async (token: string) => {
-    const tokenHash = hashOpaqueToken(token);
     const [storedToken] = await db
         .select()
         .from(accountTokens)
-        .where(and(eq(accountTokens.token, tokenHash), eq(accountTokens.type, 'email_verification')));
+        .where(and(eq(accountTokens.token, token), eq(accountTokens.type, 'email_verification')));
 
     if (!storedToken || new Date() > new Date(storedToken.expiresAt)) {
         throw new AppError('Invalid or expired token', { statusCode: 400 });
@@ -390,11 +384,10 @@ export const verifyLoginChallenge = async (
     credential: string,
     context: AuthContext
 ): Promise<AuthenticatedSession> => {
-    const challengeTokenHash = hashOpaqueToken(challengeToken);
     const [storedToken] = await db
         .select()
         .from(accountTokens)
-        .where(and(eq(accountTokens.token, challengeTokenHash), eq(accountTokens.type, 'login_challenge')))
+        .where(and(eq(accountTokens.token, challengeToken), eq(accountTokens.type, 'login_challenge')))
         .limit(1);
 
     if (!storedToken) throw new AppError('Invalid or expired two-factor challenge', { statusCode: 401 });
@@ -460,7 +453,7 @@ export const verifyLoginChallenge = async (
 export const logout = async (data: { refreshToken?: string; accessToken?: string }) => {
     let session = data.refreshToken
         ? await db.query.sessions.findFirst({
-              where: eq(sessions.token, hashOpaqueToken(data.refreshToken)),
+              where: eq(sessions.token, data.refreshToken),
           })
         : null;
 
@@ -500,9 +493,8 @@ export const logout = async (data: { refreshToken?: string; accessToken?: string
 };
 
 export const refresh = async (oldToken: string, context: AuthContext) => {
-    const oldTokenHash = hashOpaqueToken(oldToken);
     const session = await db.query.sessions.findFirst({
-        where: eq(sessions.token, oldTokenHash),
+        where: eq(sessions.token, oldToken),
     });
 
     if (!session) throw new AppError('Invalid refresh token', { statusCode: 401 });
@@ -541,8 +533,7 @@ export const refresh = async (oldToken: string, context: AuthContext) => {
         isVerified: user.verified_email,
         sid: session.id,
     });
-    const refreshToken = generateOpaqueToken();
-    const refreshTokenHash = hashOpaqueToken(refreshToken);
+    const refreshToken = crypto.randomUUID();
     const now = new Date().toISOString();
     const userAgent = context.userAgent ?? session.userAgent;
     const lastIpAddress = context.ip ?? session.lastIpAddress ?? session.ipAddress;
@@ -551,7 +542,7 @@ export const refresh = async (oldToken: string, context: AuthContext) => {
     const [updatedSession] = await db
         .update(sessions)
         .set({
-            token: refreshTokenHash,
+            token: refreshToken,
             userAgent,
             deviceName: device.deviceName,
             deviceType: device.deviceType,
