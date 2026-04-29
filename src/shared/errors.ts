@@ -1,5 +1,6 @@
 import { logger } from '@shared/configs/logger';
 import Elysia, { NotFoundError, ValidationError } from 'elysia';
+import { trustProxy } from './plugins/trust-proxy';
 
 export class AppError extends Error {
     public readonly originalError?: unknown;
@@ -24,7 +25,7 @@ export class AppError extends Error {
     }
 }
 
-export const errorPlugin = new Elysia().onError({ as: 'global' }, ({ error, request, set, server, status }) => {
+export const errorPlugin = new Elysia().use(trustProxy()).onError({ as: 'global' }, ({ error, request, set, clientIp, status }) => {
     if (error instanceof ValidationError) {
         set.status = 400;
         return { error: 'Validation error', details: error.all.map((i) => ({ field: i.path, message: i.message })) };
@@ -48,7 +49,7 @@ export const errorPlugin = new Elysia().onError({ as: 'global' }, ({ error, requ
         {
             path: new URL(request.url).pathname,
             method: request.method,
-            ip: server?.requestIP(request)?.address,
+            ip: clientIp,
             userAgent: request.headers.get('user-agent'),
             err: error,
         },
