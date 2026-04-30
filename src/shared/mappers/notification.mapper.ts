@@ -3,7 +3,7 @@ import type { Notification } from '@shared/schema';
 
 export const toNotificationDTO = (notification: Notification): NotificationDTO => ({
     id: notification.id,
-    userId: notification.userId,
+    userId: notification.accountId,
     videoId: notification.videoId,
     videoVerId: notification.videoVerId,
     type: notification.type,

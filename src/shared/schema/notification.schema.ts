@@ -9,7 +9,7 @@ export const notifications = sqliteTable('notifications', {
     id: text('id')
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
-    userId: text('user_id'),
+    accountId: text('user_id'),
     videoId: text('video_id').references(() => videos.id, { onDelete: 'cascade' }),
     videoVerId: text('movie_version_id').references(() => videoVersions.id, { onDelete: 'cascade' }),
     type: text('type').$type<'info' | 'error' | 'success' | 'warning'>().default('info').notNull(),

@@ -21,7 +21,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             .get(
                 '/',
                 async ({ user }) => {
-                    const sessions = await getSessions({ userId: user.id, currentSessionId: user.sessionId });
+                    const sessions = await getSessions({ accountId: user.id, currentSessionId: user.sessionId });
                     return { status: 'success', data: { sessions } };
                 },
                 {
@@ -31,7 +31,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             .get(
                 '/:id',
                 async ({ params: { id }, user }) => {
-                    const session = await getSessionById({ userId: user.id, sessionId: id, currentSessionId: user.sessionId });
+                    const session = await getSessionById({ accountId: user.id, sessionId: id, currentSessionId: user.sessionId });
                     return { status: 'success', data: { session } };
                 },
                 {
@@ -43,7 +43,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             .delete(
                 '/:id',
                 async ({ params: { id }, user, status }) => {
-                    await revokeSessionById({ userId: user.id, sessionId: id, currentSessionId: user.sessionId });
+                    await revokeSessionById({ accountId: user.id, sessionId: id, currentSessionId: user.sessionId });
                     return status(204);
                 },
                 {
@@ -68,7 +68,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
     .patch(
         '/password',
         async ({ body, user }) => {
-            await resetPassword({ userId: user.id, password: body.password, sessionId: user.sessionId });
+            await resetPassword({ accountId: user.id, password: body.password, sessionId: user.sessionId });
             return { status: 'success' };
         },
         { body: resetPasswordSchema, detail: { tags: ['Account'], summary: 'Change Password' } }

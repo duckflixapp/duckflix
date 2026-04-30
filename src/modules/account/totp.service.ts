@@ -1,6 +1,6 @@
 import { db } from '@shared/configs/db';
 import { AppError } from '@shared/errors';
-import { totpBackupCodes, users } from '@shared/schema';
+import { accountTotp, accounts, totpBackupCodes } from '@shared/schema';
 import { createAuditLog } from '@shared/services/audit.service';
 import argon2 from 'argon2';
 import { and, eq } from 'drizzle-orm';
@@ -8,21 +8,30 @@ import { generateSecret, generateURI, verify } from 'otplib';
 import qrcode from 'qrcode';
 import crypto from 'node:crypto';
 
-export const getTotpSetup = async (userId: string) => {
-    const user = await db.query.users.findFirst({
-        where: and(eq(users.id, userId), eq(users.system, false)),
-        columns: { email: true, totpSecretPending: true },
-    });
+export const getTotpSetup = async (accountId: string) => {
+    const [account] = await db
+        .select({ email: accounts.email })
+        .from(accounts)
+        .where(and(eq(accounts.id, accountId), eq(accounts.system, false)))
+        .limit(1);
 
-    if (!user) throw new AppError('User not found', { statusCode: 404 });
+    if (!account) throw new AppError('User not found', { statusCode: 404 });
 
-    const secret = user.totpSecretPending ?? generateSecret();
+    const [totp] = await db.select().from(accountTotp).where(eq(accountTotp.accountId, accountId)).limit(1);
+    const secret = totp?.pendingSecret ?? generateSecret();
 
-    if (!user.totpSecretPending) {
-        await db.update(users).set({ totpSecretPending: secret }).where(eq(users.id, userId));
+    if (!totp?.pendingSecret) {
+        if (totp) {
+            await db
+                .update(accountTotp)
+                .set({ pendingSecret: secret, updatedAt: new Date().toISOString() })
+                .where(eq(accountTotp.accountId, accountId));
+        } else {
+            await db.insert(accountTotp).values({ accountId, pendingSecret: secret });
+        }
     }
 
-    const otpauth = generateURI({ issuer: 'DuckFlix', label: user.email, secret });
+    const otpauth = generateURI({ issuer: 'DuckFlix', label: account.email, secret });
     const qrCodeUrl = await qrcode.toDataURL(otpauth);
 
     const manualKey = secret.match(/.{1,4}/g)?.join(' ') ?? secret;
@@ -30,24 +39,21 @@ export const getTotpSetup = async (userId: string) => {
     return { qrCodeUrl, manualKey };
 };
 
-export const cancelTotpSetup = async (userId: string) => {
+export const cancelTotpSetup = async (accountId: string) => {
     await db
-        .update(users)
-        .set({ totpSecretPending: null })
-        .where(and(eq(users.id, userId), eq(users.system, false)));
+        .update(accountTotp)
+        .set({ pendingSecret: null, updatedAt: new Date().toISOString() })
+        .where(eq(accountTotp.accountId, accountId));
 };
 
-export const activateTotp = async (userId: string, code: string) => {
-    const user = await db.query.users.findFirst({
-        where: and(eq(users.id, userId), eq(users.system, false)),
-        columns: { totpSecretPending: true },
-    });
+export const activateTotp = async (accountId: string, code: string) => {
+    const [totp] = await db.select().from(accountTotp).where(eq(accountTotp.accountId, accountId)).limit(1);
 
-    if (!user?.totpSecretPending) {
+    if (!totp?.pendingSecret) {
         throw new AppError('No pending TOTP setup found', { statusCode: 400 });
     }
 
-    const result = await verify({ token: code, secret: user.totpSecretPending });
+    const result = await verify({ token: code, secret: totp.pendingSecret });
     if (!result.valid) throw new AppError('Invalid code', { statusCode: 400 });
 
     const backupCodes = Array.from({ length: 8 }, () => crypto.randomBytes(4).toString('hex').toUpperCase());
@@ -55,43 +61,51 @@ export const activateTotp = async (userId: string, code: string) => {
 
     await db.transaction(async (tx) => {
         await tx
-            .update(users)
+            .update(accountTotp)
             .set({
-                totpSecret: user.totpSecretPending,
-                totpSecretPending: null,
-                totpEnabled: true,
+                secret: totp.pendingSecret,
+                pendingSecret: null,
+                enabled: true,
+                updatedAt: new Date().toISOString(),
             })
-            .where(eq(users.id, userId));
+            .where(eq(accountTotp.accountId, accountId));
 
-        await tx.delete(totpBackupCodes).where(eq(totpBackupCodes.userId, userId));
-        await tx.insert(totpBackupCodes).values(hashedBackupCodes.map((hash) => ({ userId, codeHash: hash })));
+        await tx.delete(totpBackupCodes).where(eq(totpBackupCodes.accountId, accountId));
+        await tx.insert(totpBackupCodes).values(hashedBackupCodes.map((hash) => ({ accountId, codeHash: hash })));
     });
 
     await createAuditLog({
-        actorUserId: userId,
+        actorUserId: accountId,
         action: 'account.totp.activated',
         targetType: 'user',
-        targetId: userId,
+        targetId: accountId,
     });
 
     return { backupCodes };
 };
 
-export const deactivateTotp = async (userId: string) => {
-    const [updated] = await db
-        .update(users)
-        .set({ totpEnabled: false, totpSecret: null, totpSecretPending: null })
-        .where(and(eq(users.id, userId), eq(users.system, false)))
-        .returning({ id: users.id });
+export const deactivateTotp = async (accountId: string) => {
+    const [account] = await db
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(and(eq(accounts.id, accountId), eq(accounts.system, false)))
+        .limit(1);
 
-    if (!updated) throw new AppError('User not found', { statusCode: 404 });
+    if (!account) throw new AppError('User not found', { statusCode: 404 });
 
-    await db.delete(totpBackupCodes).where(eq(totpBackupCodes.userId, userId));
+    await db.transaction(async (tx) => {
+        await tx
+            .update(accountTotp)
+            .set({ enabled: false, secret: null, pendingSecret: null, updatedAt: new Date().toISOString() })
+            .where(eq(accountTotp.accountId, accountId));
+
+        await tx.delete(totpBackupCodes).where(eq(totpBackupCodes.accountId, accountId));
+    });
 
     await createAuditLog({
-        actorUserId: userId,
+        actorUserId: accountId,
         action: 'account.totp.deactivated',
         targetType: 'user',
-        targetId: userId,
+        targetId: accountId,
     });
 };

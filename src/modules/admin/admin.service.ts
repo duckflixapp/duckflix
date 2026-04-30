@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@shared/configs/db';
-import { users } from '@schema/user.schema';
+import { accountTotp, users } from '@schema/user.schema';
 import { toUserDTO } from '@shared/mappers/user.mapper';
 import { isAtLeast, roleHierarchy, roles, type SystemStatisticsDTO, type UserDTO, type UserRole } from '@duckflixapp/shared';
 import { AppError } from '@shared/errors';
@@ -56,11 +56,14 @@ const summarizeSystemSettingsPatch = (patch: unknown) => {
 export const getUsersWithRoles = async (): Promise<UserDTO[]> => {
     const rolesIncluded = roles.filter((r) => isAtLeast(r, 'watcher'));
     const results = await db
-        .select()
+        .select({ user: users, totpEnabled: accountTotp.enabled, totpSecret: accountTotp.secret })
         .from(users)
+        .leftJoin(accountTotp, eq(accountTotp.accountId, users.id))
         .where(and(inArray(users.role, rolesIncluded), eq(users.system, false)));
 
-    return results.sort((a, b) => roleHierarchy[a.role] - roleHierarchy[b.role]).map(toUserDTO);
+    return results
+        .sort((a, b) => roleHierarchy[a.user.role] - roleHierarchy[b.user.role])
+        .map(({ user, totpEnabled, totpSecret }) => toUserDTO({ ...user, totpEnabled: Boolean(totpEnabled && totpSecret) }));
 };
 
 export const changeUserRole = async (email: string, role: UserRole, context: { userId: string }): Promise<void> => {

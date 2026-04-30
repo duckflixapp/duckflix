@@ -11,7 +11,7 @@ import { createAuditLog } from '@shared/services/audit.service';
 export const getUserLibraries = async (userId: string, options?: { custom?: boolean }): Promise<LibraryMinDTO[]> => {
     const custom = !!options?.custom ? eq(libraries.type, 'custom') : null;
 
-    const conditions = [custom, eq(libraries.userId, userId)];
+    const conditions = [custom, eq(libraries.accountId, userId)];
     const filters = and(...conditions.filter((c) => c != null));
 
     const results = await db.select().from(libraries).where(filters);
@@ -29,7 +29,7 @@ export const createUserLibrary = async (userId: string, context: { name: string 
             const [userLibraries] = await tx
                 .select({ value: count() })
                 .from(libraries)
-                .where(and(eq(libraries.userId, userId), eq(libraries.type, 'custom')));
+                .where(and(eq(libraries.accountId, userId), eq(libraries.type, 'custom')));
 
             if (!userLibraries || userLibraries?.value >= MAX_LIBRARIES)
                 throw new AppError(`You have reached the library limit (max ${MAX_LIBRARIES}).`, { statusCode: 403 });
@@ -37,7 +37,7 @@ export const createUserLibrary = async (userId: string, context: { name: string 
                 .insert(libraries)
                 .values({
                     name: context.name,
-                    userId: userId,
+                    accountId: userId,
                     type: 'custom',
                 })
                 .returning();
@@ -73,7 +73,7 @@ export const deleteUserLibrary = async (userId: string, libraryId: string): Prom
         const [library] = await tx
             .select({ id: libraries.id, type: libraries.type, name: libraries.name })
             .from(libraries)
-            .where(and(eq(libraries.userId, userId), eq(libraries.id, libraryId)));
+            .where(and(eq(libraries.accountId, userId), eq(libraries.id, libraryId)));
 
         if (!library) throw new LibraryNotFoundError();
 
@@ -102,7 +102,7 @@ export const addContentToUserLibrary = async (
     type: 'movie' | 'series'
 ): Promise<void> => {
     try {
-        const conditions = [eq(libraries.userId, userId)];
+        const conditions = [eq(libraries.accountId, userId)];
         if (libraryId === 'watchlist') conditions.push(eq(libraries.type, 'watchlist'));
         else conditions.push(eq(libraries.id, libraryId));
 
@@ -135,7 +135,7 @@ export const removeContentFromUserLibrary = async (
     contentId: string,
     type: 'movie' | 'series'
 ): Promise<void> => {
-    const conditions = [eq(libraries.userId, userId)];
+    const conditions = [eq(libraries.accountId, userId)];
     if (libraryId === 'watchlist') conditions.push(eq(libraries.type, 'watchlist'));
     else conditions.push(eq(libraries.id, libraryId));
 
@@ -160,7 +160,7 @@ export const removeContentFromUserLibrary = async (
 
 export const getUserLibrary = async (userId: string, libraryId: string): Promise<LibraryDTO> => {
     const result = await db.query.libraries.findFirst({
-        where: and(eq(libraries.userId, userId), eq(libraries.id, libraryId)),
+        where: and(eq(libraries.accountId, userId), eq(libraries.id, libraryId)),
         with: { user: true },
     });
 
@@ -191,7 +191,7 @@ export const getUserLibraryItems = async (
         const [library] = await tx
             .select({ id: libraries.id })
             .from(libraries)
-            .where(and(eq(libraries.id, libraryId), eq(libraries.userId, userId)));
+            .where(and(eq(libraries.id, libraryId), eq(libraries.accountId, userId)));
 
         if (!library) throw new LibraryNotFoundError();
 

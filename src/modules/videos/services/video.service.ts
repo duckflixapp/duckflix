@@ -304,7 +304,7 @@ export const getVideoProgressById = async (data: { videoId: string; userId: stri
         .select({ id: videos.id, history: watchHistory })
         .from(videos)
         .where(eq(videos.id, data.videoId))
-        .leftJoin(watchHistory, and(eq(watchHistory.videoId, data.videoId), eq(watchHistory.userId, data.userId)));
+        .leftJoin(watchHistory, and(eq(watchHistory.videoId, data.videoId), eq(watchHistory.accountId, data.userId)));
 
     if (!video) throw new VideoNotFoundError();
 
@@ -323,7 +323,7 @@ export const saveVideoProgressById = async (data: { videoId: string; userId: str
     const [existingProgress] = await db
         .select()
         .from(watchHistory)
-        .where(and(eq(watchHistory.userId, data.userId), eq(watchHistory.videoId, data.videoId)));
+        .where(and(eq(watchHistory.accountId, data.userId), eq(watchHistory.videoId, data.videoId)));
 
     // if video already started watching dont allow sending progress from 0 where user video started again automatically
     if (!!existingProgress && data.positionSec < 20 && data.positionSec <= existingProgress.lastPosition) {
@@ -333,14 +333,14 @@ export const saveVideoProgressById = async (data: { videoId: string; userId: str
     const [result] = await db
         .insert(watchHistory)
         .values({
-            userId: data.userId,
+            accountId: data.userId,
             videoId: data.videoId,
             lastPosition: data.positionSec,
             isFinished,
             updatedAt: new Date().toISOString(),
         })
         .onConflictDoUpdate({
-            target: [watchHistory.userId, watchHistory.videoId],
+            target: [watchHistory.accountId, watchHistory.videoId],
             set: {
                 lastPosition: data.positionSec,
                 isFinished,

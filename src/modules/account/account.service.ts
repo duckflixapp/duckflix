@@ -1,42 +1,42 @@
 import { db } from '@shared/configs/db';
 import { AppError } from '@shared/errors';
 import { toAccountSessionDTO, toAccountSessionMinDTO, toAccountTwoFactorStatusDTO } from '@shared/mappers/account.mapper';
-import { sessions, totpBackupCodes, users } from '@shared/schema';
+import { accountTotp, accounts, sessions, totpBackupCodes } from '@shared/schema';
 import { createAuditLog } from '@shared/services/audit.service';
 import type { AccountSessionDTO, AccountSessionMinDTO, AccountTwoFactorStatusDTO } from '@duckflixapp/shared';
 import argon2 from 'argon2';
 import { and, count, desc, eq, gt, isNull, ne } from 'drizzle-orm';
 
-export const deleteAccount = async (userId: string) => {
+export const deleteAccount = async (accountId: string) => {
     await db.transaction(async (tx) => {
-        const [user] = await tx
-            .select({ id: users.id, email: users.email, system: users.system })
-            .from(users)
-            .where(eq(users.id, userId))
+        const [account] = await tx
+            .select({ id: accounts.id, email: accounts.email, system: accounts.system })
+            .from(accounts)
+            .where(eq(accounts.id, accountId))
             .limit(1);
 
-        if (!user || user.system) throw new AppError('User not found', { statusCode: 404 });
+        if (!account || account.system) throw new AppError('User not found', { statusCode: 404 });
 
         await createAuditLog(
             {
-                actorUserId: user.id,
+                actorUserId: account.id,
                 action: 'account.deleted',
                 targetType: 'user',
-                targetId: user.id,
-                metadata: { email: user.email },
+                targetId: account.id,
+                metadata: { email: account.email },
             },
             tx
         );
 
-        await tx.delete(users).where(and(eq(users.id, userId), eq(users.system, false)));
+        await tx.delete(accounts).where(and(eq(accounts.id, accountId), eq(accounts.system, false)));
     });
 };
 
-export const getSessions = async (data: { userId: string; currentSessionId: string }): Promise<AccountSessionMinDTO[]> => {
+export const getSessions = async (data: { accountId: string; currentSessionId: string }): Promise<AccountSessionMinDTO[]> => {
     const result = await db
         .select()
         .from(sessions)
-        .where(and(eq(sessions.userId, data.userId), isNull(sessions.revokedAt), gt(sessions.expiresAt, new Date().toISOString())))
+        .where(and(eq(sessions.accountId, data.accountId), isNull(sessions.revokedAt), gt(sessions.expiresAt, new Date().toISOString())))
         .limit(100)
         .orderBy(desc(sessions.lastRefreshedAt));
 
@@ -44,14 +44,14 @@ export const getSessions = async (data: { userId: string; currentSessionId: stri
 };
 
 export const getSessionById = async (data: {
-    userId: string;
+    accountId: string;
     sessionId: string;
     currentSessionId?: string | null;
 }): Promise<AccountSessionDTO> => {
     const [session] = await db
         .select()
         .from(sessions)
-        .where(and(eq(sessions.userId, data.userId), eq(sessions.id, data.sessionId)))
+        .where(and(eq(sessions.accountId, data.accountId), eq(sessions.id, data.sessionId)))
         .limit(1);
 
     if (!session) throw new AppError('Session not found', { statusCode: 404 });
@@ -59,65 +59,68 @@ export const getSessionById = async (data: {
     return toAccountSessionDTO(session, data.currentSessionId);
 };
 
-export const revokeSessionById = async (data: { userId: string; sessionId: string; currentSessionId: string }): Promise<void> => {
+export const revokeSessionById = async (data: { accountId: string; sessionId: string; currentSessionId: string }): Promise<void> => {
     if (data.sessionId == data.currentSessionId)
         throw new AppError('User should not be able to revoke his session. Please use logout', { statusCode: 403 });
 
     await db
         .update(sessions)
         .set({ revokedAt: new Date().toISOString() })
-        .where(and(eq(sessions.userId, data.userId), eq(sessions.id, data.sessionId)));
+        .where(and(eq(sessions.accountId, data.accountId), eq(sessions.id, data.sessionId)));
     return;
 };
 
-export const resetPassword = async (data: { userId: string; password: string; sessionId: string }) => {
+export const resetPassword = async (data: { accountId: string; password: string; sessionId: string }) => {
     const hashedPassword = await argon2.hash(data.password);
 
     await db.transaction(async (tx) => {
         const [updated] = await tx
-            .update(users)
+            .update(accounts)
             .set({ password: hashedPassword })
-            .where(and(eq(users.id, data.userId), eq(users.system, false)))
-            .returning({ id: users.id });
+            .where(and(eq(accounts.id, data.accountId), eq(accounts.system, false)))
+            .returning({ id: accounts.id });
 
         if (!updated) throw new AppError('User not found or deleted', { statusCode: 404 });
 
         await tx
             .update(sessions)
             .set({ revokedAt: new Date().toISOString() })
-            .where(and(eq(sessions.userId, data.userId), isNull(sessions.revokedAt), ne(sessions.id, data.sessionId)));
+            .where(and(eq(sessions.accountId, data.accountId), isNull(sessions.revokedAt), ne(sessions.id, data.sessionId)));
 
         await createAuditLog(
             {
-                actorUserId: data.userId,
+                actorUserId: data.accountId,
                 action: 'account.password_reset.succeeded',
                 targetType: 'user',
-                targetId: data.userId,
+                targetId: data.accountId,
             },
             tx
         );
     });
 };
 
-export const getTwoFactorStatus = async (userId: string): Promise<AccountTwoFactorStatusDTO> => {
-    const user = await db.query.users.findFirst({
-        where: and(eq(users.id, userId), eq(users.system, false)),
-        columns: { totpEnabled: true, totpSecret: true, totpSecretPending: true },
-    });
+export const getTwoFactorStatus = async (accountId: string): Promise<AccountTwoFactorStatusDTO> => {
+    const [account] = await db
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(and(eq(accounts.id, accountId), eq(accounts.system, false)))
+        .limit(1);
 
-    if (!user) throw new AppError('User not found', { statusCode: 404 });
+    if (!account) throw new AppError('User not found', { statusCode: 404 });
 
-    const authenticatorEnabled = user.totpEnabled && !!user.totpSecret;
+    const [totp] = await db.select().from(accountTotp).where(eq(accountTotp.accountId, accountId)).limit(1);
+
+    const authenticatorEnabled = Boolean(totp?.enabled && totp.secret);
     const [backupCodes] = await db
         .select({ remaining: count() })
         .from(totpBackupCodes)
-        .where(and(eq(totpBackupCodes.userId, userId), isNull(totpBackupCodes.usedAt)));
+        .where(and(eq(totpBackupCodes.accountId, accountId), isNull(totpBackupCodes.usedAt)));
 
     const remainingBackupCodes = backupCodes?.remaining ?? 0;
 
     return toAccountTwoFactorStatusDTO({
         authenticatorEnabled,
-        authenticatorPendingSetup: !authenticatorEnabled && !!user.totpSecretPending,
+        authenticatorPendingSetup: !authenticatorEnabled && !!totp?.pendingSecret,
         remainingBackupCodes,
     });
 };

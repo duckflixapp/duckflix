@@ -13,7 +13,7 @@ export const toLibraryMinDTO = (library: Library): LibraryMinDTO => ({
     name: library.name,
     type: library.type,
     size: library.size,
-    userId: library.userId,
+    userId: library.accountId,
     createdAt: library.createdAt,
 });
 

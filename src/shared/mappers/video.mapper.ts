@@ -76,7 +76,7 @@ export const toSubtitleSearchResultDTO = (s: SubtitleData): SubtitleSearchResult
 
 export const toWatchHistoryDTO = (w: WatchHistory): WatchHistoryDTO => ({
     id: w.id,
-    userId: w.userId,
+    userId: w.accountId,
     videoId: w.videoId,
     lastPosition: w.lastPosition,
     isFinished: w.isFinished,

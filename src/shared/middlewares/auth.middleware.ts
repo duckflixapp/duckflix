@@ -57,7 +57,7 @@ export const authPlugin = new Elysia({ name: 'auth-plugin' })
                 const session = await db.query.sessions.findFirst({
                     where: and(
                         eq(sessions.id, decoded.sid),
-                        eq(sessions.userId, user.id),
+                        eq(sessions.accountId, user.id),
                         isNull(sessions.revokedAt),
                         gt(sessions.expiresAt, new Date().toISOString())
                     ),
@@ -162,7 +162,7 @@ export const socketAuthPlugin = new Elysia({ name: 'socketAuth' }).derive({ as: 
     const session = await db.query.sessions.findFirst({
         where: and(
             eq(sessions.id, decoded.sid),
-            eq(sessions.userId, user.id),
+            eq(sessions.accountId, user.id),
             isNull(sessions.revokedAt),
             gt(sessions.expiresAt, new Date().toISOString())
         ),

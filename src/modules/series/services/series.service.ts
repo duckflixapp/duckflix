@@ -29,7 +29,7 @@ export const getSeriesById = async (seriesId: string, options: { userId?: string
             .select({ value: count() })
             .from(libraries)
             .leftJoin(libraryItems, eq(libraries.id, libraryItems.libraryId))
-            .where(and(eq(libraries.type, 'watchlist'), eq(libraries.userId, options.userId), eq(libraryItems.seriesId, tvSeries.id)));
+            .where(and(eq(libraries.type, 'watchlist'), eq(libraries.accountId, options.userId), eq(libraryItems.seriesId, tvSeries.id)));
 
         inLibrary = !!libraryCount?.value && libraryCount?.value > 0;
     }

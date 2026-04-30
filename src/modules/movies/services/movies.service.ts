@@ -176,7 +176,7 @@ export const getMovieById = async (id: string, options: { userId: string | null 
               .select({ value: count() })
               .from(libraries)
               .leftJoin(libraryItems, eq(libraries.id, libraryItems.libraryId))
-              .where(and(eq(libraries.type, 'watchlist'), eq(libraries.userId, options.userId), eq(libraryItems.movieId, id)))
+              .where(and(eq(libraries.type, 'watchlist'), eq(libraries.accountId, options.userId), eq(libraryItems.movieId, id)))
         : Promise.resolve(null);
 
     const castPromise = getOrSyncMovieCast(result.id, result.tmdbId).catch((err) => {
