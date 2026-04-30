@@ -5,7 +5,7 @@
     "": {
       "name": "@duckflixapp/backend",
       "dependencies": {
-        "@duckflixapp/shared": "^0.8.1",
+        "@duckflixapp/shared": "^1.0.0",
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/openapi": "^1.4.14",
         "argon2": "^0.44.0",
@@ -53,7 +53,7 @@
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
-    "@duckflixapp/shared": ["@duckflixapp/shared@0.8.1", "https://npm.pkg.github.com/download/@duckflixapp/shared/0.8.1/403c1622d94ff98642a3b83f3f6166ffaa6be8f5", { "peerDependencies": { "typescript": "^5" } }, "sha512-6bRGkcOZJ0NNxrVkC5FFVq3OLBxCXJF8/X81gN39NJJ5gGvBMrHO/8rhF4t0uQys/ME+IGTkFPm0tHBE1He0fA=="],
+    "@duckflixapp/shared": ["@duckflixapp/shared@1.0.0", "https://npm.pkg.github.com/download/@duckflixapp/shared/1.0.0/3d3703783419fbf7839f1df6089afda78b837f2a", { "peerDependencies": { "typescript": "^5" } }, "sha512-WbhlPsPRhcXTuirgoYps+WFzYgJGWsL3gGfoIWEBQ6hpq7MoqC/mZQkUNiKjBIxrBGSqroHeL3Y7iQ4T5l/Tow=="],
 
     "@elysiajs/cors": ["@elysiajs/cors@1.4.1", "", { "peerDependencies": { "elysia": ">= 1.4.0" } }, "sha512-lQfad+F3r4mNwsxRKbXyJB8Jg43oAOXjRwn7sKUL6bcOW3KjUqUimTS+woNpO97efpzjtDE0tEjGk9DTw8lqTQ=="],
 

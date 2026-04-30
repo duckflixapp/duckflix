@@ -222,9 +222,13 @@ export const getVideoById = async (videoId: string): Promise<VideoDTO> => {
             uploader: {
                 columns: {
                     id: true,
-                    name: true,
                     role: true,
                     system: true,
+                },
+                with: {
+                    profiles: {
+                        limit: 1,
+                    },
                 },
             },
         },
@@ -285,7 +289,7 @@ export const deleteVideoById = async (videoId: string, context: { userId: string
     await fs.rm(videoDir, { recursive: true, force: true }).catch(() => {});
     await db.delete(videos).where(eq(videos.id, video.id));
     await createAuditLog({
-        actorUserId: context.userId,
+        actorAccountId: context.userId,
         action: 'video.deleted',
         targetType: 'video',
         targetId: video.id,

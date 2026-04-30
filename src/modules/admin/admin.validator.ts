@@ -13,7 +13,7 @@ export const auditLogsQuerySchema = z.object({
     page: z.coerce.number().int().positive().max(10000, 'Page limit exceeded').default(1),
     limit: z.coerce.number().int().positive().max(100).default(20),
     action: z.string().trim().min(1).max(120).optional(),
-    actorUserId: z.uuid().optional(),
+    actorAccountId: z.uuid().optional(),
 });
 
 export const systemSettingsUpdateSchema = z.object({

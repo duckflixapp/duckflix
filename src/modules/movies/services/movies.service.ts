@@ -67,9 +67,13 @@ export const getMovies = async (options: {
                         uploader: {
                             columns: {
                                 id: true,
-                                name: true,
                                 role: true,
                                 system: true,
+                            },
+                            with: {
+                                profiles: {
+                                    limit: 1,
+                                },
                             },
                         },
                         versions: true,
@@ -159,9 +163,13 @@ export const getMovieById = async (id: string, options: { userId: string | null 
                     uploader: {
                         columns: {
                             id: true,
-                            name: true,
                             role: true,
                             system: true,
+                        },
+                        with: {
+                            profiles: {
+                                limit: 1,
+                            },
                         },
                     },
                 },

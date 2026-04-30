@@ -1,8 +1,8 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@shared/configs/db';
-import { accountTotp, users } from '@schema/user.schema';
-import { toUserDTO } from '@shared/mappers/user.mapper';
-import { isAtLeast, roleHierarchy, roles, type SystemStatisticsDTO, type UserDTO, type UserRole } from '@duckflixapp/shared';
+import { accountTotp, accounts } from '@schema/user.schema';
+import { toAccountDTO } from '@shared/mappers/user.mapper';
+import { isAtLeast, roleHierarchy, roles, type AccountDTO, type SystemStatisticsDTO, type UserRole } from '@duckflixapp/shared';
 import { AppError } from '@shared/errors';
 import { getStorageStatistics } from '@shared/services/storage.service';
 import { toSystemStatisticsDTO } from '@shared/mappers/system.mapper';
@@ -53,32 +53,52 @@ const summarizeSystemSettingsPatch = (patch: unknown) => {
     };
 };
 
-export const getUsersWithRoles = async (): Promise<UserDTO[]> => {
+export const getUsersWithRoles = async (): Promise<AccountDTO[]> => {
     const rolesIncluded = roles.filter((r) => isAtLeast(r, 'watcher'));
-    const results = await db
-        .select({ user: users, totpEnabled: accountTotp.enabled, totpSecret: accountTotp.secret })
-        .from(users)
-        .leftJoin(accountTotp, eq(accountTotp.accountId, users.id))
-        .where(and(inArray(users.role, rolesIncluded), eq(users.system, false)));
+    const results = await db.query.accounts.findMany({
+        where: and(inArray(accounts.role, rolesIncluded), eq(accounts.system, false)),
+        with: {
+            profiles: {
+                limit: 1,
+            },
+        },
+    });
+
+    const totpRows =
+        results.length > 0
+            ? await db
+                  .select()
+                  .from(accountTotp)
+                  .where(
+                      inArray(
+                          accountTotp.accountId,
+                          results.map((account) => account.id)
+                      )
+                  )
+            : [];
+    const totpByAccountId = new Map(totpRows.map((totp) => [totp.accountId, totp]));
 
     return results
-        .sort((a, b) => roleHierarchy[a.user.role] - roleHierarchy[b.user.role])
-        .map(({ user, totpEnabled, totpSecret }) => toUserDTO({ ...user, totpEnabled: Boolean(totpEnabled && totpSecret) }));
+        .sort((a, b) => roleHierarchy[a.role] - roleHierarchy[b.role])
+        .map((account) => {
+            const totp = totpByAccountId.get(account.id);
+            return toAccountDTO({ ...account, totpEnabled: Boolean(totp?.enabled && totp.secret) });
+        });
 };
 
 export const changeUserRole = async (email: string, role: UserRole, context: { userId: string }): Promise<void> => {
     return await db.transaction(async (tx) => {
         const [user] = await tx
-            .select({ id: users.id, email: users.email, role: users.role })
-            .from(users)
-            .where(and(eq(users.email, email), eq(users.system, false)));
+            .select({ id: accounts.id, email: accounts.email, role: accounts.role })
+            .from(accounts)
+            .where(and(eq(accounts.email, email), eq(accounts.system, false)));
         if (!user) throw new AppError('User not found, no changes were made', { statusCode: 404 });
         if (user.id == context.userId) throw new AppError('You are not allowed to change your own role', { statusCode: 403 });
 
-        await tx.update(users).set({ role }).where(eq(users.id, user.id));
+        await tx.update(accounts).set({ role }).where(eq(accounts.id, user.id));
         await createAuditLog(
             {
-                actorUserId: context.userId,
+                actorAccountId: context.userId,
                 action: 'admin.user.role_changed',
                 targetType: 'user',
                 targetId: user.id,
@@ -96,16 +116,16 @@ export const changeUserRole = async (email: string, role: UserRole, context: { u
 export const deleteUser = async (email: string, context: { userId: string }): Promise<void> => {
     return await db.transaction(async (tx) => {
         const [user] = await tx
-            .select({ id: users.id, email: users.email, role: users.role })
-            .from(users)
-            .where(and(eq(users.email, email), eq(users.system, false)));
+            .select({ id: accounts.id, email: accounts.email, role: accounts.role })
+            .from(accounts)
+            .where(and(eq(accounts.email, email), eq(accounts.system, false)));
         if (!user) throw new AppError('User not found, no changes were made', { statusCode: 404 });
         if (user.id == context.userId) throw new AppError('You are not allowed to delete your own account', { statusCode: 403 });
 
-        await tx.delete(users).where(eq(users.id, user.id));
+        await tx.delete(accounts).where(eq(accounts.id, user.id));
         await createAuditLog(
             {
-                actorUserId: context.userId,
+                actorAccountId: context.userId,
                 action: 'admin.user.deleted',
                 targetType: 'user',
                 targetId: user.id,
@@ -127,7 +147,7 @@ export const updateSystemSettings = async (
     const summary = summarizeSystemSettingsPatch(settings);
 
     await createAuditLog({
-        actorUserId: context.userId,
+        actorAccountId: context.userId,
         action: 'admin.system.updated',
         targetType: 'system_settings',
         targetId: '1',
@@ -141,7 +161,7 @@ export const listAuditLogs = async (options: {
     page: number;
     limit: number;
     action?: string;
-    actorUserId?: string;
+    actorAccountId?: string;
 }): Promise<PaginatedResponse<AuditLogListItem>> => {
     return getAuditLogs(options);
 };

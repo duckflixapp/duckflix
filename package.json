@@ -34,7 +34,7 @@
         "typescript": "^5"
     },
     "dependencies": {
-        "@duckflixapp/shared": "^0.8.1",
+        "@duckflixapp/shared": "^1.0.0",
         "@elysiajs/cors": "^1.4.1",
         "@elysiajs/openapi": "^1.4.14",
         "argon2": "^0.44.0",

@@ -37,7 +37,7 @@ export const deleteSeasonById = async (data: { seasonId: string; userId: string 
         await tx.delete(seriesSeasons).where(eq(seriesSeasons.id, data.seasonId));
         await createAuditLog(
             {
-                actorUserId: data.userId,
+                actorAccountId: data.userId,
                 action: 'series.season.deleted',
                 targetType: 'season',
                 targetId: season.id,

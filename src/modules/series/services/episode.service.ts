@@ -13,7 +13,18 @@ export const getEpisodeById = async (episodeId: string) => {
             video: {
                 with: {
                     versions: true,
-                    uploader: true,
+                    uploader: {
+                        columns: {
+                            id: true,
+                            role: true,
+                            system: true,
+                        },
+                        with: {
+                            profiles: {
+                                limit: 1,
+                            },
+                        },
+                    },
                     subtitles: true,
                 },
             },

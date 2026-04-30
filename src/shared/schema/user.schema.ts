@@ -1,15 +1,14 @@
 import type { UserRole } from '@duckflixapp/shared';
-import { type InferSelectModel } from 'drizzle-orm';
+import { relations, type InferSelectModel } from 'drizzle-orm';
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 
 // ------------------------------------
 // Schema
 // ------------------------------------
-export const accounts = sqliteTable('users', {
+export const accounts = sqliteTable('accounts', {
     id: text('id')
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
-    name: text('name').notNull(),
     email: text('email').notNull().unique(),
     verified_email: integer('is_verified_email', { mode: 'boolean' }).notNull().default(false),
     password: text('password').notNull(),
@@ -20,7 +19,22 @@ export const accounts = sqliteTable('users', {
         .$defaultFn(() => new Date().toISOString()),
 });
 
-export const users = accounts;
+export const profiles = sqliteTable(
+    'profiles',
+    {
+        id: text('id')
+            .primaryKey()
+            .$defaultFn(() => crypto.randomUUID()),
+        accountId: text('account_id')
+            .notNull()
+            .references(() => accounts.id, { onDelete: 'cascade' }),
+        name: text('name').notNull(),
+        createdAt: text('created_at')
+            .notNull()
+            .$defaultFn(() => new Date().toISOString()),
+    },
+    (t) => [index('profiles_account_id_idx').on(t.accountId)]
+);
 
 export const sessions = sqliteTable(
     'sessions',
@@ -94,9 +108,24 @@ export const totpBackupCodes = sqliteTable('totp_backup_codes', {
 export type Account = InferSelectModel<typeof accounts>;
 export type User = Account;
 export type UserWithoutPassword = Omit<User, 'password'>;
+export type Profile = InferSelectModel<typeof profiles>;
 
 export type Session = InferSelectModel<typeof sessions>;
 
 export type AccountToken = InferSelectModel<typeof accountTokens>;
 export type AccountTotp = InferSelectModel<typeof accountTotp>;
 export type AccountTokenType = 'email_verification' | 'login_challenge'; // email verification, phone verification, password reset
+
+// ------------------------------------
+// Relations
+// ------------------------------------
+export const accountsRelations = relations(accounts, ({ many }) => ({
+    profiles: many(profiles),
+}));
+
+export const profilesRelations = relations(profiles, ({ one }) => ({
+    account: one(accounts, {
+        fields: [profiles.accountId],
+        references: [accounts.id],
+    }),
+}));

@@ -75,7 +75,7 @@ export const activateTotp = async (accountId: string, code: string) => {
     });
 
     await createAuditLog({
-        actorUserId: accountId,
+        actorAccountId: accountId,
         action: 'account.totp.activated',
         targetType: 'user',
         targetId: accountId,
@@ -103,7 +103,7 @@ export const deactivateTotp = async (accountId: string) => {
     });
 
     await createAuditLog({
-        actorUserId: accountId,
+        actorAccountId: accountId,
         action: 'account.totp.deactivated',
         targetType: 'user',
         targetId: accountId,

@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '@shared/configs/db';
 import { getSystemUserId } from '@shared/configs/system';
-import { users } from '@schema/user.schema';
+import { accounts } from '@schema/user.schema';
 import { notificationService } from './notification.service';
 import type { NotificationEvent } from './notification.types';
 
@@ -28,9 +28,9 @@ export const notifyJobStatus = async (
 
     if (isSystem) {
         const admins = await db
-            .select({ id: users.id })
-            .from(users)
-            .where(and(eq(users.role, 'admin'), eq(users.system, false)));
+            .select({ id: accounts.id })
+            .from(accounts)
+            .where(and(eq(accounts.role, 'admin'), eq(accounts.system, false)));
         targetIds.push(...admins.map((a) => a.id));
     } else targetIds.push(userId);
 

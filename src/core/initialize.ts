@@ -1,5 +1,5 @@
 import { db } from '@shared/configs/db';
-import { users } from '@schema/user.schema';
+import { accounts, profiles } from '@schema/user.schema';
 import { systemSettings } from '@shared/services/system.service';
 import { logger } from '@shared/configs/logger';
 import { checkHardwareDecoding } from '@shared/services/video';
@@ -37,9 +37,15 @@ const initializeSystemUser = async () => {
     const systemUserId = await fetchSystemUserId();
     if (systemUserId) return systemUserId;
 
-    const results = await db.insert(users).values({ name: 'system', email: 'system', password: 'system', system: true }).returning();
-    if (!results[0]) throw new Error('Failed creating system user');
+    const account = await db.transaction(async (tx) => {
+        const [account] = await tx.insert(accounts).values({ email: 'system', password: 'system', system: true }).returning();
+        if (!account) throw new Error('Failed creating system user');
 
-    setSystemUserId(results[0].id);
-    return results[0].id;
+        await tx.insert(profiles).values({ accountId: account.id, name: 'system' });
+
+        return account;
+    });
+
+    setSystemUserId(account.id);
+    return account.id;
 };

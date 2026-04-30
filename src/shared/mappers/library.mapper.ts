@@ -1,11 +1,12 @@
 import type { LibraryDTO, LibraryItemDTO, LibraryMinDTO } from '@duckflixapp/shared';
-import type { Movie, User, Library, Series } from '@schema/index';
-import { toUserMinDTO } from './user.mapper';
+import type { Movie, Library, Series } from '@schema/index';
+import { toAccountMinDTO } from './user.mapper';
 import { toContentDTO } from './content.mapper';
+import type { AccountMinSource } from './user.mapper';
 
-export const toLibraryDTO = (library: Library & { user: Pick<User, 'id' | 'name' | 'role' | 'system'> }): LibraryDTO => ({
+export const toLibraryDTO = (library: Library & { user: AccountMinSource }): LibraryDTO => ({
     ...toLibraryMinDTO(library),
-    user: toUserMinDTO(library.user),
+    user: toAccountMinDTO(library.user),
 });
 
 export const toLibraryMinDTO = (library: Library): LibraryMinDTO => ({

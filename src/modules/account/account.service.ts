@@ -19,7 +19,7 @@ export const deleteAccount = async (accountId: string) => {
 
         await createAuditLog(
             {
-                actorUserId: account.id,
+                actorAccountId: account.id,
                 action: 'account.deleted',
                 targetType: 'user',
                 targetId: account.id,
@@ -89,7 +89,7 @@ export const resetPassword = async (data: { accountId: string; password: string;
 
         await createAuditLog(
             {
-                actorUserId: data.accountId,
+                actorAccountId: data.accountId,
                 action: 'account.password_reset.succeeded',
                 targetType: 'user',
                 targetId: data.accountId,

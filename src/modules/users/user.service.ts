@@ -1,19 +1,26 @@
 import type { NotificationDTO } from '@duckflixapp/shared';
 import { db } from '@shared/configs/db';
-import { accountTotp, users, notifications } from '@shared/schema';
+import { accountTotp, accounts, notifications } from '@shared/schema';
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { toUserDTO } from '@shared/mappers/user.mapper';
+import { toAccountDTO } from '@shared/mappers/user.mapper';
 import { toNotificationDTO } from '@shared/mappers/notification.mapper';
 import { UserNotFoundError } from './user.errors';
 
 export const getMe = async (userId: string) => {
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const result = await db.query.accounts.findFirst({
+        where: eq(accounts.id, userId),
+        with: {
+            profiles: {
+                limit: 1,
+            },
+        },
+    });
 
-    if (!user) throw new UserNotFoundError();
+    if (!result) throw new UserNotFoundError();
 
-    const [totp] = await db.select().from(accountTotp).where(eq(accountTotp.accountId, user.id)).limit(1);
+    const [totp] = await db.select().from(accountTotp).where(eq(accountTotp.accountId, result.id)).limit(1);
 
-    return toUserDTO({ ...user, totpEnabled: Boolean(totp?.enabled && totp.secret) });
+    return toAccountDTO({ ...result, totpEnabled: Boolean(totp?.enabled && totp.secret) });
 };
 
 export const getUserNotifications = async (userId: string): Promise<NotificationDTO[]> => {

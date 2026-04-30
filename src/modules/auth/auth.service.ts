@@ -1,7 +1,7 @@
 import argon2 from 'argon2';
 import crypto from 'node:crypto';
 import { db } from '@shared/configs/db';
-import { accountTokens, accountTotp, accounts, sessions, totpBackupCodes, type Account } from '@shared/schema';
+import { accountTokens, accountTotp, accounts, profiles, sessions, totpBackupCodes, type Account } from '@shared/schema';
 import { libraries } from '@schema/library.schema';
 import { and, eq, isNull } from 'drizzle-orm';
 import {
@@ -11,8 +11,8 @@ import {
     TooManyAuthAttemptsError,
     UserNotCreatedError,
 } from './auth.errors';
-import type { UserDTO } from '@duckflixapp/shared';
-import { toUserDTO } from '@shared/mappers/user.mapper';
+import type { AccountDTO } from '@duckflixapp/shared';
+import { toAccountDTO } from '@shared/mappers/user.mapper';
 import { signToken, verifyToken } from '@utils/jwt';
 import { AppError } from '@shared/errors';
 import { ForbiddenError } from '@shared/middlewares/auth.middleware';
@@ -37,7 +37,7 @@ const loginChallengeExpiryMs = 5 * 60 * 1000;
 
 type AuthContext = { ip?: string; userAgent?: string; clientHints?: ClientHints };
 type LoginChallengeMethod = 'totp' | 'backup_code';
-type AuthenticatedSession = { token: string; refreshToken: string; user: UserDTO };
+type AuthenticatedSession = { token: string; refreshToken: string; user: AccountDTO };
 type LoginResult =
     | ({ requires2fa: false } & AuthenticatedSession)
     | {
@@ -73,8 +73,17 @@ const getAccountTotp = async (accountId: string) => {
 };
 
 const withTotpStatus = async (account: Account) => {
-    const totp = await getAccountTotp(account.id);
-    return { ...account, totpEnabled: Boolean(totp?.enabled && totp.secret) };
+    const [totp, profile] = await Promise.all([
+        getAccountTotp(account.id),
+        db
+            .select()
+            .from(profiles)
+            .where(eq(profiles.accountId, account.id))
+            .limit(1)
+            .then(([profile]) => profile ?? null),
+    ]);
+
+    return { ...account, profiles: profile ? [profile] : [], totpEnabled: Boolean(totp?.enabled && totp.secret) };
 };
 
 const verifyTotpCredential = async (accountId: string, credential: string) => {
@@ -175,7 +184,7 @@ const createAuthenticatedSession = async (
     const token = signToken({ sub: account.id, role: account.role, isVerified: account.verified_email, sid: session.id });
 
     await createAuditLog({
-        actorUserId: account.id,
+        actorAccountId: account.id,
         action: 'session.created',
         targetType: 'session',
         targetId: session.id,
@@ -185,7 +194,7 @@ const createAuthenticatedSession = async (
         },
     });
     await createAuditLog({
-        actorUserId: account.id,
+        actorAccountId: account.id,
         action: 'auth.login.succeeded',
         targetType: 'user',
         targetId: account.id,
@@ -196,10 +205,10 @@ const createAuthenticatedSession = async (
         },
     });
 
-    return { token, refreshToken, user: toUserDTO(await withTotpStatus(account)) };
+    return { token, refreshToken, user: toAccountDTO(await withTotpStatus(account)) };
 };
 
-export const register = async (name: string, email: string, pass: string): Promise<UserDTO> => {
+export const register = async (name: string, email: string, pass: string): Promise<AccountDTO> => {
     const normalizedEmail = normalizeEmail(email);
     try {
         authAttemptLimiter.checkRegister(normalizedEmail);
@@ -227,13 +236,12 @@ export const register = async (name: string, email: string, pass: string): Promi
     const verificationTokenHash = hashOpaqueToken(verificationToken);
 
     try {
-        const account = await db.transaction(async (tx) => {
+        const { account, profile } = await db.transaction(async (tx) => {
             const existingAccount = await tx.select({ id: accounts.id }).from(accounts).where(eq(accounts.system, false)).limit(1);
 
             const [account] = await tx
                 .insert(accounts)
                 .values({
-                    name,
                     email: normalizedEmail,
                     password: hashedPassword,
                     verified_email: registration.trustEmails,
@@ -245,6 +253,8 @@ export const register = async (name: string, email: string, pass: string): Promi
                     throw e;
                 });
             if (!account) throw new UserNotCreatedError();
+
+            const [profile] = await tx.insert(profiles).values({ accountId: account.id, name }).returning();
 
             // create initial libraries
             await tx.insert(libraries).values([
@@ -263,18 +273,18 @@ export const register = async (name: string, email: string, pass: string): Promi
                     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
                 });
 
-            return account;
+            return { account, profile };
         });
 
         authAttemptLimiter.resetRegister(normalizedEmail);
 
         if (!registration.trustEmails)
-            await sendVerificationMail(account.name, account.email, verificationToken).catch((e) => {
+            await sendVerificationMail(name, account.email, verificationToken).catch((e) => {
                 logger.error({ err: e, email: account.email }, 'Failed to send verification email');
             });
 
         await createAuditLog({
-            actorUserId: account.id,
+            actorAccountId: account.id,
             action: 'auth.register.succeeded',
             targetType: 'user',
             targetId: account.id,
@@ -285,7 +295,7 @@ export const register = async (name: string, email: string, pass: string): Promi
             },
         });
 
-        return toUserDTO({ ...account, totpEnabled: false });
+        return toAccountDTO({ ...account, profiles: profile ? [profile] : [], totpEnabled: false });
     } catch (error) {
         authAttemptLimiter.recordFailedRegister(normalizedEmail);
         throw error;
@@ -315,7 +325,7 @@ export const verifyEmail = async (token: string) => {
     });
 
     await createAuditLog({
-        actorUserId: storedToken.accountId,
+        actorAccountId: storedToken.accountId,
         action: 'auth.email.verified',
         targetType: 'user',
         targetId: storedToken.accountId,
@@ -360,7 +370,7 @@ export const login = async (email: string, pass: string, context: AuthContext): 
     if (!isPasswordValid) {
         authAttemptLimiter.recordFailedLogin(normalizedEmail);
         await createAuditLog({
-            actorUserId: account.id,
+            actorAccountId: account.id,
             action: 'auth.login.failed',
             targetType: 'user',
             targetId: account.id,
@@ -380,7 +390,7 @@ export const login = async (email: string, pass: string, context: AuthContext): 
         const loginChallenge = await createLoginChallenge(account.id);
 
         await createAuditLog({
-            actorUserId: account.id,
+            actorAccountId: account.id,
             action: 'auth.login.2fa_required',
             targetType: 'user',
             targetId: account.id,
@@ -449,7 +459,7 @@ export const verifyLoginChallenge = async (
     if (!isValid) {
         authAttemptLimiter.recordFailedLogin(limiterKey);
         await createAuditLog({
-            actorUserId: account.id,
+            actorAccountId: account.id,
             action: 'auth.login.2fa_failed',
             targetType: 'user',
             targetId: account.id,
@@ -467,7 +477,7 @@ export const verifyLoginChallenge = async (
 
     if (method === 'backup_code') {
         await createAuditLog({
-            actorUserId: account.id,
+            actorAccountId: account.id,
             action: 'auth.login.backup_code_used',
             targetType: 'user',
             targetId: account.id,
@@ -509,7 +519,7 @@ export const logout = async (data: { refreshToken?: string; accessToken?: string
     }
 
     await createAuditLog({
-        actorUserId: session.accountId,
+        actorAccountId: session.accountId,
         action: 'auth.logout',
         targetType: 'session',
         targetId: session.id,
@@ -538,7 +548,7 @@ export const refresh = async (oldToken: string, context: AuthContext) => {
             .set({ revokedAt: new Date().toISOString() })
             .where(and(eq(sessions.id, session.id), isNull(sessions.revokedAt)));
         await createAuditLog({
-            actorUserId: session.accountId,
+            actorAccountId: session.accountId,
             action: 'auth.refresh.expired',
             targetType: 'session',
             targetId: session.id,
@@ -586,7 +596,7 @@ export const refresh = async (oldToken: string, context: AuthContext) => {
     if (!updatedSession) throw new ForbiddenError('Session has been revoked.');
 
     await createAuditLog({
-        actorUserId: account.id,
+        actorAccountId: account.id,
         action: 'auth.refresh.succeeded',
         targetType: 'session',
         targetId: session.id,
@@ -600,7 +610,7 @@ export const refresh = async (oldToken: string, context: AuthContext) => {
     return {
         token: accessToken,
         refreshToken: refreshToken,
-        user: toUserDTO(await withTotpStatus(account)),
+        user: toAccountDTO(await withTotpStatus(account)),
     };
 };
 
@@ -630,7 +640,7 @@ export const stepUp = async (
     const token = signToken({ sub: accountId, scope, stepUp: true }, expiresIn);
 
     await createAuditLog({
-        actorUserId: accountId,
+        actorAccountId: accountId,
         action: 'auth.step_up.succeeded',
         targetType: 'user',
         targetId: accountId,

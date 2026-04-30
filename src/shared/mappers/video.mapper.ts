@@ -1,22 +1,15 @@
-import type {
-    SubtitleDTO,
-    SubtitleSearchResultDTO,
-    UserRole,
-    VideoDTO,
-    VideoMinDTO,
-    VideoVersionDTO,
-    WatchHistoryDTO,
-} from '@duckflixapp/shared';
+import type { SubtitleDTO, SubtitleSearchResultDTO, VideoDTO, VideoMinDTO, VideoVersionDTO, WatchHistoryDTO } from '@duckflixapp/shared';
 import type { Subtitle, Video, VideoVersion, WatchHistory } from '@schema/video.schema';
-import { toUserMinDTO } from './user.mapper';
+import { toAccountMinDTO } from './user.mapper';
 import { env } from '@core/env';
 import type { SubtitleData } from '@shared/types/opensubs';
+import type { AccountMinSource } from './user.mapper';
 
 const BASE_URL = env.BASE_URL;
 
 export type RichVideo = Video & {
     versions: VideoVersion[];
-    uploader: { id: string; name: string; role: UserRole; system: boolean } | null;
+    uploader: AccountMinSource | null;
     subtitles: Subtitle[];
 };
 
@@ -42,7 +35,7 @@ export const toVideoMinDTO = (video: Video): VideoMinDTO => ({
 
 export const toVideoDTO = (video: RichVideo): VideoDTO => ({
     ...toVideoMinDTO(video),
-    uploader: video.uploader ? toUserMinDTO(video.uploader) : null,
+    uploader: video.uploader ? toAccountMinDTO(video.uploader) : null,
     versions: video.versions.map(toVideoVersionDTO),
     generatedVersions: null,
     subtitles: video.subtitles.map(toSubtitleDTO),

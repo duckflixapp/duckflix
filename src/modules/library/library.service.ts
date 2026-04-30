@@ -46,7 +46,7 @@ export const createUserLibrary = async (userId: string, context: { name: string 
 
             await createAuditLog(
                 {
-                    actorUserId: userId,
+                    actorAccountId: userId,
                     action: 'library.created',
                     targetType: 'library',
                     targetId: result.id,
@@ -82,7 +82,7 @@ export const deleteUserLibrary = async (userId: string, libraryId: string): Prom
         await tx.delete(libraries).where(eq(libraries.id, library.id));
         await createAuditLog(
             {
-                actorUserId: userId,
+                actorAccountId: userId,
                 action: 'library.deleted',
                 targetType: 'library',
                 targetId: library.id,
@@ -161,7 +161,20 @@ export const removeContentFromUserLibrary = async (
 export const getUserLibrary = async (userId: string, libraryId: string): Promise<LibraryDTO> => {
     const result = await db.query.libraries.findFirst({
         where: and(eq(libraries.accountId, userId), eq(libraries.id, libraryId)),
-        with: { user: true },
+        with: {
+            user: {
+                columns: {
+                    id: true,
+                    role: true,
+                    system: true,
+                },
+                with: {
+                    profiles: {
+                        limit: 1,
+                    },
+                },
+            },
+        },
     });
 
     if (!result) throw new LibraryNotFoundError();
