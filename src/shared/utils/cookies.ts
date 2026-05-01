@@ -76,6 +76,13 @@ export const refreshAuthCookies = (cookie: Required<AuthCookieJar>, session: Aut
     });
 };
 
+export const setAuthTokenCookie = (cookie: Pick<Required<AuthCookieJar>, 'auth_token'>, token: string) => {
+    cookie.auth_token.set({
+        value: token,
+        ...accessCookieOptions,
+    });
+};
+
 export const clearAuthCookies = (cookie: AuthCookieJar) => {
     cookie.auth_token?.remove();
 

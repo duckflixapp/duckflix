@@ -90,7 +90,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
             const oldRefreshToken = refresh_token.value;
             if (!oldRefreshToken) throw new UnauthorizedError('Refresh token missing');
 
-            const result = await AuthService.refresh(oldRefreshToken, getAuthContext(headers, clientIp));
+            const result = await AuthService.refresh(oldRefreshToken, getAuthContext(headers, clientIp), auth_token.value);
             refreshAuthCookies({ refresh_token, auth_token, csrf_token }, result);
 
             return { status: 'success' };

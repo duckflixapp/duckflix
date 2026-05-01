@@ -151,6 +151,25 @@ const createLoginChallenge = async (accountId: string) => {
     return { challengeToken, expiresIn: loginChallengeExpiryMs };
 };
 
+const getSelectedProfileIdFromAccessToken = async (accessToken: string | undefined, session: { id: string; accountId: string }) => {
+    if (!accessToken) return undefined;
+
+    try {
+        const payload = verifyToken(accessToken, { ignoreExpiration: true });
+        if (payload.sub !== session.accountId || payload.sid !== session.id || !payload.profileId) return undefined;
+
+        const [profile] = await db
+            .select({ id: profiles.id })
+            .from(profiles)
+            .where(and(eq(profiles.id, payload.profileId), eq(profiles.accountId, session.accountId)))
+            .limit(1);
+
+        return profile?.id;
+    } catch {
+        return undefined;
+    }
+};
+
 const createAuthenticatedSession = async (
     account: Account,
     context: AuthContext,
@@ -530,7 +549,7 @@ export const logout = async (data: { refreshToken?: string; accessToken?: string
     });
 };
 
-export const refresh = async (oldToken: string, context: AuthContext) => {
+export const refresh = async (oldToken: string, context: AuthContext, oldAccessToken?: string) => {
     const oldTokenHash = hashOpaqueToken(oldToken);
     const session = await db.query.sessions.findFirst({
         where: eq(sessions.token, oldTokenHash),
@@ -563,12 +582,14 @@ export const refresh = async (oldToken: string, context: AuthContext) => {
     const [account] = await db.select().from(accounts).where(eq(accounts.id, session.accountId)).limit(1);
 
     if (!account) throw new AppError('User not found or deleted', { statusCode: 404 });
+    const profileId = await getSelectedProfileIdFromAccessToken(oldAccessToken, session);
 
     const accessToken = signToken({
         sub: account.id,
         role: account.role,
         isVerified: account.verified_email,
         sid: session.id,
+        profileId,
     });
     const refreshToken = generateOpaqueToken();
     const refreshTokenHash = hashOpaqueToken(refreshToken);
