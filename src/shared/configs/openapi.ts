@@ -11,17 +11,12 @@ export const documentationTags = [
             'Handles user identity, secure session management, and registration. Supports dual-factor authentication via HTTP-only cookies or standard Bearer tokens.',
     },
     {
-        name: 'User',
-        description:
-            'Personal profile management and user-specific data. Handles account settings, notification preferences, and personal watch history.',
-    },
-    {
         name: 'Account',
-        description: 'Change account security & privacy settings, authentication methods and other',
+        description: 'Manage account identity, security settings, sessions, authentication methods, and account notifications.',
     },
     {
         name: 'Profiles',
-        description: 'Manage account profiles.',
+        description: 'Manage selectable account profiles and profile-scoped identity.',
     },
 
     // --- DISCOVERY & COLLECTIONS ---
@@ -33,7 +28,7 @@ export const documentationTags = [
     {
         name: 'Library',
         description:
-            'User-defined collections and content organization. Manages custom folders, watchlists, and the relational mapping between users and media assets.',
+            'Profile-defined collections and content organization. Manages custom folders, watchlists, and profile media mappings.',
     },
 
     // --- CONTENT CATALOG (Metadata) ---

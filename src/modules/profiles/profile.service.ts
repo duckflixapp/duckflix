@@ -12,6 +12,18 @@ export const getAccountProfiles = async (accountId: string): Promise<ProfileDTO[
     return results.map(toProfileDTO);
 };
 
+export const getProfileById = async (data: { accountId: string; profileId: string }): Promise<ProfileDTO> => {
+    const [profile] = await db
+        .select({ id: profiles.id, accountId: profiles.accountId, name: profiles.name, createdAt: profiles.createdAt })
+        .from(profiles)
+        .where(and(eq(profiles.id, data.profileId), eq(profiles.accountId, data.accountId)))
+        .limit(1);
+
+    if (!profile) throw new AppError('Profile not found', { statusCode: 404 });
+
+    return toProfileDTO(profile);
+};
+
 export const selectProfile = async (data: { accountId: string; sessionId: string; profileId: string }) => {
     const [profile] = await db
         .select({ id: profiles.id, accountId: profiles.accountId, name: profiles.name, createdAt: profiles.createdAt })

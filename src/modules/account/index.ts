@@ -1,13 +1,66 @@
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import Elysia from 'elysia';
-import { resetPasswordSchema, sessionIdSchema, setupTotpSchema } from './account.schema';
-import { deleteAccount, getSessionById, getSessions, getTwoFactorStatus, resetPassword, revokeSessionById } from './account.service';
+import { markAccountNotificationsSchema, resetPasswordSchema, sessionIdSchema, setupTotpSchema } from './account.schema';
+import {
+    clearAccountNotifications,
+    deleteAccount,
+    getAccountNotifications,
+    getMe,
+    getSessionById,
+    getSessions,
+    getTwoFactorStatus,
+    markAccountNotifications,
+    resetPassword,
+    revokeSessionById,
+} from './account.service';
 import { activateTotp, cancelTotpSetup, deactivateTotp, getTotpSetup } from './totp.service';
 import { clearAuthCookies } from '@shared/utils/cookies';
 
 export const accountRouter = new Elysia({ prefix: '/account' })
     .use(authGuard)
     .guard({ auth: { selectedProfile: false } })
+    .get(
+        '/@me',
+        async ({ user }) => {
+            const account = await getMe(user.id);
+            return { status: 'success', data: { account } };
+        },
+        {
+            auth: { verified: false, selectedProfile: false },
+            detail: { tags: ['Account'], summary: 'Get account profile' },
+        }
+    )
+    .get(
+        '/notifications',
+        async ({ user }) => {
+            const notifications = await getAccountNotifications(user.id);
+            return { status: 'success', data: { notifications } };
+        },
+        { detail: { tags: ['Account'], summary: 'List account notifications' } }
+    )
+    .patch(
+        '/notifications/mark',
+        async ({ body, user }) => {
+            const { notificationIds } = markAccountNotificationsSchema.parse(body);
+            await markAccountNotifications(user.id, {
+                markAll: notificationIds.length === 0,
+                notificationIds,
+            });
+            return { status: 'success' };
+        },
+        {
+            body: markAccountNotificationsSchema,
+            detail: { tags: ['Account'], summary: 'Mark account notifications' },
+        }
+    )
+    .delete(
+        '/notifications',
+        async ({ user, status }) => {
+            await clearAccountNotifications(user.id);
+            return status(204);
+        },
+        { detail: { tags: ['Account'], summary: 'Clear account notifications' } }
+    )
     .get(
         '/2fa',
         async ({ user }) => {

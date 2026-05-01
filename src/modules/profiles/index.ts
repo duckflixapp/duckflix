@@ -2,7 +2,7 @@ import { Elysia, t } from 'elysia';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { setAuthTokenCookie } from '@shared/utils/cookies';
 import { createRateLimit } from '@shared/configs/ratelimit';
-import { getAccountProfiles, selectProfile } from './profile.service';
+import { getAccountProfiles, getProfileById, selectProfile } from './profile.service';
 import { profileParamsSchema } from './profile.validator';
 
 const cookieSchema = t.Cookie({
@@ -12,14 +12,27 @@ const cookieSchema = t.Cookie({
 export const profilesRouter = new Elysia({ prefix: '/profiles' })
     .use(authGuard)
     .use(createRateLimit({ max: 30, duration: 3000 }))
-    .guard({ auth: { selectedProfile: false }, cookie: cookieSchema })
+    .get(
+        '/@me',
+        async ({ user }) => {
+            const profile = await getProfileById({ accountId: user.id, profileId: user.profileId! });
+            return { status: 'success', data: { profile } };
+        },
+        {
+            auth: { selectedProfile: true },
+            detail: { tags: ['Profiles'], summary: 'Get selected profile' },
+        }
+    )
     .get(
         '/',
         async ({ user }) => {
             const profiles = await getAccountProfiles(user.id);
             return { status: 'success', data: { profiles } };
         },
-        { detail: { tags: ['Profiles'], summary: 'List Profiles' } }
+        {
+            auth: { selectedProfile: false },
+            detail: { tags: ['Profiles'], summary: 'List Profiles' },
+        }
     )
     .post(
         '/:id/select',
@@ -34,5 +47,10 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
 
             return { status: 'success', data: result };
         },
-        { params: profileParamsSchema, detail: { tags: ['Profiles'], summary: 'Select Profile' } }
+        {
+            auth: { selectedProfile: false },
+            cookie: cookieSchema,
+            params: profileParamsSchema,
+            detail: { tags: ['Profiles'], summary: 'Select Profile' },
+        }
     );

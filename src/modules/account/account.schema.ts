@@ -17,3 +17,10 @@ export const sessionIdSchema = z.object({
 export const setupTotpSchema = z.object({
     code: z.string().length(6).regex(/^\d+$/),
 });
+
+export const markAccountNotificationsSchema = z.object({
+    notificationIds: z.preprocess(
+        (val) => (Array.isArray(val) ? val : []),
+        z.array(z.uuid('Invalid Notification ID')).max(30, 'Too many Notifications, You can send [] to mark all')
+    ),
+});

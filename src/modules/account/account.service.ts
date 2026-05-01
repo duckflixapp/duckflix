@@ -1,11 +1,71 @@
 import { db } from '@shared/configs/db';
 import { AppError } from '@shared/errors';
 import { toAccountSessionDTO, toAccountSessionMinDTO, toAccountTwoFactorStatusDTO } from '@shared/mappers/account.mapper';
-import { accountTotp, accounts, sessions, totpBackupCodes } from '@shared/schema';
+import { toNotificationDTO } from '@shared/mappers/notification.mapper';
+import { accountTotp, accounts, notifications, sessions, totpBackupCodes } from '@shared/schema';
 import { createAuditLog } from '@shared/services/audit.service';
-import type { AccountSessionDTO, AccountSessionMinDTO, AccountTwoFactorStatusDTO } from '@duckflixapp/shared';
+import type { AccountSessionDTO, AccountSessionMinDTO, AccountTwoFactorStatusDTO, NotificationDTO, UserRole } from '@duckflixapp/shared';
 import argon2 from 'argon2';
-import { and, count, desc, eq, gt, isNull, ne } from 'drizzle-orm';
+import { and, count, desc, eq, gt, inArray, isNull, ne } from 'drizzle-orm';
+
+export type AccountMeDTO = {
+    id: string;
+    email: string;
+    role: UserRole;
+    system: boolean;
+    isVerified: boolean;
+    isTotpEnabled: boolean;
+    createdAt: string;
+};
+
+export const getMe = async (accountId: string): Promise<AccountMeDTO> => {
+    const [account] = await db
+        .select({
+            id: accounts.id,
+            email: accounts.email,
+            role: accounts.role,
+            system: accounts.system,
+            isVerified: accounts.verified_email,
+            createdAt: accounts.createdAt,
+        })
+        .from(accounts)
+        .where(eq(accounts.id, accountId))
+        .limit(1);
+
+    if (!account) throw new AppError('Account not found', { statusCode: 404 });
+
+    const [totp] = await db.select().from(accountTotp).where(eq(accountTotp.accountId, account.id)).limit(1);
+
+    return {
+        ...account,
+        isTotpEnabled: Boolean(totp?.enabled && totp.secret),
+    };
+};
+
+export const getAccountNotifications = async (accountId: string): Promise<NotificationDTO[]> => {
+    const results = await db
+        .select()
+        .from(notifications)
+        .where(eq(notifications.accountId, accountId))
+        .orderBy(desc(notifications.createdAt))
+        .limit(10);
+
+    return results.map(toNotificationDTO);
+};
+
+export const markAccountNotifications = async (accountId: string, options: { markAll: boolean; notificationIds?: string[] }) => {
+    const conditions = [eq(notifications.accountId, accountId), eq(notifications.isRead, false)];
+    if (!options.markAll) conditions.push(inArray(notifications.id, options.notificationIds ?? []));
+
+    await db
+        .update(notifications)
+        .set({ isRead: true })
+        .where(and(...conditions));
+};
+
+export const clearAccountNotifications = async (accountId: string): Promise<void> => {
+    await db.delete(notifications).where(eq(notifications.accountId, accountId));
+};
 
 export const deleteAccount = async (accountId: string) => {
     await db.transaction(async (tx) => {
