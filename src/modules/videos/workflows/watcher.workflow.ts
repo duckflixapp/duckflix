@@ -10,7 +10,7 @@ import { notifyJobStatus } from '@shared/services/notifications/notification.hel
 import { AppError } from '@shared/errors';
 import { initiateUpload } from '../services/video.service';
 
-export const processWatcherWorkflow = async (data: { filePath: string; fileName: string; fileSize: number }, systemUserId: string) => {
+export const processWatcherWorkflow = async (data: { filePath: string; fileName: string; fileSize: number }, systemAccountId: string) => {
     const metadata = await identifyVideoWorkflow({ filePath: data.filePath });
     if (!metadata) {
         throw new AppError('[WatcherWorkflow] Video identification failed');
@@ -19,13 +19,13 @@ export const processWatcherWorkflow = async (data: { filePath: string; fileName:
     logger.debug({ fileName: data.fileName, metadata }, '[WatcherWorkflow] Identified video');
 
     const video = await initiateUpload(metadata, {
-        userId: systemUserId,
+        accountId: systemAccountId,
         status: 'processing',
     });
 
     await processVideoWorkflow({
         type: metadata.type,
-        userId: systemUserId,
+        accountId: systemAccountId,
         videoId: video.id,
         tempPath: data.filePath,
         originalName: data.fileName,
@@ -36,7 +36,7 @@ export const processWatcherWorkflow = async (data: { filePath: string; fileName:
 
 const SUPPORTED_EXTENSIONS = ['.mkv', '.mp4', '.avi', '.mov', '.m4v'];
 
-export const initializeWatcher = async (systemUserId: string) => {
+export const initializeWatcher = async (systemAccountId: string) => {
     const dropFolder = paths.drop;
     await fs.mkdir(dropFolder, { recursive: true });
 
@@ -61,11 +61,11 @@ export const initializeWatcher = async (systemUserId: string) => {
             const fileName = path.basename(filePath);
             const fileSize = stats.size;
 
-            await processWatcherWorkflow({ filePath, fileName, fileSize }, systemUserId);
+            await processWatcherWorkflow({ filePath, fileName, fileSize }, systemAccountId);
         } catch (err) {
             let message = '';
             if (err instanceof AppError) message = err.message;
-            notifyJobStatus(systemUserId, 'error', 'Dropped video error', message);
+            notifyJobStatus(systemAccountId, 'error', 'Dropped video error', message);
             logger.error({ filePath, err }, 'Drop folder: workflow failed');
         }
     });

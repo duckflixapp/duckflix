@@ -22,7 +22,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
             .get(
                 '/:seriesId',
                 async ({ params: { seriesId }, user }) => {
-                    const series = await getSeriesById(seriesId, { userId: user.id });
+                    const series = await getSeriesById(seriesId, { accountId: user.id });
                     return { status: 'success', data: { series } };
                 },
                 {
@@ -34,7 +34,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
             .delete(
                 '/:seriesId',
                 async ({ params: { seriesId }, user, set }) => {
-                    await deleteSeriesById({ seriesId, userId: user.id });
+                    await deleteSeriesById({ seriesId, accountId: user.id });
                     set.status = 204;
                 },
                 {
@@ -62,7 +62,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
             .delete(
                 '/:seasonId',
                 async ({ params: { seasonId }, user, set }) => {
-                    await deleteSeasonById({ seasonId, userId: user.id });
+                    await deleteSeasonById({ seasonId, accountId: user.id });
                     set.status = 204;
                 },
                 {

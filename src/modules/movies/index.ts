@@ -60,7 +60,7 @@ export const moviesRouter = new Elysia({ prefix: '/movies', detail: { tags: ['Mo
             .get(
                 '/featured',
                 async ({ user }) => {
-                    const movieDto = await MoviesService.getFeatured({ userId: user.id });
+                    const movieDto = await MoviesService.getFeatured({ accountId: user.id });
                     if (!movieDto) throw new AppError('Movie not found', { statusCode: 404 });
 
                     return { status: 'success', data: { movie: movieDto } };
@@ -71,7 +71,7 @@ export const moviesRouter = new Elysia({ prefix: '/movies', detail: { tags: ['Mo
             .get(
                 '/:id',
                 async ({ params: { id }, user }) => {
-                    const movieDto = await MoviesService.getMovieById(id, { userId: user.id });
+                    const movieDto = await MoviesService.getMovieById(id, { accountId: user.id });
                     if (!movieDto) throw new AppError('Movie not found', { statusCode: 404 });
 
                     return { status: 'success', data: { movie: movieDto } };

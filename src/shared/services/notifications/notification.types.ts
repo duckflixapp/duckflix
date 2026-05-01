@@ -1,5 +1,5 @@
 export interface NotificationEvent {
-    userId: string;
+    accountId: string;
     type: 'info' | 'success' | 'error' | 'warning';
     title: string;
     message: string;

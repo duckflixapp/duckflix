@@ -8,7 +8,7 @@ export class DatabaseChannel implements NotificationChannel {
         if (events.length == 0) return;
 
         const values = events.map((event) => ({
-            accountId: event.userId,
+            accountId: event.accountId,
             type: event.type,
             title: event.title,
             message: event.message,

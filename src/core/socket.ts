@@ -3,14 +3,14 @@ import { Elysia, t } from 'elysia';
 
 export const socketPlugin = new Elysia().use(socketAuthPlugin).ws('/ws', {
     async open(ws) {
-        const userId = ws.data.user.id;
+        const accountId = ws.data.user.id;
 
-        if (!userId) {
+        if (!accountId) {
             ws.close();
             return;
         }
 
-        ws.subscribe(`user:${userId}`);
+        ws.subscribe(`user:${accountId}`);
     },
     message(ws, { event, data }) {
         switch (event) {

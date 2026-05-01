@@ -19,7 +19,7 @@ const rqbitClient = new RqbitClient({ baseUrl: env.RQBIT_URL! });
 const torrentClient = new TorrentClient({ rqbit: rqbitClient });
 
 export const processTorrentFileWorkflow = async (data: {
-    userId: string;
+    accountId: string;
     videoId: string;
     torrentPath: string;
     type: VideoType;
@@ -59,7 +59,7 @@ export const processTorrentFileWorkflow = async (data: {
 
     try {
         logger.info({ videoId: data.videoId }, 'Torrent waiting for download...');
-        notifyJobStatus(data.userId, 'started', `Video started downloading`, data.videoId, data.videoId).catch(() => {});
+        notifyJobStatus(data.accountId, 'started', `Video started downloading`, data.videoId, data.videoId).catch(() => {});
         await torrent.waitDownload();
         logger.info({ videoId: data.videoId }, 'Torrent download finished...');
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -70,7 +70,7 @@ export const processTorrentFileWorkflow = async (data: {
 
     try {
         await db.update(videos).set({ status: 'processing' }).where(eq(videos.id, data.videoId));
-        notifyJobStatus(data.userId, 'downloaded', `Video downloaded`, `Video download completed. Processing...`, data.videoId).catch(
+        notifyJobStatus(data.accountId, 'downloaded', `Video downloaded`, `Video download completed. Processing...`, data.videoId).catch(
             () => {}
         );
     } catch (e) {
@@ -95,7 +95,7 @@ export const processTorrentFileWorkflow = async (data: {
     }
 
     await processVideoWorkflow({
-        userId: data.userId,
+        accountId: data.accountId,
         videoId: data.videoId,
         tempPath: safePath,
         originalName: mainFile.name,

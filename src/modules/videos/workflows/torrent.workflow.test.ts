@@ -340,7 +340,7 @@ describe('processTorrentFileWorkflow', () => {
         validateTorrentFileSizeImpl = async () => false;
 
         const promise = processTorrentFileWorkflow({
-            userId: 'user-1',
+            accountId: 'user-1',
             videoId: 'video-1',
             torrentPath: '/tmp/upload.torrent',
             type: 'movie',
@@ -358,7 +358,7 @@ describe('processTorrentFileWorkflow', () => {
         };
 
         const promise = processTorrentFileWorkflow({
-            userId: 'user-1',
+            accountId: 'user-1',
             videoId: 'video-1',
             torrentPath: '/tmp/upload.torrent',
             type: 'movie',
@@ -378,7 +378,7 @@ describe('processTorrentFileWorkflow', () => {
         };
 
         const promise = processTorrentFileWorkflow({
-            userId: 'user-1',
+            accountId: 'user-1',
             videoId: 'video-1',
             torrentPath: '/tmp/upload.torrent',
             type: 'movie',
@@ -396,7 +396,7 @@ describe('processTorrentFileWorkflow', () => {
         downloadImpl = async () => torrent;
 
         await processTorrentFileWorkflow({
-            userId: 'user-1',
+            accountId: 'user-1',
             videoId: 'video-1',
             torrentPath: '/tmp/upload.torrent',
             type: 'movie',
@@ -429,7 +429,7 @@ describe('processTorrentFileWorkflow', () => {
         downloadImpl = async () => torrent;
 
         await processTorrentFileWorkflow({
-            userId: 'user-1',
+            accountId: 'user-1',
             videoId: 'video-1',
             torrentPath: '/tmp/upload.torrent',
             type: 'movie',

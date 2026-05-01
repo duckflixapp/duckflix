@@ -1,5 +1,5 @@
 export interface SessionData {
-    userId: string;
+    accountId: string;
     videoId: string;
     original: {
         storageKey: string;

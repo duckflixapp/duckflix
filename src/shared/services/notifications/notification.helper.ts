@@ -1,12 +1,12 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '@shared/configs/db';
-import { getSystemUserId } from '@shared/configs/system';
+import { getSystemAccountId } from '@shared/configs/system';
 import { accounts } from '@schema/user.schema';
 import { notificationService } from './notification.service';
 import type { NotificationEvent } from './notification.types';
 
 export const notifyJobStatus = async (
-    userId: string,
+    accountId: string,
     status: 'started' | 'completed' | 'downloaded' | 'canceled' | 'error',
     title: string,
     message: string,
@@ -23,7 +23,7 @@ export const notifyJobStatus = async (
 
     const finalType = typeMap[status] || 'info';
 
-    const isSystem = userId === getSystemUserId();
+    const isSystem = accountId === getSystemAccountId();
     const targetIds: string[] = [];
 
     if (isSystem) {
@@ -32,10 +32,10 @@ export const notifyJobStatus = async (
             .from(accounts)
             .where(and(eq(accounts.role, 'admin'), eq(accounts.system, false)));
         targetIds.push(...admins.map((a) => a.id));
-    } else targetIds.push(userId);
+    } else targetIds.push(accountId);
 
     const values = targetIds.map((id) => ({
-        userId: id,
+        accountId: id,
         videoId: videoId ?? null,
         videoVerId: videoVerId ?? null,
         type: finalType,
@@ -43,5 +43,5 @@ export const notifyJobStatus = async (
         message,
     })) satisfies NotificationEvent[];
 
-    notificationService.send(userId, ...values);
+    notificationService.send(accountId, ...values);
 };

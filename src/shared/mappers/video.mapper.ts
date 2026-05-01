@@ -1,15 +1,22 @@
-import type { SubtitleDTO, SubtitleSearchResultDTO, VideoDTO, VideoMinDTO, VideoVersionDTO, WatchHistoryDTO } from '@duckflixapp/shared';
+import type {
+    AccountVideoDTO as VideoDTO,
+    AccountVideoMinDTO as VideoMinDTO,
+    AccountWatchHistoryDTO as WatchHistoryDTO,
+    SubtitleDTO,
+    SubtitleSearchResultDTO,
+    VideoVersionDTO,
+} from '@duckflixapp/shared';
 import type { Subtitle, Video, VideoVersion, WatchHistory } from '@schema/video.schema';
-import { toAccountMinDTO } from './user.mapper';
+import { toAccountRefDTO } from './user.mapper';
 import { env } from '@core/env';
 import type { SubtitleData } from '@shared/types/opensubs';
-import type { AccountMinSource } from './user.mapper';
+import type { AccountRefSource } from './user.mapper';
 
 const BASE_URL = env.BASE_URL;
 
 export type RichVideo = Video & {
     versions: VideoVersion[];
-    uploader: AccountMinSource | null;
+    uploader: AccountRefSource | null;
     subtitles: Subtitle[];
 };
 
@@ -27,7 +34,7 @@ export const toVideoVersionDTO = (v: VideoVersion): VideoVersionDTO => ({
 export const toVideoMinDTO = (video: Video): VideoMinDTO => ({
     id: video.id,
     type: video.type,
-    uploaderId: video.uploaderId,
+    accountId: video.uploaderId,
     duration: video.duration,
     status: video.status,
     createdAt: video.createdAt,
@@ -35,7 +42,7 @@ export const toVideoMinDTO = (video: Video): VideoMinDTO => ({
 
 export const toVideoDTO = (video: RichVideo): VideoDTO => ({
     ...toVideoMinDTO(video),
-    uploader: video.uploader ? toAccountMinDTO(video.uploader) : null,
+    user: video.uploader ? toAccountRefDTO(video.uploader) : null,
     versions: video.versions.map(toVideoVersionDTO),
     generatedVersions: null,
     subtitles: video.subtitles.map(toSubtitleDTO),
@@ -69,7 +76,7 @@ export const toSubtitleSearchResultDTO = (s: SubtitleData): SubtitleSearchResult
 
 export const toWatchHistoryDTO = (w: WatchHistory): WatchHistoryDTO => ({
     id: w.id,
-    userId: w.accountId,
+    accountId: w.accountId,
     videoId: w.videoId,
     lastPosition: w.lastPosition,
     isFinished: w.isFinished,

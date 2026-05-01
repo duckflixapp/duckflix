@@ -26,7 +26,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
             if (body?.external?.openSubtitles?.password?.includes('**********')) delete body.external.openSubtitles.password;
             if (body?.external?.email?.smtpSettings?.password?.includes('**********')) delete body.external.email.smtpSettings.password;
 
-            const system = await AdminService.updateSystemSettings(body, { userId: user.id });
+            const system = await AdminService.updateSystemSettings(body, { accountId: user.id });
             return { status: 'success', data: { system: toSystemDTO(system) } };
         },
         { body: systemSettingsUpdateSchema, detail: { tags: ['Admin'], summary: 'Update' } }
@@ -50,7 +50,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
     .patch(
         '/users',
         async ({ body, user }) => {
-            await AdminService.changeUserRole(body.email, body.role, { userId: user.id });
+            await AdminService.changeUserRole(body.email, body.role, { accountId: user.id });
             return new Response(null, { status: 204 });
         },
         { body: changeUserRoleSchema, detail: { tags: ['Admin'], summary: 'Update Roles' } }
@@ -58,7 +58,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
     .delete(
         '/users',
         async ({ body, user }) => {
-            await AdminService.deleteUser(body.email, { userId: user.id });
+            await AdminService.deleteUser(body.email, { accountId: user.id });
             return new Response(null, { status: 204 });
         },
         { body: userSchema, detail: { tags: ['Admin'], summary: 'Remove User' } }

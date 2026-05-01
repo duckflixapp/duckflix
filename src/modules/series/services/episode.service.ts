@@ -16,13 +16,9 @@ export const getEpisodeById = async (episodeId: string) => {
                     uploader: {
                         columns: {
                             id: true,
+                            email: true,
                             role: true,
                             system: true,
-                        },
-                        with: {
-                            profiles: {
-                                limit: 1,
-                            },
                         },
                     },
                     subtitles: true,

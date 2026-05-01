@@ -6,7 +6,7 @@ import { SeriesNotFound } from '../errors';
 import { libraries, libraryItems } from '@shared/schema';
 import { createAuditLog } from '@shared/services/audit.service';
 
-export const getSeriesById = async (seriesId: string, options: { userId?: string }) => {
+export const getSeriesById = async (seriesId: string, options: { accountId?: string }) => {
     const tvSeries = await db.query.series.findFirst({
         where: eq(series.id, seriesId),
         with: {
@@ -24,12 +24,14 @@ export const getSeriesById = async (seriesId: string, options: { userId?: string
     if (!tvSeries) throw new SeriesNotFound();
 
     let inLibrary: boolean | null = null;
-    if (options.userId) {
+    if (options.accountId) {
         const [libraryCount] = await db
             .select({ value: count() })
             .from(libraries)
             .leftJoin(libraryItems, eq(libraries.id, libraryItems.libraryId))
-            .where(and(eq(libraries.type, 'watchlist'), eq(libraries.accountId, options.userId), eq(libraryItems.seriesId, tvSeries.id)));
+            .where(
+                and(eq(libraries.type, 'watchlist'), eq(libraries.accountId, options.accountId), eq(libraryItems.seriesId, tvSeries.id))
+            );
 
         inLibrary = !!libraryCount?.value && libraryCount?.value > 0;
     }
@@ -37,7 +39,7 @@ export const getSeriesById = async (seriesId: string, options: { userId?: string
     return toSeriesDetailedDTO(tvSeries, inLibrary);
 };
 
-export const deleteSeriesById = async (data: { seriesId: string; userId: string }) => {
+export const deleteSeriesById = async (data: { seriesId: string; accountId: string }) => {
     await db.transaction(async (tx) => {
         const tvSeries = await tx.query.series.findFirst({ where: eq(series.id, data.seriesId) });
         if (!tvSeries) throw new SeriesNotFound();
@@ -45,7 +47,7 @@ export const deleteSeriesById = async (data: { seriesId: string; userId: string 
         await tx.delete(series).where(eq(series.id, data.seriesId));
         await createAuditLog(
             {
-                actorAccountId: data.userId,
+                actorAccountId: data.accountId,
                 action: 'series.deleted',
                 targetType: 'series',
                 targetId: tvSeries.id,

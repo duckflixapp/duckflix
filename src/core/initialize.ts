@@ -4,7 +4,7 @@ import { systemSettings } from '@shared/services/system.service';
 import { logger } from '@shared/configs/logger';
 import { checkHardwareDecoding } from '@shared/services/video';
 import { initializeWatcher } from '@modules/videos/workflows/watcher.workflow';
-import { fetchSystemUserId, setSystemUserId } from '@shared/configs/system';
+import { fetchSystemAccountId, setSystemAccountId } from '@shared/configs/system';
 import { recoverZombieMovies, recoverZombieProcesses } from './recovery';
 import { seedDatabase } from './seeder';
 import { filesCleanup } from './cleanup';
@@ -13,14 +13,14 @@ export const initalize = async () => {
     await systemSettings.update({}); // update with default settings
 
     // initialize system user
-    const systemUserId = await initializeSystemUser();
+    const systemAccountId = await initializeSystemUser();
 
     // cleanup
     await filesCleanup();
 
     // recovery
-    await recoverZombieProcesses(systemUserId);
-    await recoverZombieMovies(systemUserId);
+    await recoverZombieProcesses(systemAccountId);
+    await recoverZombieMovies(systemAccountId);
 
     // seed genres if needed
     await seedDatabase();
@@ -29,13 +29,13 @@ export const initalize = async () => {
     await checkHardwareDecoding();
 
     // initialize watcher
-    await initializeWatcher(systemUserId);
+    await initializeWatcher(systemAccountId);
     logger.info('System initialized successfully.');
 };
 
 const initializeSystemUser = async () => {
-    const systemUserId = await fetchSystemUserId();
-    if (systemUserId) return systemUserId;
+    const systemAccountId = await fetchSystemAccountId();
+    if (systemAccountId) return systemAccountId;
 
     const account = await db.transaction(async (tx) => {
         const [account] = await tx.insert(accounts).values({ email: 'system', password: 'system', system: true }).returning();
@@ -46,6 +46,6 @@ const initializeSystemUser = async () => {
         return account;
     });
 
-    setSystemUserId(account.id);
+    setSystemAccountId(account.id);
     return account.id;
 };

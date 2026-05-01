@@ -86,19 +86,19 @@ export const getUsersWithRoles = async (): Promise<AccountDTO[]> => {
         });
 };
 
-export const changeUserRole = async (email: string, role: UserRole, context: { userId: string }): Promise<void> => {
+export const changeUserRole = async (email: string, role: UserRole, context: { accountId: string }): Promise<void> => {
     return await db.transaction(async (tx) => {
         const [user] = await tx
             .select({ id: accounts.id, email: accounts.email, role: accounts.role })
             .from(accounts)
             .where(and(eq(accounts.email, email), eq(accounts.system, false)));
         if (!user) throw new AppError('User not found, no changes were made', { statusCode: 404 });
-        if (user.id == context.userId) throw new AppError('You are not allowed to change your own role', { statusCode: 403 });
+        if (user.id == context.accountId) throw new AppError('You are not allowed to change your own role', { statusCode: 403 });
 
         await tx.update(accounts).set({ role }).where(eq(accounts.id, user.id));
         await createAuditLog(
             {
-                actorAccountId: context.userId,
+                actorAccountId: context.accountId,
                 action: 'admin.user.role_changed',
                 targetType: 'user',
                 targetId: user.id,
@@ -113,19 +113,19 @@ export const changeUserRole = async (email: string, role: UserRole, context: { u
     });
 };
 
-export const deleteUser = async (email: string, context: { userId: string }): Promise<void> => {
+export const deleteUser = async (email: string, context: { accountId: string }): Promise<void> => {
     return await db.transaction(async (tx) => {
         const [user] = await tx
             .select({ id: accounts.id, email: accounts.email, role: accounts.role })
             .from(accounts)
             .where(and(eq(accounts.email, email), eq(accounts.system, false)));
         if (!user) throw new AppError('User not found, no changes were made', { statusCode: 404 });
-        if (user.id == context.userId) throw new AppError('You are not allowed to delete your own account', { statusCode: 403 });
+        if (user.id == context.accountId) throw new AppError('You are not allowed to delete your own account', { statusCode: 403 });
 
         await tx.delete(accounts).where(eq(accounts.id, user.id));
         await createAuditLog(
             {
-                actorAccountId: context.userId,
+                actorAccountId: context.accountId,
                 action: 'admin.user.deleted',
                 targetType: 'user',
                 targetId: user.id,
@@ -141,13 +141,13 @@ export const deleteUser = async (email: string, context: { userId: string }): Pr
 
 export const updateSystemSettings = async (
     settings: DeepPartial<SystemSettingsT>,
-    context: { userId: string }
+    context: { accountId: string }
 ): Promise<SystemSettingsT> => {
     const system = await systemSettings.update(settings);
     const summary = summarizeSystemSettingsPatch(settings);
 
     await createAuditLog({
-        actorAccountId: context.userId,
+        actorAccountId: context.accountId,
         action: 'admin.system.updated',
         targetType: 'system_settings',
         targetId: '1',

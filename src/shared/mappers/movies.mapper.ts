@@ -1,6 +1,6 @@
 import { toVideoDTO, type RichVideo } from './video.mapper';
 import type { Genre, Movie } from '@schema/movie.schema';
-import type { MovieDetailedDTO, MovieDTO, MovieMinDTO } from '@duckflixapp/shared';
+import type { AccountMovieDetailedDTO as MovieDetailedDTO, AccountMovieDTO as MovieDTO, MovieMinDTO } from '@duckflixapp/shared';
 
 const TMDB_MOVIE_BASE_URL = 'https://www.themoviedb.org/movie/';
 
