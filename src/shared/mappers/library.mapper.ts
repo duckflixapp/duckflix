@@ -1,12 +1,11 @@
-import type { AccountLibraryDTO as LibraryDTO, AccountLibraryMinDTO as LibraryMinDTO, LibraryItemDTO } from '@duckflixapp/shared';
-import type { Movie, Library, Series } from '@schema/index';
-import { toAccountRefDTO } from './user.mapper';
+import type { LibraryDTO, LibraryItemDTO, LibraryMinDTO } from '@duckflixapp/shared';
+import type { Movie, Library, Profile, Series } from '@schema/index';
+import { toProfileDTO } from './user.mapper';
 import { toContentDTO } from './content.mapper';
-import type { AccountRefSource } from './user.mapper';
 
-export const toLibraryDTO = (library: Library & { user: AccountRefSource }): LibraryDTO => ({
+export const toLibraryDTO = (library: Library & { profile: Profile }): LibraryDTO => ({
     ...toLibraryMinDTO(library),
-    user: toAccountRefDTO(library.user),
+    profile: toProfileDTO(library.profile),
 });
 
 export const toLibraryMinDTO = (library: Library): LibraryMinDTO => ({
@@ -14,7 +13,7 @@ export const toLibraryMinDTO = (library: Library): LibraryMinDTO => ({
     name: library.name,
     type: library.type,
     size: library.size,
-    accountId: library.accountId,
+    profileId: library.profileId,
     createdAt: library.createdAt,
 });
 

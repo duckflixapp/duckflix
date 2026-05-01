@@ -22,7 +22,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
             .get(
                 '/:seriesId',
                 async ({ params: { seriesId }, user }) => {
-                    const series = await getSeriesById(seriesId, { accountId: user.id });
+                    const series = await getSeriesById(seriesId, { profileId: user.profileId! });
                     return { status: 'success', data: { series } };
                 },
                 {

@@ -274,11 +274,12 @@ export const register = async (name: string, email: string, pass: string): Promi
             if (!account) throw new UserNotCreatedError();
 
             const [profile] = await tx.insert(profiles).values({ accountId: account.id, name }).returning();
+            if (!profile) throw new AppError('Profile not created', { statusCode: 500 });
 
             // create initial libraries
             await tx.insert(libraries).values([
                 {
-                    accountId: account.id,
+                    profileId: profile.id,
                     name: 'My Watchlist',
                     type: 'watchlist',
                 },

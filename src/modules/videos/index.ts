@@ -35,7 +35,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
     .get(
         '/:id/progress',
         async ({ user, params: { id } }) => {
-            const watchHistory = await VideoService.getVideoProgressById({ accountId: user.id, videoId: id });
+            const watchHistory = await VideoService.getVideoProgressById({ profileId: user.profileId!, videoId: id });
             return { status: 'success', data: { watchHistory } };
         },
         { params: videoParamsSchema, detail: { summary: 'Progress' } }
@@ -44,7 +44,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
     .post(
         '/:id/progress',
         async ({ user, params: { id }, body: { positionSec } }) => {
-            const watchHistory = await VideoService.saveVideoProgressById({ accountId: user.id, videoId: id, positionSec });
+            const watchHistory = await VideoService.saveVideoProgressById({ profileId: user.profileId!, videoId: id, positionSec });
             return { status: 'success', data: { watchHistory } };
         },
         { params: videoParamsSchema, body: createProgressSchema, detail: { summary: 'Save Progress' } }

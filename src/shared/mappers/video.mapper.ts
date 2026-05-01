@@ -1,11 +1,4 @@
-import type {
-    AccountVideoDTO as VideoDTO,
-    AccountVideoMinDTO as VideoMinDTO,
-    AccountWatchHistoryDTO as WatchHistoryDTO,
-    SubtitleDTO,
-    SubtitleSearchResultDTO,
-    VideoVersionDTO,
-} from '@duckflixapp/shared';
+import type { VideoDTO, VideoMinDTO, WatchHistoryDTO, SubtitleDTO, SubtitleSearchResultDTO, VideoVersionDTO } from '@duckflixapp/shared';
 import type { Subtitle, Video, VideoVersion, WatchHistory } from '@schema/video.schema';
 import { toAccountRefDTO } from './user.mapper';
 import { env } from '@core/env';
@@ -76,7 +69,7 @@ export const toSubtitleSearchResultDTO = (s: SubtitleData): SubtitleSearchResult
 
 export const toWatchHistoryDTO = (w: WatchHistory): WatchHistoryDTO => ({
     id: w.id,
-    accountId: w.accountId,
+    profileId: w.profileId,
     videoId: w.videoId,
     lastPosition: w.lastPosition,
     isFinished: w.isFinished,

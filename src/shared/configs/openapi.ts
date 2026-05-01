@@ -19,6 +19,10 @@ export const documentationTags = [
         name: 'Account',
         description: 'Change account security & privacy settings, authentication methods and other',
     },
+    {
+        name: 'Profiles',
+        description: 'Manage account profiles.',
+    },
 
     // --- DISCOVERY & COLLECTIONS ---
     {

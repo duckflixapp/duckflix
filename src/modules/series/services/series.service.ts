@@ -6,7 +6,7 @@ import { SeriesNotFound } from '../errors';
 import { libraries, libraryItems } from '@shared/schema';
 import { createAuditLog } from '@shared/services/audit.service';
 
-export const getSeriesById = async (seriesId: string, options: { accountId?: string }) => {
+export const getSeriesById = async (seriesId: string, options: { profileId?: string }) => {
     const tvSeries = await db.query.series.findFirst({
         where: eq(series.id, seriesId),
         with: {
@@ -24,13 +24,13 @@ export const getSeriesById = async (seriesId: string, options: { accountId?: str
     if (!tvSeries) throw new SeriesNotFound();
 
     let inLibrary: boolean | null = null;
-    if (options.accountId) {
+    if (options.profileId) {
         const [libraryCount] = await db
             .select({ value: count() })
             .from(libraries)
             .leftJoin(libraryItems, eq(libraries.id, libraryItems.libraryId))
             .where(
-                and(eq(libraries.type, 'watchlist'), eq(libraries.accountId, options.accountId), eq(libraryItems.seriesId, tvSeries.id))
+                and(eq(libraries.type, 'watchlist'), eq(libraries.profileId, options.profileId), eq(libraryItems.seriesId, tvSeries.id))
             );
 
         inLibrary = !!libraryCount?.value && libraryCount?.value > 0;

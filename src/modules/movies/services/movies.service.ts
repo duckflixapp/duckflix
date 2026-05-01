@@ -2,7 +2,7 @@ import { and, asc, count, desc, eq, exists, ilike, isNotNull, sql } from 'drizzl
 import { db } from '@shared/configs/db';
 import { movies, moviesToGenres, videoVersions, libraries, libraryItems } from '@schema/index';
 import { MovieNotFoundError } from '../movies.errors';
-import type { AccountMovieDetailedDTO as MovieDetailedDTO, AccountMovieDTO as MovieDTO, PaginatedResponse } from '@duckflixapp/shared';
+import type { MovieDetailedDTO, MovieDTO, PaginatedResponse } from '@duckflixapp/shared';
 import { toMovieDetailedDTO, toMovieDTO } from '@shared/mappers/movies.mapper';
 import { AppError } from '@shared/errors';
 import type { MovieMetadata } from '@shared/services/metadata/metadata.types';
@@ -143,7 +143,7 @@ export const updateMovieById = async (id: string, data: Partial<MovieMetadata>):
     return getMovieById(id);
 };
 
-export const getMovieById = async (id: string, options: { accountId: string | null } = { accountId: null }): Promise<MovieDetailedDTO> => {
+export const getMovieById = async (id: string, options: { profileId: string | null } = { profileId: null }): Promise<MovieDetailedDTO> => {
     const result = await db.query.movies.findFirst({
         where: eq(movies.id, id),
         with: {
@@ -171,12 +171,12 @@ export const getMovieById = async (id: string, options: { accountId: string | nu
 
     if (!result) throw new MovieNotFoundError();
 
-    const inLibraryPromise = options.accountId
+    const inLibraryPromise = options.profileId
         ? db
               .select({ value: count() })
               .from(libraries)
               .leftJoin(libraryItems, eq(libraries.id, libraryItems.libraryId))
-              .where(and(eq(libraries.type, 'watchlist'), eq(libraries.accountId, options.accountId), eq(libraryItems.movieId, id)))
+              .where(and(eq(libraries.type, 'watchlist'), eq(libraries.profileId, options.profileId), eq(libraryItems.movieId, id)))
         : Promise.resolve(null);
 
     const castPromise = getOrSyncMovieCast(result.id, result.tmdbId).catch((err) => {
@@ -193,7 +193,7 @@ export const getMovieById = async (id: string, options: { accountId: string | nu
     };
 };
 
-export const getFeatured = async (options: { accountId: string | null } = { accountId: null }) => {
+export const getFeatured = async (options: { profileId: string | null } = { profileId: null }) => {
     // internal logic to find featured movie...
     const featured = await db.query.movies.findFirst({
         where: isNotNull(movies.bannerUrl),

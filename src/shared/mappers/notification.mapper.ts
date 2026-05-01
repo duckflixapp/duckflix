@@ -1,4 +1,4 @@
-import type { AccountNotificationDTO as NotificationDTO } from '@duckflixapp/shared';
+import type { NotificationDTO } from '@duckflixapp/shared';
 import type { Notification } from '@shared/schema';
 
 export const toNotificationDTO = (notification: Notification): NotificationDTO => ({

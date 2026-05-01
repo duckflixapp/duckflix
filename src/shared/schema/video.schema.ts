@@ -3,6 +3,7 @@ import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core
 import { relations, type InferSelectModel } from 'drizzle-orm';
 
 import { accounts } from './user.schema';
+import { profiles } from './user.schema';
 import { movies } from './movie.schema';
 import { seriesEpisodes } from './series.schema';
 
@@ -63,9 +64,9 @@ export const watchHistory = sqliteTable(
         id: text('id')
             .primaryKey()
             .$defaultFn(() => crypto.randomUUID()),
-        accountId: text('user_id')
+        profileId: text('profile_id')
             .notNull()
-            .references(() => accounts.id, { onDelete: 'cascade' }),
+            .references(() => profiles.id, { onDelete: 'cascade' }),
         videoId: text('video_id')
             .notNull()
             .references(() => videos.id, { onDelete: 'cascade' }),
@@ -75,7 +76,7 @@ export const watchHistory = sqliteTable(
             .notNull()
             .$defaultFn(() => new Date().toISOString()),
     },
-    (table) => [uniqueIndex('user_video_idx').on(table.accountId, table.videoId)]
+    (table) => [uniqueIndex('profile_video_idx').on(table.profileId, table.videoId)]
 );
 
 // ------------------------------------
@@ -122,9 +123,9 @@ export const subtitlesRelations = relations(subtitles, ({ one }) => ({
 }));
 
 export const watchHistoryRelations = relations(watchHistory, ({ one }) => ({
-    user: one(accounts, {
-        fields: [watchHistory.accountId],
-        references: [accounts.id],
+    profile: one(profiles, {
+        fields: [watchHistory.profileId],
+        references: [profiles.id],
     }),
     video: one(videos, {
         fields: [watchHistory.videoId],

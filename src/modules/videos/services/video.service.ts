@@ -1,4 +1,4 @@
-import type { AccountVideoDTO as VideoDTO, AccountVideoMinDTO as VideoMinDTO, VideoResolved, VideoVersionDTO } from '@duckflixapp/shared';
+import type { VideoDTO, VideoMinDTO, VideoResolved, VideoVersionDTO } from '@duckflixapp/shared';
 import { db, type Transaction } from '@shared/configs/db';
 import { series, seriesEpisodes, seriesGenres, seriesSeasons, seriesToGenres, type SeriesStatus, type Video } from '@schema/index';
 import { movieGenres, movies, moviesToGenres } from '@shared/schema/movie.schema';
@@ -299,12 +299,12 @@ export const deleteVideoById = async (videoId: string, context: { accountId: str
     });
 };
 
-export const getVideoProgressById = async (data: { videoId: string; accountId: string }) => {
+export const getVideoProgressById = async (data: { videoId: string; profileId: string }) => {
     const [video] = await db
         .select({ id: videos.id, history: watchHistory })
         .from(videos)
         .where(eq(videos.id, data.videoId))
-        .leftJoin(watchHistory, and(eq(watchHistory.videoId, data.videoId), eq(watchHistory.accountId, data.accountId)));
+        .leftJoin(watchHistory, and(eq(watchHistory.videoId, data.videoId), eq(watchHistory.profileId, data.profileId)));
 
     if (!video) throw new VideoNotFoundError();
 
@@ -313,7 +313,7 @@ export const getVideoProgressById = async (data: { videoId: string; accountId: s
     return toWatchHistoryDTO(video.history);
 };
 
-export const saveVideoProgressById = async (data: { videoId: string; accountId: string; positionSec: number }) => {
+export const saveVideoProgressById = async (data: { videoId: string; profileId: string; positionSec: number }) => {
     const [video] = await db.select({ id: videos.id, duration: videos.duration }).from(videos).where(eq(videos.id, data.videoId));
     if (!video) throw new VideoNotFoundError();
 
@@ -323,7 +323,7 @@ export const saveVideoProgressById = async (data: { videoId: string; accountId: 
     const [existingProgress] = await db
         .select()
         .from(watchHistory)
-        .where(and(eq(watchHistory.accountId, data.accountId), eq(watchHistory.videoId, data.videoId)));
+        .where(and(eq(watchHistory.profileId, data.profileId), eq(watchHistory.videoId, data.videoId)));
 
     // if video already started watching dont allow sending progress from 0 where user video started again automatically
     if (!!existingProgress && data.positionSec < 20 && data.positionSec <= existingProgress.lastPosition) {
@@ -333,14 +333,14 @@ export const saveVideoProgressById = async (data: { videoId: string; accountId: 
     const [result] = await db
         .insert(watchHistory)
         .values({
-            accountId: data.accountId,
+            profileId: data.profileId,
             videoId: data.videoId,
             lastPosition: data.positionSec,
             isFinished,
             updatedAt: new Date().toISOString(),
         })
         .onConflictDoUpdate({
-            target: [watchHistory.accountId, watchHistory.videoId],
+            target: [watchHistory.profileId, watchHistory.videoId],
             set: {
                 lastPosition: data.positionSec,
                 isFinished,

@@ -1,4 +1,4 @@
-import type { AccountNotificationDTO as NotificationDTO } from '@duckflixapp/shared';
+import type { NotificationDTO } from '@duckflixapp/shared';
 import { db } from '@shared/configs/db';
 import { accountTotp, accounts, notifications } from '@shared/schema';
 import { and, desc, eq, inArray } from 'drizzle-orm';

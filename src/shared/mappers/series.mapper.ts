@@ -7,7 +7,7 @@ import type {
     SeasonMinDTO,
     SeasonDTO,
     EpisodeMinDTO,
-    AccountEpisodeDTO as EpisodeDTO,
+    EpisodeDTO,
     SeriesGenreDTO,
 } from '@duckflixapp/shared';
 import type { RichVideo } from './video.mapper';
