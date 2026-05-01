@@ -31,6 +31,7 @@ export interface TokenPayload {
     role: UserRole;
     isVerified: boolean;
     sid?: string;
+    profileId?: string;
 }
 
 export interface StepUpTokenPayload {

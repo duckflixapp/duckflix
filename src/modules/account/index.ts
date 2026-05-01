@@ -7,7 +7,7 @@ import { clearAuthCookies } from '@shared/utils/cookies';
 
 export const accountRouter = new Elysia({ prefix: '/account' })
     .use(authGuard)
-    .guard({ auth: true })
+    .guard({ auth: { selectedProfile: false } })
     .get(
         '/2fa',
         async ({ user }) => {

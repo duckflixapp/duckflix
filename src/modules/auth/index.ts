@@ -110,11 +110,11 @@ export const authRouter = new Elysia({ prefix: '/auth' })
 
             return { status: 'success' };
         },
-        { auth: { verified: false }, detail: { tags: ['Auth'], summary: 'Logout' } }
+        { auth: { verified: false, selectedProfile: false }, detail: { tags: ['Auth'], summary: 'Logout' } }
     )
     .group('/step-up', (app) =>
         app
-            .guard({ auth: { verified: false } })
+            .guard({ auth: { verified: false, selectedProfile: false } })
             .post(
                 '/',
                 async ({ body, user }) => {

@@ -16,9 +16,11 @@ export const AuthUserSchema = z.object({
     role: z.string().describe('User role'),
     isVerified: z.boolean().describe('Is email verified'),
     sessionId: z.string().describe('Current auth session ID'),
+    profileId: z.string().optional().describe('Selected profile ID'),
 });
 
 export type AuthUser = z.infer<typeof AuthUserSchema>;
+type AuthOptions = UserRole | boolean | { role?: UserRole; verified?: boolean; selectedProfile?: boolean };
 
 // ----- Error -----
 export class UnauthorizedError extends AppError {
@@ -36,8 +38,8 @@ export class ForbiddenError extends AppError {
 // ----- Auth Plugin -----
 export const authPlugin = new Elysia({ name: 'auth-plugin' })
     .use(csrfPlugin)
-    .derive({ as: 'global' }, ({ cookie: { auth_token }, headers }) => ({
-        resolveUser: async (needsVerification = true): Promise<AuthUser> => {
+    .derive({ as: 'global' }, ({ cookie: { auth_token }, headers }) => {
+        const resolveUser = async (needsVerification = true, needsSelectedProfile = true) => {
             const authHeader = headers.authorization;
             const token = auth_token?.value ?? (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined);
 
@@ -52,6 +54,7 @@ export const authPlugin = new Elysia({ name: 'auth-plugin' })
                     role: decoded.role as UserRole,
                     isVerified: decoded.isVerified,
                     sessionId: decoded.sid,
+                    profileId: decoded.profileId,
                 };
 
                 const session = await db.query.sessions.findFirst({
@@ -69,24 +72,32 @@ export const authPlugin = new Elysia({ name: 'auth-plugin' })
                     throw new ForbiddenError('Email not verified');
                 }
 
+                if (needsSelectedProfile && !user.profileId) {
+                    throw new ForbiddenError('Profile not selected');
+                }
+
                 return user;
             } catch (err) {
                 if (err instanceof AppError) throw err;
                 if (err instanceof jwt.TokenExpiredError) throw new UnauthorizedError('Expired token');
                 throw new UnauthorizedError('Invalid token');
             }
-        },
-    }));
+        };
+
+        return { resolveUser };
+    });
 
 // ----- Auth Macros -----
 export const authGuard = new Elysia({ name: 'auth-guard' }).use(authPlugin).macro({
-    auth: (options: UserRole | boolean | { role?: UserRole; verified?: boolean }) => ({
+    auth: (options: AuthOptions) => ({
         resolve: async ({ resolveUser }) => {
             const role = typeof options === 'string' ? options : typeof options === 'object' ? (options.role ?? true) : true;
             const needsVerification = typeof options === 'object' && options.verified !== undefined ? options.verified : true;
+            const needsSelectedProfile =
+                typeof options === 'object' && options.selectedProfile !== undefined ? options.selectedProfile : true;
 
             if (!role) return;
-            const user = await resolveUser(needsVerification);
+            const user = needsSelectedProfile ? await resolveUser(needsVerification, true) : await resolveUser(needsVerification, false);
 
             if (typeof role === 'string') {
                 const currentUserRank = roleHierarchy[user.role as keyof typeof roleHierarchy];
@@ -151,13 +162,15 @@ export const socketAuthPlugin = new Elysia({ name: 'socketAuth' }).derive({ as: 
         set.status = 401;
         throw new Error('Unauthorized: Invalid token');
     }
+    if (!decoded.profileId) throw new ForbiddenError('Profile not selected');
 
-    const user: AuthUser = {
+    const user = {
         id: decoded.sub,
         role: decoded.role as UserRole,
         isVerified: decoded.isVerified,
         sessionId: decoded.sid,
-    };
+        profileId: decoded.profileId,
+    } satisfies AuthUser;
 
     const session = await db.query.sessions.findFirst({
         where: and(
