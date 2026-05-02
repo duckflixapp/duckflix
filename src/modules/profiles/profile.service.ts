@@ -5,7 +5,8 @@ import { libraries } from '@schema/library.schema';
 import { AppError } from '@shared/errors';
 import { toProfileAvatarDTO, toProfileDTO, type ProfileAvatarDTO } from '@shared/mappers/user.mapper';
 import { signToken } from '@utils/jwt';
-import { and, eq } from 'drizzle-orm';
+import { and, count, eq } from 'drizzle-orm';
+import { limits } from '@shared/configs/limits.config';
 
 export const getProfileAvatars = async (): Promise<ProfileAvatarDTO[]> => {
     const results = await db
@@ -92,11 +93,14 @@ export const createProfile = async (data: { accountId: string; sessionId: string
     if (data.avatarAssetId) await assertProfileAvatar(data.avatarAssetId);
 
     const profileId = await db.transaction(async (tx) => {
+        const [result] = await tx.select({ count: count() }).from(profiles).where(eq(profiles.accountId, data.accountId));
+        if (result!.count >= limits.profile.limit)
+            throw new AppError('Profile limit reached: ' + limits.profile.limit, { statusCode: 403 });
+
         const [profile] = await tx
             .insert(profiles)
             .values({ accountId: data.accountId, name: data.name, avatarAssetId: data.avatarAssetId ?? null })
             .returning({ id: profiles.id });
-
         if (!profile) throw new AppError('Profile not created', { statusCode: 500 });
 
         await tx.insert(libraries).values({
