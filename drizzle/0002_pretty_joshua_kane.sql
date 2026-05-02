@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `profiles_account_name_unique_idx` ON `profiles` (`account_id`,lower("name"));

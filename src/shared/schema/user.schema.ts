@@ -1,6 +1,6 @@
 import type { UserRole } from '@duckflixapp/shared';
-import { relations, type InferSelectModel } from 'drizzle-orm';
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
+import { relations, sql, type InferSelectModel } from 'drizzle-orm';
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { assets } from './assets.schema';
 
 // ------------------------------------
@@ -35,7 +35,10 @@ export const profiles = sqliteTable(
             .notNull()
             .$defaultFn(() => new Date().toISOString()),
     },
-    (t) => [index('profiles_account_id_idx').on(t.accountId)]
+    (t) => [
+        index('profiles_account_id_idx').on(t.accountId),
+        uniqueIndex('profiles_account_name_unique_idx').on(t.accountId, sql`lower(${t.name})`),
+    ]
 );
 
 export const sessions = sqliteTable(
