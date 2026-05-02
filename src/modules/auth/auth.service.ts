@@ -2,7 +2,6 @@ import argon2 from 'argon2';
 import crypto from 'node:crypto';
 import { db } from '@shared/configs/db';
 import { accountTokens, accountTotp, accounts, profiles, sessions, totpBackupCodes, type Account } from '@shared/schema';
-import { libraries } from '@schema/library.schema';
 import { and, eq, isNull } from 'drizzle-orm';
 import {
     AuthTemporarilyLockedError,
@@ -173,7 +172,7 @@ const getSelectedProfileIdFromAccessToken = async (accessToken: string | undefin
 const createAuthenticatedSession = async (
     account: Account,
     context: AuthContext,
-    source: 'login' | 'loginChallenge'
+    source: 'login' | 'loginChallenge' | 'register'
 ): Promise<AuthenticatedSession> => {
     const refreshToken = generateOpaqueToken();
     const refreshTokenHash = hashOpaqueToken(refreshToken);
@@ -227,7 +226,7 @@ const createAuthenticatedSession = async (
     return { token, refreshToken, user: toAccountDTO(await withTotpStatus(account)) };
 };
 
-export const register = async (name: string, email: string, pass: string): Promise<AccountDTO> => {
+export const register = async (email: string, pass: string, context: AuthContext): Promise<AuthenticatedSession> => {
     const normalizedEmail = normalizeEmail(email);
     try {
         authAttemptLimiter.checkRegister(normalizedEmail);
@@ -255,7 +254,7 @@ export const register = async (name: string, email: string, pass: string): Promi
     const verificationTokenHash = hashOpaqueToken(verificationToken);
 
     try {
-        const { account, profile } = await db.transaction(async (tx) => {
+        const account = await db.transaction(async (tx) => {
             const existingAccount = await tx.select({ id: accounts.id }).from(accounts).where(eq(accounts.system, false)).limit(1);
 
             const [account] = await tx
@@ -273,18 +272,6 @@ export const register = async (name: string, email: string, pass: string): Promi
                 });
             if (!account) throw new UserNotCreatedError();
 
-            const [profile] = await tx.insert(profiles).values({ accountId: account.id, name }).returning();
-            if (!profile) throw new AppError('Profile not created', { statusCode: 500 });
-
-            // create initial libraries
-            await tx.insert(libraries).values([
-                {
-                    profileId: profile.id,
-                    name: 'My Watchlist',
-                    type: 'watchlist',
-                },
-            ]);
-
             if (!registration.trustEmails)
                 await tx.insert(accountTokens).values({
                     accountId: account.id,
@@ -293,13 +280,13 @@ export const register = async (name: string, email: string, pass: string): Promi
                     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
                 });
 
-            return { account, profile };
+            return account;
         });
 
         authAttemptLimiter.resetRegister(normalizedEmail);
 
         if (!registration.trustEmails)
-            await sendVerificationMail(name, account.email, verificationToken).catch((e) => {
+            await sendVerificationMail(account.email, account.email, verificationToken).catch((e) => {
                 logger.error({ err: e, email: account.email }, 'Failed to send verification email');
             });
 
@@ -315,7 +302,7 @@ export const register = async (name: string, email: string, pass: string): Promi
             },
         });
 
-        return toAccountDTO({ ...account, profiles: profile ? [profile] : [], totpEnabled: false });
+        return createAuthenticatedSession(account, context, 'register');
     } catch (error) {
         authAttemptLimiter.recordFailedRegister(normalizedEmail);
         throw error;

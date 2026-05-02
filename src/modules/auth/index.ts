@@ -30,10 +30,12 @@ export const authRouter = new Elysia({ prefix: '/auth' })
     .use(createRateLimit({ max: 10, duration: 5000 }))
     .post(
         '/register',
-        async ({ body, set }) => {
-            await AuthService.register(body.name, body.email, body.password);
+        async ({ body, headers, cookie, clientIp, set }) => {
+            const result = await AuthService.register(body.email, body.password, getAuthContext(headers, clientIp));
+            setAuthCookies(cookie, result);
+
             set.status = 201;
-            return { status: 'success' };
+            return { status: 'success', user: result.user };
         },
         { body: registerSchema, detail: { tags: ['Auth'], summary: 'Register' } }
     )

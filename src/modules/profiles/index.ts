@@ -3,6 +3,7 @@ import { authGuard } from '@shared/middlewares/auth.middleware';
 import { setAuthTokenCookie } from '@shared/utils/cookies';
 import { createRateLimit } from '@shared/configs/ratelimit';
 import {
+    createProfile,
     getAccountProfiles,
     getProfileAvatars,
     getProfileById,
@@ -10,7 +11,7 @@ import {
     selectProfile,
     updateProfileAvatar,
 } from './profile.service';
-import { profileParamsSchema, updateProfileAvatarSchema } from './profile.validator';
+import { createProfileSchema, profileParamsSchema, updateProfileAvatarSchema } from './profile.validator';
 
 const cookieSchema = t.Cookie({
     auth_token: t.Optional(t.String()),
@@ -26,7 +27,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
             return { status: 'success', data: { profile } };
         },
         {
-            auth: { selectedProfile: true },
+            auth: { verified: false, selectedProfile: true },
             detail: { tags: ['Profiles'], summary: 'Get selected profile' },
         }
     )
@@ -41,7 +42,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
         },
         {
             cookie: cookieSchema,
-            auth: { selectedProfile: true },
+            auth: { verified: false, selectedProfile: true },
             detail: { tags: ['Profiles'], summary: 'Logout from profile' },
         }
     )
@@ -58,8 +59,30 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
         },
         {
             body: updateProfileAvatarSchema,
-            auth: { selectedProfile: true },
+            auth: { verified: false, selectedProfile: true },
             detail: { tags: ['Profiles'], summary: 'Update selected profile avatar' },
+        }
+    )
+    .post(
+        '/',
+        async ({ body, user, cookie, set }) => {
+            const result = await createProfile({
+                accountId: user.id,
+                sessionId: user.sessionId,
+                name: body.name,
+                avatarAssetId: body.avatarAssetId,
+            });
+
+            setAuthTokenCookie(cookie, result.token);
+            set.status = 201;
+
+            return { status: 'success', data: result };
+        },
+        {
+            auth: { verified: false, selectedProfile: false },
+            cookie: cookieSchema,
+            body: createProfileSchema,
+            detail: { tags: ['Profiles'], summary: 'Create Profile' },
         }
     )
     .get(
@@ -69,7 +92,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
             return { status: 'success', data: { avatars } };
         },
         {
-            auth: { selectedProfile: false },
+            auth: { verified: false, selectedProfile: false },
             detail: { tags: ['Profiles'], summary: 'List profile avatars' },
         }
     )
@@ -80,7 +103,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
             return { status: 'success', data: { profiles } };
         },
         {
-            auth: { selectedProfile: false },
+            auth: { verified: false, selectedProfile: false },
             detail: { tags: ['Profiles'], summary: 'List Profiles' },
         }
     )
@@ -98,7 +121,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
             return { status: 'success', data: result };
         },
         {
-            auth: { selectedProfile: false },
+            auth: { verified: false, selectedProfile: false },
             cookie: cookieSchema,
             params: profileParamsSchema,
             detail: { tags: ['Profiles'], summary: 'Select Profile' },
