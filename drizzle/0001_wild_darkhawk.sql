@@ -1,0 +1,1 @@
+ALTER TABLE `profiles` ADD `picture_asset_id` text REFERENCES assets(id);

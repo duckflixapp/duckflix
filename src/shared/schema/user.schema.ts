@@ -1,6 +1,7 @@
 import type { UserRole } from '@duckflixapp/shared';
 import { relations, type InferSelectModel } from 'drizzle-orm';
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
+import { assets } from './assets.schema';
 
 // ------------------------------------
 // Schema
@@ -28,6 +29,7 @@ export const profiles = sqliteTable(
         accountId: text('account_id')
             .notNull()
             .references(() => accounts.id, { onDelete: 'cascade' }),
+        avatarAssetId: text('picture_asset_id').references(() => assets.id, { onDelete: 'set null' }),
         name: text('name').notNull(),
         createdAt: text('created_at')
             .notNull()
@@ -127,5 +129,9 @@ export const profilesRelations = relations(profiles, ({ one }) => ({
     account: one(accounts, {
         fields: [profiles.accountId],
         references: [accounts.id],
+    }),
+    avatar: one(assets, {
+        fields: [profiles.avatarAssetId],
+        references: [assets.id],
     }),
 }));

@@ -11,5 +11,6 @@ export * from './cast.schema';
 export * from './notification.schema';
 
 export * from './library.schema';
+export * from './assets.schema';
 
 export * from './series.schema';
