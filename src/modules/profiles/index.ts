@@ -2,7 +2,7 @@ import { Elysia, t } from 'elysia';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { setAuthTokenCookie } from '@shared/utils/cookies';
 import { createRateLimit } from '@shared/configs/ratelimit';
-import { getAccountProfiles, getProfileById, selectProfile } from './profile.service';
+import { getAccountProfiles, getProfileById, removeProfile, selectProfile } from './profile.service';
 import { profileParamsSchema } from './profile.validator';
 
 const cookieSchema = t.Cookie({
@@ -19,6 +19,21 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
             return { status: 'success', data: { profile } };
         },
         {
+            auth: { selectedProfile: true },
+            detail: { tags: ['Profiles'], summary: 'Get selected profile' },
+        }
+    )
+    .post(
+        '/logout',
+        async ({ user, cookie }) => {
+            const result = await removeProfile({ accountId: user.id, sessionId: user.sessionId });
+
+            setAuthTokenCookie(cookie, result.token);
+
+            return { status: 'success', data: result };
+        },
+        {
+            cookie: cookieSchema,
             auth: { selectedProfile: true },
             detail: { tags: ['Profiles'], summary: 'Get selected profile' },
         }

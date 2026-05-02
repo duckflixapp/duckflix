@@ -51,3 +51,23 @@ export const selectProfile = async (data: { accountId: string; sessionId: string
 
     return { token, profile: toProfileDTO(profile) };
 };
+
+export const removeProfile = async (data: { accountId: string; sessionId: string }) => {
+    const [account] = await db
+        .select({ role: accounts.role, verified_email: accounts.verified_email })
+        .from(accounts)
+        .where(and(eq(accounts.id, data.accountId), eq(accounts.system, false)))
+        .limit(1);
+
+    if (!account) throw new AppError('Account not found', { statusCode: 404 });
+
+    const token = signToken({
+        sub: data.accountId,
+        role: account.role,
+        isVerified: account.verified_email,
+        sid: data.sessionId,
+        profileId: undefined,
+    });
+
+    return { token };
+};

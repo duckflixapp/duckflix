@@ -24,7 +24,7 @@ export const authCookiePath = `${apiBasePath}/auth`;
 const accessCookieOptions: CookieOptions = {
     httpOnly: true,
     secure,
-    maxAge: accessMaxAge,
+    maxAge: accessMaxAge * 3, // extend cookie duration so jwt payload can stay but expired
     sameSite: 'lax',
 };
 
