@@ -2,9 +2,19 @@ import type { ProfileDTO } from '@duckflixapp/shared';
 import { db } from '@shared/configs/db';
 import { accounts, assets, profiles } from '@shared/schema';
 import { AppError } from '@shared/errors';
-import { toProfileDTO } from '@shared/mappers/user.mapper';
+import { toProfileAvatarDTO, toProfileDTO, type ProfileAvatarDTO } from '@shared/mappers/user.mapper';
 import { signToken } from '@utils/jwt';
 import { and, eq } from 'drizzle-orm';
+
+export const getProfileAvatars = async (): Promise<ProfileAvatarDTO[]> => {
+    const results = await db
+        .select({ id: assets.id, storageKey: assets.storageKey })
+        .from(assets)
+        .where(eq(assets.type, 'profile_avatar'))
+        .orderBy(assets.createdAt);
+
+    return results.map(toProfileAvatarDTO);
+};
 
 export const getAccountProfiles = async (accountId: string): Promise<ProfileDTO[]> => {
     const results = await db

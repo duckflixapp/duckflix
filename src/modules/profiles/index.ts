@@ -2,7 +2,14 @@ import { Elysia, t } from 'elysia';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { setAuthTokenCookie } from '@shared/utils/cookies';
 import { createRateLimit } from '@shared/configs/ratelimit';
-import { getAccountProfiles, getProfileById, removeProfile, selectProfile, updateProfileAvatar } from './profile.service';
+import {
+    getAccountProfiles,
+    getProfileAvatars,
+    getProfileById,
+    removeProfile,
+    selectProfile,
+    updateProfileAvatar,
+} from './profile.service';
 import { profileParamsSchema, updateProfileAvatarSchema } from './profile.validator';
 
 const cookieSchema = t.Cookie({
@@ -53,6 +60,17 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
             body: updateProfileAvatarSchema,
             auth: { selectedProfile: true },
             detail: { tags: ['Profiles'], summary: 'Update selected profile avatar' },
+        }
+    )
+    .get(
+        '/avatars',
+        async () => {
+            const avatars = await getProfileAvatars();
+            return { status: 'success', data: { avatars } };
+        },
+        {
+            auth: { selectedProfile: false },
+            detail: { tags: ['Profiles'], summary: 'List profile avatars' },
         }
     )
     .get(

@@ -5,6 +5,8 @@ import type { Account, Profile } from '@schema/user.schema';
 const BASE_URL = new URL(env.BASE_URL).origin;
 
 type ProfileSource = Pick<Profile, 'id' | 'accountId' | 'name' | 'createdAt'>;
+export type ProfileAvatarSource = { id: string | null; storageKey: string | null };
+export type ProfileAvatarDTO = { id: string | null; url: string | null };
 
 export type AccountMinSource = Pick<Account, 'id' | 'role' | 'system'> & {
     profiles?: ProfileSource[] | null;
@@ -24,12 +26,14 @@ export const toProfileMinDTO = (profile: ProfileSource): ProfileMinDTO => ({
     createdAt: profile.createdAt,
 });
 
+export const toProfileAvatarDTO = (avatar: ProfileAvatarSource): ProfileAvatarDTO => ({
+    id: avatar.id,
+    url: avatar.storageKey ? `${BASE_URL}/assets/${avatar.storageKey}` : null,
+});
+
 export const toProfileDTO = (profile: ProfileSource & { avatarAssetId: string | null; avatarKey: string | null }): ProfileDTO => ({
     ...toProfileMinDTO(profile),
-    avatar: {
-        id: profile.avatarAssetId,
-        url: profile.avatarKey ? `${BASE_URL}/assets/${profile.avatarKey}` : null,
-    },
+    avatar: toProfileAvatarDTO({ id: profile.avatarAssetId, storageKey: profile.avatarKey }),
 });
 
 export const toAccountMinDTO = (account: AccountMinSource): AccountMinDTO => ({
