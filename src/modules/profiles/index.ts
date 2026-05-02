@@ -35,7 +35,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
         {
             cookie: cookieSchema,
             auth: { selectedProfile: true },
-            detail: { tags: ['Profiles'], summary: 'Get selected profile' },
+            detail: { tags: ['Profiles'], summary: 'Logout from profile' },
         }
     )
     .get(

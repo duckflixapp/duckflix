@@ -121,7 +121,7 @@ export const getSessionById = async (data: {
 
 export const revokeSessionById = async (data: { accountId: string; sessionId: string; currentSessionId: string }): Promise<void> => {
     if (data.sessionId == data.currentSessionId)
-        throw new AppError('User should not be able to revoke his session. Please use logout', { statusCode: 403 });
+        throw new AppError('User should not be able to revoke this session. Please use logout', { statusCode: 403 });
 
     await db
         .update(sessions)

@@ -8,6 +8,7 @@ import { fetchSystemAccountId, setSystemAccountId } from '@shared/configs/system
 import { recoverZombieMovies, recoverZombieProcesses } from './recovery';
 import { seedDatabase } from './seeder';
 import { filesCleanup } from './cleanup';
+import { initializeBundledAssets } from './assets';
 
 export const initalize = async () => {
     await systemSettings.update({}); // update with default settings
@@ -17,6 +18,9 @@ export const initalize = async () => {
 
     // cleanup
     await filesCleanup();
+
+    // initialize bundled public assets
+    await initializeBundledAssets();
 
     // recovery
     await recoverZombieProcesses(systemAccountId);

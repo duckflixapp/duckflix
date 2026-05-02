@@ -4,6 +4,7 @@ import { env } from '@core/env';
 export const paths = {
     drop: path.resolve(env.DROP_FOLDER),
     storage: path.resolve(env.STORAGE_FOLDER),
+    public: path.resolve(env.PUBLIC_FOLDER ?? path.join(env.STORAGE_FOLDER, 'public')),
     live: path.resolve(env.LIVE_FOLDER),
     downloads: path.resolve(env.TEMP_FOLDER, 'downloads/'),
     uploads: path.resolve(env.TEMP_FOLDER, 'uploads/'),
