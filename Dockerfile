@@ -3,6 +3,10 @@
 FROM oven/bun:latest AS deps
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY package.json bun.lock* ./
 RUN --mount=type=secret,id=node_auth_token \
     set -eu; \
@@ -15,7 +19,7 @@ FROM oven/bun:latest
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
-    ffmpeg python3 make g++ \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=deps /app/node_modules ./node_modules
