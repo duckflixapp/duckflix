@@ -1,4 +1,5 @@
 import type { ProfileDTO } from '@duckflixapp/shared';
+import argon2 from 'argon2';
 import { db } from '@shared/configs/db';
 import { accounts, assets, profiles } from '@shared/schema';
 import { libraries } from '@schema/library.schema';
@@ -25,6 +26,7 @@ export const getAccountProfiles = async (accountId: string): Promise<ProfileDTO[
             id: profiles.id,
             accountId: profiles.accountId,
             name: profiles.name,
+            pinHash: profiles.pinHash,
             createdAt: profiles.createdAt,
             avatarAssetId: profiles.avatarAssetId,
             avatarKey: assets.storageKey,
@@ -43,6 +45,7 @@ export const getProfileById = async (data: { accountId: string; profileId: strin
             id: profiles.id,
             accountId: profiles.accountId,
             name: profiles.name,
+            pinHash: profiles.pinHash,
             createdAt: profiles.createdAt,
             avatarAssetId: profiles.avatarAssetId,
             avatarKey: assets.storageKey,
@@ -90,10 +93,35 @@ const signProfileToken = async (data: { accountId: string; sessionId: string; pr
     });
 };
 
-export const createProfile = async (data: { accountId: string; sessionId: string; name: string; avatarAssetId?: string | null }) => {
+const verifyProfilePin = async (pinHash: string, pin?: string) => {
+    if (!pin) throw new AppError('Profile PIN required', { statusCode: 403 });
+
+    const valid = await argon2.verify(pinHash, pin);
+    if (!valid) throw new AppError('Invalid profile PIN', { statusCode: 403 });
+};
+
+const getProfilePinState = async (data: { accountId: string; profileId: string }) => {
+    const [profile] = await db
+        .select({ id: profiles.id, pinHash: profiles.pinHash })
+        .from(profiles)
+        .where(and(eq(profiles.id, data.profileId), eq(profiles.accountId, data.accountId)))
+        .limit(1);
+
+    if (!profile) throw new AppError('Profile not found', { statusCode: 404 });
+    return profile;
+};
+
+export const createProfile = async (data: {
+    accountId: string;
+    sessionId: string;
+    name: string;
+    avatarAssetId?: string | null;
+    pin?: string;
+}) => {
     if (data.avatarAssetId) await assertProfileAvatar(data.avatarAssetId);
 
     const name = data.name.trim();
+    const pinHash = data.pin ? await argon2.hash(data.pin) : null;
 
     const profileId = await db.transaction(async (tx) => {
         const [result] = await tx.select({ count: count() }).from(profiles).where(eq(profiles.accountId, data.accountId));
@@ -102,7 +130,7 @@ export const createProfile = async (data: { accountId: string; sessionId: string
 
         const [profile] = await tx
             .insert(profiles)
-            .values({ accountId: data.accountId, name, avatarAssetId: data.avatarAssetId ?? null })
+            .values({ accountId: data.accountId, name, avatarAssetId: data.avatarAssetId ?? null, pinHash })
             .returning({ id: profiles.id })
             .catch((e) => {
                 if (isDuplicateKey(e)) throw new AppError('Profile name already exists', { statusCode: 409 });
@@ -127,6 +155,38 @@ export const createProfile = async (data: { accountId: string; sessionId: string
     return { token, profile };
 };
 
+export const updateProfilePin = async (data: {
+    accountId: string;
+    profileId: string;
+    pin: string;
+    currentPin?: string;
+}): Promise<ProfileDTO> => {
+    const current = await getProfilePinState({ accountId: data.accountId, profileId: data.profileId });
+    if (current.pinHash) await verifyProfilePin(current.pinHash, data.currentPin);
+
+    const pinHash = await argon2.hash(data.pin);
+    await db
+        .update(profiles)
+        .set({ pinHash })
+        .where(and(eq(profiles.id, data.profileId), eq(profiles.accountId, data.accountId)));
+
+    return getProfileById({ accountId: data.accountId, profileId: data.profileId });
+};
+
+export const removeProfilePin = async (data: { accountId: string; profileId: string; pin: string }): Promise<ProfileDTO> => {
+    const current = await getProfilePinState({ accountId: data.accountId, profileId: data.profileId });
+    if (!current.pinHash) throw new AppError('Profile PIN is not set', { statusCode: 400 });
+
+    await verifyProfilePin(current.pinHash, data.pin);
+
+    await db
+        .update(profiles)
+        .set({ pinHash: null })
+        .where(and(eq(profiles.id, data.profileId), eq(profiles.accountId, data.accountId)));
+
+    return getProfileById({ accountId: data.accountId, profileId: data.profileId });
+};
+
 export const updateProfileAvatar = async (data: {
     accountId: string;
     profileId: string;
@@ -145,12 +205,13 @@ export const updateProfileAvatar = async (data: {
     return getProfileById({ accountId: data.accountId, profileId: profile.id });
 };
 
-export const selectProfile = async (data: { accountId: string; sessionId: string; profileId: string }) => {
+export const selectProfile = async (data: { accountId: string; sessionId: string; profileId: string; pin?: string }) => {
     const [profile] = await db
         .select({
             id: profiles.id,
             accountId: profiles.accountId,
             name: profiles.name,
+            pinHash: profiles.pinHash,
             createdAt: profiles.createdAt,
             avatarAssetId: profiles.avatarAssetId,
             avatarKey: assets.storageKey,
@@ -161,6 +222,7 @@ export const selectProfile = async (data: { accountId: string; sessionId: string
         .limit(1);
 
     if (!profile) throw new AppError('Profile not found', { statusCode: 404 });
+    if (profile.pinHash) await verifyProfilePin(profile.pinHash, data.pin);
 
     const token = await signProfileToken({ accountId: data.accountId, sessionId: data.sessionId, profileId: profile.id });
 

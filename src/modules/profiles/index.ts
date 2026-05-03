@@ -7,11 +7,20 @@ import {
     getAccountProfiles,
     getProfileAvatars,
     getProfileById,
+    removeProfilePin,
     removeProfile,
     selectProfile,
     updateProfileAvatar,
+    updateProfilePin,
 } from './profile.service';
-import { createProfileSchema, profileParamsSchema, updateProfileAvatarSchema } from './profile.validator';
+import {
+    createProfileSchema,
+    profileParamsSchema,
+    removeProfilePinSchema,
+    selectProfileSchema,
+    updateProfileAvatarSchema,
+    updateProfilePinSchema,
+} from './profile.validator';
 
 const cookieSchema = t.Cookie({
     auth_token: t.Optional(t.String()),
@@ -63,6 +72,41 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
             detail: { tags: ['Profiles'], summary: 'Update selected profile avatar' },
         }
     )
+    .patch(
+        '/@me/pin',
+        async ({ body, user }) => {
+            const profile = await updateProfilePin({
+                accountId: user.id,
+                profileId: user.profileId!,
+                pin: body.pin,
+                currentPin: body.currentPin,
+            });
+
+            return { status: 'success', data: { profile } };
+        },
+        {
+            body: updateProfilePinSchema,
+            auth: { verified: false, selectedProfile: true },
+            detail: { tags: ['Profiles'], summary: 'Set selected profile PIN' },
+        }
+    )
+    .delete(
+        '/@me/pin',
+        async ({ body, user }) => {
+            const profile = await removeProfilePin({
+                accountId: user.id,
+                profileId: user.profileId!,
+                pin: body.pin,
+            });
+
+            return { status: 'success', data: { profile } };
+        },
+        {
+            body: removeProfilePinSchema,
+            auth: { verified: false, selectedProfile: true },
+            detail: { tags: ['Profiles'], summary: 'Remove selected profile PIN' },
+        }
+    )
     .post(
         '/',
         async ({ body, user, cookie, set }) => {
@@ -71,6 +115,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
                 sessionId: user.sessionId,
                 name: body.name,
                 avatarAssetId: body.avatarAssetId,
+                pin: body.pin,
             });
 
             setAuthTokenCookie(cookie, result.token);
@@ -109,11 +154,12 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
     )
     .post(
         '/:id/select',
-        async ({ params: { id }, user, cookie }) => {
+        async ({ body, params: { id }, user, cookie }) => {
             const result = await selectProfile({
                 accountId: user.id,
                 sessionId: user.sessionId,
                 profileId: id,
+                pin: body?.pin,
             });
 
             setAuthTokenCookie(cookie, result.token);
@@ -123,6 +169,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
         {
             auth: { verified: false, selectedProfile: false },
             cookie: cookieSchema,
+            body: selectProfileSchema,
             params: profileParamsSchema,
             detail: { tags: ['Profiles'], summary: 'Select Profile' },
         }

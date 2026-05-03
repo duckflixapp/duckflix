@@ -4,7 +4,7 @@ import type { Account, Profile } from '@schema/user.schema';
 
 const BASE_URL = new URL(env.BASE_URL).origin;
 
-type ProfileSource = Pick<Profile, 'id' | 'accountId' | 'name' | 'createdAt'>;
+type ProfileSource = Pick<Profile, 'id' | 'accountId' | 'name' | 'pinHash' | 'createdAt'>;
 export type ProfileAvatarSource = { id: string | null; storageKey: string | null };
 export type ProfileAvatarDTO = { id: string | null; url: string | null };
 
@@ -23,6 +23,7 @@ export const toProfileMinDTO = (profile: ProfileSource): ProfileMinDTO => ({
     id: profile.id,
     accountId: profile.accountId,
     name: profile.name,
+    hasPin: Boolean(profile.pinHash),
     createdAt: profile.createdAt,
 });
 

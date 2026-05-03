@@ -31,6 +31,7 @@ export const profiles = sqliteTable(
             .references(() => accounts.id, { onDelete: 'cascade' }),
         avatarAssetId: text('picture_asset_id').references(() => assets.id, { onDelete: 'set null' }),
         name: text('name').notNull(),
+        pinHash: text('pin_hash'),
         createdAt: text('created_at')
             .notNull()
             .$defaultFn(() => new Date().toISOString()),
