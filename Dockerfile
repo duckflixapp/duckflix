@@ -1,10 +1,15 @@
+# syntax=docker/dockerfile:1.7
+
 FROM oven/bun:latest AS deps
 WORKDIR /app
 
-ARG NODE_AUTH_TOKEN
-
-COPY package.json bun.lock* .npmrc ./
-RUN NODE_AUTH_TOKEN=$NODE_AUTH_TOKEN bun install --frozen-lockfile
+COPY package.json bun.lock* ./
+RUN --mount=type=secret,id=node_auth_token \
+    set -eu; \
+    export NODE_AUTH_TOKEN="$(cat /run/secrets/node_auth_token)"; \
+    printf '@duckflixapp:registry=https://npm.pkg.github.com\n//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}\n' > .npmrc; \
+    bun install --frozen-lockfile; \
+    rm -f .npmrc
 
 FROM oven/bun:latest
 WORKDIR /app

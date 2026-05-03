@@ -31,8 +31,8 @@ jobs:
                   tags: |
                       ghcr.io/duckflixapp/duckflix:${{ github.ref_name }}
                       ghcr.io/duckflixapp/duckflix:latest
-                  build-args: |
-                      NODE_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+                  secrets: |
+                      node_auth_token=${{ secrets.GITHUB_TOKEN }}
             - name: Create GitHub Release
               uses: softprops/action-gh-release@v1
               with:

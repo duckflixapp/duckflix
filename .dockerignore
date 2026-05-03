@@ -9,7 +9,10 @@
 **/storage/
 **/.cache/
 
+.env
+.env.*
 *.env.*
+.npmrc
 .git
 .gitignore
 .dockerignore
