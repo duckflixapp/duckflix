@@ -1,17 +1,15 @@
 PRIORITY: 
 
 - Episode, Season, Series settings & delete
-- Better upload form. Wizzard-like
+- Cancel Torrent download
+
 
 SYSTEM
 
-- Upload for multiple video files in torrent?
+- Better upload form. Wizzard-like
 - Notification pagination
 - Pasting magnets
-- While processing video find intro, outro
 - Cache banner & poster
-- Cancel Torrent download
-- Keep track of invalidated tokens?
 
 DETAILS
 
@@ -36,3 +34,6 @@ User
 FUTURE
 
 - Generate AI subtitles
+- Upload for multiple video files in torrent?
+- While processing video find intro, outro
+- Keep track of invalidated tokens?
