@@ -9,6 +9,7 @@ import { signToken } from '@utils/jwt';
 import { and, count, eq } from 'drizzle-orm';
 import { limits } from '@shared/configs/limits.config';
 import { isDuplicateKey } from '@shared/db.errors';
+import { profilePinLimiter } from './profile-pin-limiter';
 
 export const getProfileAvatars = async (): Promise<ProfileAvatarDTO[]> => {
     const results = await db
@@ -93,11 +94,20 @@ const signProfileToken = async (data: { accountId: string; sessionId: string; pr
     });
 };
 
-const verifyProfilePin = async (pinHash: string, pin?: string) => {
-    if (!pin) throw new AppError('Profile PIN required', { statusCode: 403 });
+const verifyProfilePin = async (data: { accountId: string; profileId: string; pinHash: string; pin?: string }) => {
+    const limiterKey = `${data.accountId}:${data.profileId}`;
+    profilePinLimiter.check(limiterKey);
 
-    const valid = await argon2.verify(pinHash, pin);
-    if (!valid) throw new AppError('Invalid profile PIN', { statusCode: 403 });
+    if (!data.pin) throw new AppError('Profile PIN required', { statusCode: 403 });
+
+    const valid = await argon2.verify(data.pinHash, data.pin);
+    if (valid) {
+        profilePinLimiter.reset(limiterKey);
+        return;
+    }
+
+    profilePinLimiter.recordFailure(limiterKey);
+    throw new AppError('Invalid profile PIN', { statusCode: 403 });
 };
 
 const getProfilePinState = async (data: { accountId: string; profileId: string }) => {
@@ -162,7 +172,13 @@ export const updateProfilePin = async (data: {
     currentPin?: string;
 }): Promise<ProfileDTO> => {
     const current = await getProfilePinState({ accountId: data.accountId, profileId: data.profileId });
-    if (current.pinHash) await verifyProfilePin(current.pinHash, data.currentPin);
+    if (current.pinHash)
+        await verifyProfilePin({
+            accountId: data.accountId,
+            profileId: data.profileId,
+            pinHash: current.pinHash,
+            pin: data.currentPin,
+        });
 
     const pinHash = await argon2.hash(data.pin);
     await db
@@ -177,7 +193,7 @@ export const removeProfilePin = async (data: { accountId: string; profileId: str
     const current = await getProfilePinState({ accountId: data.accountId, profileId: data.profileId });
     if (!current.pinHash) throw new AppError('Profile PIN is not set', { statusCode: 400 });
 
-    await verifyProfilePin(current.pinHash, data.pin);
+    await verifyProfilePin({ accountId: data.accountId, profileId: data.profileId, pinHash: current.pinHash, pin: data.pin });
 
     await db
         .update(profiles)
@@ -222,7 +238,8 @@ export const selectProfile = async (data: { accountId: string; sessionId: string
         .limit(1);
 
     if (!profile) throw new AppError('Profile not found', { statusCode: 404 });
-    if (profile.pinHash) await verifyProfilePin(profile.pinHash, data.pin);
+    if (profile.pinHash)
+        await verifyProfilePin({ accountId: data.accountId, profileId: profile.id, pinHash: profile.pinHash, pin: data.pin });
 
     const token = await signProfileToken({ accountId: data.accountId, sessionId: data.sessionId, profileId: profile.id });
 

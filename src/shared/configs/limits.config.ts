@@ -16,5 +16,8 @@ export const limits = {
     },
     profile: {
         limit: 10, // max profiles per account
+        pin_max_failed_attempts: 5,
+        pin_window_ms: 30 * 1000, // 30 seconds
+        pin_lockout_ms: 30 * 1000, // 30 seconds
     },
 } as const;
