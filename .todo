@@ -11,7 +11,7 @@ SYSTEM
 - While processing video find intro, outro
 - Cache banner & poster
 - Cancel Torrent download
-- Keep track of invalidated tokens
+- Keep track of invalidated tokens?
 
 DETAILS
 
@@ -36,4 +36,3 @@ User
 FUTURE
 
 - Generate AI subtitles
-- Profiles & PINS in account

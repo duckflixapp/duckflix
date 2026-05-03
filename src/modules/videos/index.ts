@@ -265,7 +265,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
 
                     .delete(
                         '/:subtitleId',
-                        async ({ params: { videoId, subtitleId }, set }) => {
+                        async ({ params: { id: videoId, subtitleId }, set }) => {
                             await SubtitlesService.deleteSubtitleById({ videoId, subtitleId });
                             set.status = 204;
                         },
