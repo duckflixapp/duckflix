@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "0ebd3f6d-f113-487e-b9ff-f9148672b73c",
+  "id": "38cfa0db-b86c-4b4c-a9b2-92f5e8fe6441",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "system_settings": {
@@ -39,8 +39,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "actor_user_id": {
-          "name": "actor_user_id",
+        "actor_account_id": {
+          "name": "actor_account_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -86,7 +86,7 @@
         "audit_logs_actor_user_id_idx": {
           "name": "audit_logs_actor_user_id_idx",
           "columns": [
-            "actor_user_id"
+            "actor_account_id"
           ],
           "isUnique": false
         },
@@ -106,12 +106,12 @@
         }
       },
       "foreignKeys": {
-        "audit_logs_actor_user_id_users_id_fk": {
-          "name": "audit_logs_actor_user_id_users_id_fk",
+        "audit_logs_actor_account_id_accounts_id_fk": {
+          "name": "audit_logs_actor_account_id_accounts_id_fk",
           "tableFrom": "audit_logs",
-          "tableTo": "users",
+          "tableTo": "accounts",
           "columnsFrom": [
-            "actor_user_id"
+            "actor_account_id"
           ],
           "columnsTo": [
             "id"
@@ -165,10 +165,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "account_tokens_user_id_users_id_fk": {
-          "name": "account_tokens_user_id_users_id_fk",
+        "account_tokens_user_id_accounts_id_fk": {
+          "name": "account_tokens_user_id_accounts_id_fk",
           "tableFrom": "account_tokens",
-          "tableTo": "users",
+          "tableTo": "accounts",
           "columnsFrom": [
             "user_id"
           ],
@@ -183,58 +183,37 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "sessions": {
-      "name": "sessions",
+    "account_totp": {
+      "name": "account_totp",
       "columns": {
-        "id": {
-          "name": "id",
+        "account_id": {
+          "name": "account_id",
           "type": "text",
           "primaryKey": true,
           "notNull": true,
           "autoincrement": false
         },
-        "user_id": {
-          "name": "user_id",
+        "secret": {
+          "name": "secret",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
-        "token": {
-          "name": "token",
+        "pending_secret": {
+          "name": "pending_secret",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
-        "is_used": {
-          "name": "is_used",
+        "enabled": {
+          "name": "enabled",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
           "default": false
-        },
-        "user_agent": {
-          "name": "user_agent",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "ip_address": {
-          "name": "ip_address",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
         },
         "created_at": {
           "name": "created_at",
@@ -242,24 +221,23 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         }
       },
-      "indexes": {
-        "sessions_token_unique": {
-          "name": "sessions_token_unique",
-          "columns": [
-            "token"
-          ],
-          "isUnique": true
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
-        "sessions_user_id_users_id_fk": {
-          "name": "sessions_user_id_users_id_fk",
-          "tableFrom": "sessions",
-          "tableTo": "users",
+        "account_totp_account_id_accounts_id_fk": {
+          "name": "account_totp_account_id_accounts_id_fk",
+          "tableFrom": "account_totp",
+          "tableTo": "accounts",
           "columnsFrom": [
-            "user_id"
+            "account_id"
           ],
           "columnsTo": [
             "id"
@@ -272,20 +250,13 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "users": {
-      "name": "users",
+    "accounts": {
+      "name": "accounts",
       "columns": {
         "id": {
           "name": "id",
           "type": "text",
           "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -336,8 +307,8 @@
         }
       },
       "indexes": {
-        "users_email_unique": {
-          "name": "users_email_unique",
+        "accounts_email_unique": {
+          "name": "accounts_email_unique",
           "columns": [
             "email"
           ],
@@ -345,6 +316,297 @@
         }
       },
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "profiles": {
+      "name": "profiles",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "picture_asset_id": {
+          "name": "picture_asset_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pin_hash": {
+          "name": "pin_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "profiles_account_id_idx": {
+          "name": "profiles_account_id_idx",
+          "columns": [
+            "account_id"
+          ],
+          "isUnique": false
+        },
+        "profiles_account_name_unique_idx": {
+          "name": "profiles_account_name_unique_idx",
+          "columns": [
+            "account_id",
+            "lower(\"name\")"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "profiles_account_id_accounts_id_fk": {
+          "name": "profiles_account_id_accounts_id_fk",
+          "tableFrom": "profiles",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "profiles_picture_asset_id_assets_id_fk": {
+          "name": "profiles_picture_asset_id_assets_id_fk",
+          "tableFrom": "profiles",
+          "tableTo": "assets",
+          "columnsFrom": [
+            "picture_asset_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "sessions": {
+      "name": "sessions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "device_name": {
+          "name": "device_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "device_type": {
+          "name": "device_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "browser_name": {
+          "name": "browser_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "os_name": {
+          "name": "os_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ip_address": {
+          "name": "ip_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_ip_address": {
+          "name": "last_ip_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_refreshed_at": {
+          "name": "last_refreshed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "sessions_token_unique": {
+          "name": "sessions_token_unique",
+          "columns": [
+            "token"
+          ],
+          "isUnique": true
+        },
+        "session_user_id": {
+          "name": "session_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "sessions_user_id_accounts_id_fk": {
+          "name": "sessions_user_id_accounts_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "totp_backup_codes": {
+      "name": "totp_backup_codes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "code_hash": {
+          "name": "code_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "used_at": {
+          "name": "used_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "totp_backup_codes_user_id_accounts_id_fk": {
+          "name": "totp_backup_codes_user_id_accounts_id_fk",
+          "tableFrom": "totp_backup_codes",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -567,10 +829,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "videos_uploader_id_users_id_fk": {
-          "name": "videos_uploader_id_users_id_fk",
+        "videos_uploader_id_accounts_id_fk": {
+          "name": "videos_uploader_id_accounts_id_fk",
           "tableFrom": "videos",
-          "tableTo": "users",
+          "tableTo": "accounts",
           "columnsFrom": [
             "uploader_id"
           ],
@@ -595,8 +857,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "user_id": {
-          "name": "user_id",
+        "profile_id": {
+          "name": "profile_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -634,22 +896,22 @@
         }
       },
       "indexes": {
-        "user_video_idx": {
-          "name": "user_video_idx",
+        "profile_video_idx": {
+          "name": "profile_video_idx",
           "columns": [
-            "user_id",
+            "profile_id",
             "video_id"
           ],
           "isUnique": true
         }
       },
       "foreignKeys": {
-        "watch_history_user_id_users_id_fk": {
-          "name": "watch_history_user_id_users_id_fk",
+        "watch_history_profile_id_profiles_id_fk": {
+          "name": "watch_history_profile_id_profiles_id_fk",
           "tableFrom": "watch_history",
-          "tableTo": "users",
+          "tableTo": "profiles",
           "columnsFrom": [
-            "user_id"
+            "profile_id"
           ],
           "columnsTo": [
             "id"
@@ -1311,8 +1573,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "user_id": {
-          "name": "user_id",
+        "profile_id": {
+          "name": "profile_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -1350,22 +1612,22 @@
         }
       },
       "indexes": {
-        "user_name_unique_key": {
-          "name": "user_name_unique_key",
+        "profile_name_unique_key": {
+          "name": "profile_name_unique_key",
           "columns": [
-            "user_id",
+            "profile_id",
             "name"
           ],
           "isUnique": true
         }
       },
       "foreignKeys": {
-        "library_user_id_users_id_fk": {
-          "name": "library_user_id_users_id_fk",
+        "library_profile_id_profiles_id_fk": {
+          "name": "library_profile_id_profiles_id_fk",
           "tableFrom": "library",
-          "tableTo": "users",
+          "tableTo": "profiles",
           "columnsFrom": [
-            "user_id"
+            "profile_id"
           ],
           "columnsTo": [
             "id"
@@ -1484,6 +1746,58 @@
           "value": "(movie_id IS NOT NULL) != (series_id IS NOT NULL)"
         }
       }
+    },
+    "assets": {
+      "name": "assets",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "storage_key": {
+          "name": "storage_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "original_name": {
+          "name": "original_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     },
     "series": {
       "name": "series",
@@ -1921,6 +2235,14 @@
     "columns": {}
   },
   "internal": {
-    "indexes": {}
+    "indexes": {
+      "profiles_account_name_unique_idx": {
+        "columns": {
+          "lower(\"name\")": {
+            "isExpression": true
+          }
+        }
+      }
+    }
   }
 }

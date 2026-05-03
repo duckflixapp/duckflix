@@ -35,7 +35,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
     .get(
         '/:id/progress',
         async ({ user, params: { id } }) => {
-            const watchHistory = await VideoService.getVideoProgressById({ userId: user.id, videoId: id });
+            const watchHistory = await VideoService.getVideoProgressById({ profileId: user.profileId!, videoId: id });
             return { status: 'success', data: { watchHistory } };
         },
         { params: videoParamsSchema, detail: { summary: 'Progress' } }
@@ -44,7 +44,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
     .post(
         '/:id/progress',
         async ({ user, params: { id }, body: { positionSec } }) => {
-            const watchHistory = await VideoService.saveVideoProgressById({ userId: user.id, videoId: id, positionSec });
+            const watchHistory = await VideoService.saveVideoProgressById({ profileId: user.profileId!, videoId: id, positionSec });
             return { status: 'success', data: { watchHistory } };
         },
         { params: videoParamsSchema, body: createProgressSchema, detail: { summary: 'Save Progress' } }
@@ -137,13 +137,13 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                         }
 
                         const video = await VideoService.initiateUpload(metadata, {
-                            userId: user.id,
+                            accountId: user.id,
                             status: videoFile ? 'processing' : 'downloading',
                         });
 
                         if (videoFile && savedVideoPath) {
                             processVideoWorkflow({
-                                userId: user.id,
+                                accountId: user.id,
                                 videoId: video.id,
                                 type: metadata.type,
                                 imdbId: metadata.imdbId,
@@ -153,7 +153,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             }).catch((e) => handleWorkflowError(video.id, e, 'video'));
                         } else if (savedTorrentPath) {
                             processTorrentFileWorkflow({
-                                userId: user.id,
+                                accountId: user.id,
                                 videoId: video.id,
                                 type: metadata.type,
                                 imdbId: metadata.imdbId,
@@ -184,7 +184,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
             .delete(
                 '/:id',
                 async ({ params: { id }, user, set }) => {
-                    await VideoService.deleteVideoById(id, { userId: user.id });
+                    await VideoService.deleteVideoById(id, { accountId: user.id });
                     set.status = 204;
                 },
                 { params: videoParamsSchema, detail: { summary: 'Remove' } }
@@ -265,7 +265,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
 
                     .delete(
                         '/:subtitleId',
-                        async ({ params: { videoId, subtitleId }, set }) => {
+                        async ({ params: { id: videoId, subtitleId }, set }) => {
                             await SubtitlesService.deleteSubtitleById({ videoId, subtitleId });
                             set.status = 204;
                         },

@@ -4,7 +4,7 @@ import { videos, videoVersions } from '@schema/video.schema';
 import { logger } from '@shared/configs/logger';
 import { notifyJobStatus } from '@shared/services/notifications/notification.helper';
 
-export const recoverZombieProcesses = async (systemUserId: string) => {
+export const recoverZombieProcesses = async (systemAccountId: string) => {
     const zombies = await db.query.videoVersions.findMany({
         where: inArray(videoVersions.status, ['processing', 'waiting']),
     });
@@ -26,7 +26,7 @@ export const recoverZombieProcesses = async (systemUserId: string) => {
     for (const version of zombies) {
         try {
             await notifyJobStatus(
-                systemUserId,
+                systemAccountId,
                 'error',
                 'Processing failed',
                 `Version ${version.height}p of "${version.videoId}" was interrupted and marked as error.`,
@@ -49,7 +49,7 @@ export const recoverZombieProcesses = async (systemUserId: string) => {
     }
 };
 
-export const recoverZombieMovies = async (systemUserId: string) => {
+export const recoverZombieMovies = async (systemAccountId: string) => {
     const zombies = await db.query.videos.findMany({
         where: inArray(videos.status, ['processing', 'downloading']),
     });
@@ -71,7 +71,7 @@ export const recoverZombieMovies = async (systemUserId: string) => {
     for (const video of zombies) {
         try {
             await notifyJobStatus(
-                systemUserId,
+                systemAccountId,
                 'error',
                 'Processing failed',
                 `Video "${video.id}" was interrupted and marked as error.`,

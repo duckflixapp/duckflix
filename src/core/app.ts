@@ -7,8 +7,9 @@ import { documentationTags } from '@shared/configs/openapi';
 import { errorPlugin } from '@shared/errors';
 import { openapi } from '@elysiajs/openapi';
 import { v1 } from '../routes/v1';
+import { assetsRouter } from '../routes/assets';
 
-const app = new Elysia().use(loggerPlugin).use(errorPlugin).use(corsPlugin).use(helmetPlugin).use(v1);
+const app = new Elysia().use(loggerPlugin).use(errorPlugin).use(corsPlugin).use(helmetPlugin).use(assetsRouter).use(v1);
 
 if (env.NODE_ENV !== 'production') {
     app.use(

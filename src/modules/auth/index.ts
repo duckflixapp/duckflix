@@ -1,19 +1,11 @@
 import { Elysia, t } from 'elysia';
-import crypto from 'node:crypto';
 import * as AuthService from './auth.service';
 import { registerSchema, loginSchema, loginChallengeSchema, verifyEmailSchema, stepUpSchema } from './auth.schema';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { UnauthorizedError } from '@shared/middlewares/auth.middleware';
-import { env } from '@core/env';
-import { limits } from '@shared/configs/limits.config';
 import { createRateLimit } from '@shared/configs/ratelimit';
 import { trustProxy } from '@shared/plugins/trust-proxy';
-
-const secure = env.NODE_ENV === 'production';
-const accessMaxAge = limits.authentication.access_token_expiry_ms / 1000;
-const sessionMaxAge = limits.authentication.session_expiry_ms / 1000;
-const apiBasePath = new URL(env.BASE_URL).pathname.replace(/\/$/, '');
-const authCookiePath = `${apiBasePath}/auth`;
+import { clearAuthCookies, refreshAuthCookies, setAuthCookies } from '@shared/utils/cookies';
 
 const getAuthContext = (headers: Record<string, string | undefined>, clientIp?: string | null) => ({
     ip: clientIp ?? undefined,
@@ -24,43 +16,6 @@ const getAuthContext = (headers: Record<string, string | undefined>, clientIp?: 
         platform: headers['sec-ch-ua-platform'],
     },
 });
-
-type CookieSetter = {
-    set: (options: {
-        value: string;
-        httpOnly: boolean;
-        secure: boolean;
-        maxAge?: number;
-        sameSite: 'lax' | 'strict';
-        path?: string;
-        domain?: string;
-    }) => void;
-};
-
-const setAuthCookies = (
-    cookie: { refresh_token: CookieSetter; auth_token: CookieSetter; csrf_token: CookieSetter },
-    session: { token: string; refreshToken: string }
-) => {
-    const csrfTokenString = crypto.randomBytes(32).toString('hex');
-
-    cookie.refresh_token.set({
-        value: session.refreshToken,
-        httpOnly: true,
-        secure,
-        maxAge: sessionMaxAge,
-        sameSite: 'lax',
-        path: authCookiePath,
-    });
-    cookie.auth_token.set({ value: session.token, httpOnly: true, secure, maxAge: accessMaxAge, sameSite: 'lax' });
-    cookie.csrf_token.set({
-        value: csrfTokenString,
-        httpOnly: false,
-        secure,
-        sameSite: 'lax',
-        domain: env.DOMAIN,
-        maxAge: sessionMaxAge,
-    });
-};
 
 const cookieSchema = t.Cookie({
     auth_token: t.Optional(t.String()),
@@ -75,10 +30,12 @@ export const authRouter = new Elysia({ prefix: '/auth' })
     .use(createRateLimit({ max: 10, duration: 5000 }))
     .post(
         '/register',
-        async ({ body, set }) => {
-            await AuthService.register(body.name, body.email, body.password);
+        async ({ body, headers, cookie, clientIp, set }) => {
+            const result = await AuthService.register(body.email, body.password, getAuthContext(headers, clientIp));
+            setAuthCookies(cookie, result);
+
             set.status = 201;
-            return { status: 'success' };
+            return { status: 'success', user: result.user };
         },
         { body: registerSchema, detail: { tags: ['Auth'], summary: 'Register' } }
     )
@@ -135,19 +92,8 @@ export const authRouter = new Elysia({ prefix: '/auth' })
             const oldRefreshToken = refresh_token.value;
             if (!oldRefreshToken) throw new UnauthorizedError('Refresh token missing');
 
-            const result = await AuthService.refresh(oldRefreshToken, getAuthContext(headers, clientIp));
-            const csrfTokenString = crypto.randomBytes(32).toString('hex');
-
-            refresh_token.set({
-                value: result.refreshToken,
-                httpOnly: true,
-                secure,
-                maxAge: sessionMaxAge,
-                sameSite: 'strict',
-                path: authCookiePath,
-            });
-            auth_token.set({ value: result.token, httpOnly: true, secure, maxAge: accessMaxAge, sameSite: 'lax' });
-            csrf_token.set({ value: csrfTokenString, httpOnly: false, secure, sameSite: 'lax', domain: env.DOMAIN, maxAge: sessionMaxAge });
+            const result = await AuthService.refresh(oldRefreshToken, getAuthContext(headers, clientIp), auth_token.value);
+            refreshAuthCookies({ refresh_token, auth_token, csrf_token }, result);
 
             return { status: 'success' };
         },
@@ -162,19 +108,15 @@ export const authRouter = new Elysia({ prefix: '/auth' })
                 accessToken: auth_token.value,
             });
 
-            auth_token.remove();
-            csrf_token.domain = env.DOMAIN;
-            csrf_token.remove();
-            refresh_token.path = authCookiePath;
-            refresh_token.remove();
+            clearAuthCookies({ refresh_token, auth_token, csrf_token });
 
             return { status: 'success' };
         },
-        { auth: { verified: false }, detail: { tags: ['Auth'], summary: 'Logout' } }
+        { auth: { verified: false, selectedProfile: false }, detail: { tags: ['Auth'], summary: 'Logout' } }
     )
     .group('/step-up', (app) =>
         app
-            .guard({ auth: { verified: false } })
+            .guard({ auth: { verified: false, selectedProfile: false } })
             .post(
                 '/',
                 async ({ body, user }) => {

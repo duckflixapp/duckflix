@@ -67,7 +67,7 @@ export const getMovies = async (options: {
                         uploader: {
                             columns: {
                                 id: true,
-                                name: true,
+                                email: true,
                                 role: true,
                                 system: true,
                             },
@@ -143,7 +143,7 @@ export const updateMovieById = async (id: string, data: Partial<MovieMetadata>):
     return getMovieById(id);
 };
 
-export const getMovieById = async (id: string, options: { userId: string | null } = { userId: null }): Promise<MovieDetailedDTO> => {
+export const getMovieById = async (id: string, options: { profileId: string | null } = { profileId: null }): Promise<MovieDetailedDTO> => {
     const result = await db.query.movies.findFirst({
         where: eq(movies.id, id),
         with: {
@@ -159,7 +159,7 @@ export const getMovieById = async (id: string, options: { userId: string | null 
                     uploader: {
                         columns: {
                             id: true,
-                            name: true,
+                            email: true,
                             role: true,
                             system: true,
                         },
@@ -171,12 +171,12 @@ export const getMovieById = async (id: string, options: { userId: string | null 
 
     if (!result) throw new MovieNotFoundError();
 
-    const inLibraryPromise = options.userId
+    const inLibraryPromise = options.profileId
         ? db
               .select({ value: count() })
               .from(libraries)
               .leftJoin(libraryItems, eq(libraries.id, libraryItems.libraryId))
-              .where(and(eq(libraries.type, 'watchlist'), eq(libraries.userId, options.userId), eq(libraryItems.movieId, id)))
+              .where(and(eq(libraries.type, 'watchlist'), eq(libraries.profileId, options.profileId), eq(libraryItems.movieId, id)))
         : Promise.resolve(null);
 
     const castPromise = getOrSyncMovieCast(result.id, result.tmdbId).catch((err) => {
@@ -193,7 +193,7 @@ export const getMovieById = async (id: string, options: { userId: string | null 
     };
 };
 
-export const getFeatured = async (options: { userId: string | null } = { userId: null }) => {
+export const getFeatured = async (options: { profileId: string | null } = { profileId: null }) => {
     // internal logic to find featured movie...
     const featured = await db.query.movies.findFirst({
         where: isNotNull(movies.bannerUrl),

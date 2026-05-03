@@ -1,26 +1,30 @@
 import { db } from '@shared/configs/db';
-import { users } from '@schema/user.schema';
+import { accounts, profiles } from '@schema/user.schema';
 import { systemSettings } from '@shared/services/system.service';
 import { logger } from '@shared/configs/logger';
 import { checkHardwareDecoding } from '@shared/services/video';
 import { initializeWatcher } from '@modules/videos/workflows/watcher.workflow';
-import { fetchSystemUserId, setSystemUserId } from '@shared/configs/system';
+import { fetchSystemAccountId, setSystemAccountId } from '@shared/configs/system';
 import { recoverZombieMovies, recoverZombieProcesses } from './recovery';
 import { seedDatabase } from './seeder';
 import { filesCleanup } from './cleanup';
+import { initializeBundledAssets } from './assets';
 
 export const initalize = async () => {
     await systemSettings.update({}); // update with default settings
 
     // initialize system user
-    const systemUserId = await initializeSystemUser();
+    const systemAccountId = await initializeSystemUser();
 
     // cleanup
     await filesCleanup();
 
+    // initialize bundled public assets
+    await initializeBundledAssets();
+
     // recovery
-    await recoverZombieProcesses(systemUserId);
-    await recoverZombieMovies(systemUserId);
+    await recoverZombieProcesses(systemAccountId);
+    await recoverZombieMovies(systemAccountId);
 
     // seed genres if needed
     await seedDatabase();
@@ -29,17 +33,23 @@ export const initalize = async () => {
     await checkHardwareDecoding();
 
     // initialize watcher
-    await initializeWatcher(systemUserId);
+    await initializeWatcher(systemAccountId);
     logger.info('System initialized successfully.');
 };
 
 const initializeSystemUser = async () => {
-    const systemUserId = await fetchSystemUserId();
-    if (systemUserId) return systemUserId;
+    const systemAccountId = await fetchSystemAccountId();
+    if (systemAccountId) return systemAccountId;
 
-    const results = await db.insert(users).values({ name: 'system', email: 'system', password: 'system', system: true }).returning();
-    if (!results[0]) throw new Error('Failed creating system user');
+    const account = await db.transaction(async (tx) => {
+        const [account] = await tx.insert(accounts).values({ email: 'system', password: 'system', system: true }).returning();
+        if (!account) throw new Error('Failed creating system user');
 
-    setSystemUserId(results[0].id);
-    return results[0].id;
+        await tx.insert(profiles).values({ accountId: account.id, name: 'system' });
+
+        return account;
+    });
+
+    setSystemAccountId(account.id);
+    return account.id;
 };

@@ -2,7 +2,8 @@ import type { VideoStatus, VideoType, VideoVersionStatus } from '@duckflixapp/sh
 import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { relations, type InferSelectModel } from 'drizzle-orm';
 
-import { users } from './user.schema';
+import { accounts } from './user.schema';
+import { profiles } from './user.schema';
 import { movies } from './movie.schema';
 import { seriesEpisodes } from './series.schema';
 
@@ -13,7 +14,7 @@ export const videos = sqliteTable('videos', {
     id: text('id')
         .primaryKey()
         .$defaultFn(() => crypto.randomUUID()),
-    uploaderId: text('uploader_id').references(() => users.id, { onDelete: 'set null' }),
+    uploaderId: text('uploader_id').references(() => accounts.id, { onDelete: 'set null' }),
     duration: integer('duration'),
     status: text('status').$type<VideoStatus>().default('processing').notNull(),
     type: text('type').$type<VideoType>().notNull(),
@@ -63,9 +64,9 @@ export const watchHistory = sqliteTable(
         id: text('id')
             .primaryKey()
             .$defaultFn(() => crypto.randomUUID()),
-        userId: text('user_id')
+        profileId: text('profile_id')
             .notNull()
-            .references(() => users.id, { onDelete: 'cascade' }),
+            .references(() => profiles.id, { onDelete: 'cascade' }),
         videoId: text('video_id')
             .notNull()
             .references(() => videos.id, { onDelete: 'cascade' }),
@@ -75,7 +76,7 @@ export const watchHistory = sqliteTable(
             .notNull()
             .$defaultFn(() => new Date().toISOString()),
     },
-    (table) => [uniqueIndex('user_video_idx').on(table.userId, table.videoId)]
+    (table) => [uniqueIndex('profile_video_idx').on(table.profileId, table.videoId)]
 );
 
 // ------------------------------------
@@ -92,9 +93,9 @@ export type NewVideoVersion = typeof videoVersions.$inferInsert;
 // Relations
 // ------------------------------------
 export const videosRelations = relations(videos, ({ one, many }) => ({
-    uploader: one(users, {
+    uploader: one(accounts, {
         fields: [videos.uploaderId],
-        references: [users.id],
+        references: [accounts.id],
     }),
     movie: one(movies, {
         fields: [videos.id],
@@ -122,9 +123,9 @@ export const subtitlesRelations = relations(subtitles, ({ one }) => ({
 }));
 
 export const watchHistoryRelations = relations(watchHistory, ({ one }) => ({
-    user: one(users, {
-        fields: [watchHistory.userId],
-        references: [users.id],
+    profile: one(profiles, {
+        fields: [watchHistory.profileId],
+        references: [profiles.id],
     }),
     video: one(videos, {
         fields: [watchHistory.videoId],

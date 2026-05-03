@@ -1,26 +1,66 @@
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import Elysia from 'elysia';
-import { resetPasswordSchema, sessionIdSchema, setupTotpSchema } from './account.schema';
+import { markAccountNotificationsSchema, resetPasswordSchema, sessionIdSchema, setupTotpSchema } from './account.schema';
 import {
-    activateTotp,
-    cancelTotpSetup,
-    deactivateTotp,
+    clearAccountNotifications,
     deleteAccount,
+    getAccountNotifications,
+    getMe,
     getSessionById,
     getSessions,
-    getTotpSetup,
     getTwoFactorStatus,
+    markAccountNotifications,
     resetPassword,
     revokeSessionById,
 } from './account.service';
-import { env } from '@core/env';
-
-const apiBasePath = new URL(env.BASE_URL).pathname.replace(/\/$/, '');
-const authCookiePath = `${apiBasePath}/auth`;
+import { activateTotp, cancelTotpSetup, deactivateTotp, getTotpSetup } from './totp.service';
+import { clearAuthCookies } from '@shared/utils/cookies';
 
 export const accountRouter = new Elysia({ prefix: '/account' })
     .use(authGuard)
-    .guard({ auth: true })
+    .guard({ auth: { selectedProfile: false } })
+    .get(
+        '/@me',
+        async ({ user }) => {
+            const account = await getMe(user.id);
+            return { status: 'success', data: { account } };
+        },
+        {
+            auth: { verified: false, selectedProfile: false },
+            detail: { tags: ['Account'], summary: 'Get account profile' },
+        }
+    )
+    .get(
+        '/notifications',
+        async ({ user }) => {
+            const notifications = await getAccountNotifications(user.id);
+            return { status: 'success', data: { notifications } };
+        },
+        { detail: { tags: ['Account'], summary: 'List account notifications' } }
+    )
+    .patch(
+        '/notifications/mark',
+        async ({ body, user }) => {
+            const { notificationIds } = markAccountNotificationsSchema.parse(body);
+            await markAccountNotifications(user.id, {
+                markAll: notificationIds.length === 0,
+                notificationIds,
+            });
+            return { status: 'success' };
+        },
+        {
+            body: markAccountNotificationsSchema,
+            detail: { tags: ['Account'], summary: 'Mark account notifications' },
+        }
+    )
+    .delete(
+        '/notifications',
+        async ({ user, status }) => {
+            await clearAccountNotifications(user.id);
+            return status(204);
+        },
+        { detail: { tags: ['Account'], summary: 'Clear account notifications' } }
+    )
     .get(
         '/2fa',
         async ({ user }) => {
@@ -34,7 +74,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             .get(
                 '/',
                 async ({ user }) => {
-                    const sessions = await getSessions({ userId: user.id, currentSessionId: user.sessionId });
+                    const sessions = await getSessions({ accountId: user.id, currentSessionId: user.sessionId });
                     return { status: 'success', data: { sessions } };
                 },
                 {
@@ -44,7 +84,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             .get(
                 '/:id',
                 async ({ params: { id }, user }) => {
-                    const session = await getSessionById({ userId: user.id, sessionId: id, currentSessionId: user.sessionId });
+                    const session = await getSessionById({ accountId: user.id, sessionId: id, currentSessionId: user.sessionId });
                     return { status: 'success', data: { session } };
                 },
                 {
@@ -56,7 +96,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             .delete(
                 '/:id',
                 async ({ params: { id }, user, status }) => {
-                    await revokeSessionById({ userId: user.id, sessionId: id, currentSessionId: user.sessionId });
+                    await revokeSessionById({ accountId: user.id, sessionId: id, currentSessionId: user.sessionId });
                     return status(204);
                 },
                 {
@@ -72,10 +112,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
         async ({ user, cookie }) => {
             await deleteAccount(user.id);
 
-            cookie.auth_token!.remove();
-            cookie.csrf_token!.remove();
-            cookie.refresh_token!.path = authCookiePath;
-            cookie.refresh_token!.remove();
+            clearAuthCookies(cookie);
 
             return { status: 'success' };
         },
@@ -84,7 +121,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
     .patch(
         '/password',
         async ({ body, user }) => {
-            await resetPassword({ userId: user.id, password: body.password });
+            await resetPassword({ accountId: user.id, password: body.password, sessionId: user.sessionId });
             return { status: 'success' };
         },
         { body: resetPasswordSchema, detail: { tags: ['Account'], summary: 'Change Password' } }

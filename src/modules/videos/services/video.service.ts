@@ -188,7 +188,7 @@ const uploadHandlerFactory = (metadata: VideoMetadata) => {
 
 export const initiateUpload = async (
     metadata: VideoMetadata,
-    data: { userId: string; status: 'downloading' | 'processing' }
+    data: { accountId: string; status: 'downloading' | 'processing' }
 ): Promise<VideoMinDTO> => {
     const video = await db.transaction(async (tx) => {
         const [dbVideo] = await tx
@@ -196,7 +196,7 @@ export const initiateUpload = async (
             .values({
                 duration: null,
                 status: data.status,
-                uploaderId: data.userId,
+                uploaderId: data.accountId,
                 type: metadata.type,
             })
             .returning();
@@ -222,7 +222,7 @@ export const getVideoById = async (videoId: string): Promise<VideoDTO> => {
             uploader: {
                 columns: {
                     id: true,
-                    name: true,
+                    email: true,
                     role: true,
                     system: true,
                 },
@@ -258,7 +258,7 @@ export const getVideoById = async (videoId: string): Promise<VideoDTO> => {
     return dto;
 };
 
-export const deleteVideoById = async (videoId: string, context: { userId: string }) => {
+export const deleteVideoById = async (videoId: string, context: { accountId: string }) => {
     const video = await db.query.videos.findFirst({
         where: eq(videos.id, videoId),
         with: {
@@ -285,7 +285,7 @@ export const deleteVideoById = async (videoId: string, context: { userId: string
     await fs.rm(videoDir, { recursive: true, force: true }).catch(() => {});
     await db.delete(videos).where(eq(videos.id, video.id));
     await createAuditLog({
-        actorUserId: context.userId,
+        actorAccountId: context.accountId,
         action: 'video.deleted',
         targetType: 'video',
         targetId: video.id,
@@ -299,12 +299,12 @@ export const deleteVideoById = async (videoId: string, context: { userId: string
     });
 };
 
-export const getVideoProgressById = async (data: { videoId: string; userId: string }) => {
+export const getVideoProgressById = async (data: { videoId: string; profileId: string }) => {
     const [video] = await db
         .select({ id: videos.id, history: watchHistory })
         .from(videos)
         .where(eq(videos.id, data.videoId))
-        .leftJoin(watchHistory, and(eq(watchHistory.videoId, data.videoId), eq(watchHistory.userId, data.userId)));
+        .leftJoin(watchHistory, and(eq(watchHistory.videoId, data.videoId), eq(watchHistory.profileId, data.profileId)));
 
     if (!video) throw new VideoNotFoundError();
 
@@ -313,7 +313,7 @@ export const getVideoProgressById = async (data: { videoId: string; userId: stri
     return toWatchHistoryDTO(video.history);
 };
 
-export const saveVideoProgressById = async (data: { videoId: string; userId: string; positionSec: number }) => {
+export const saveVideoProgressById = async (data: { videoId: string; profileId: string; positionSec: number }) => {
     const [video] = await db.select({ id: videos.id, duration: videos.duration }).from(videos).where(eq(videos.id, data.videoId));
     if (!video) throw new VideoNotFoundError();
 
@@ -323,7 +323,7 @@ export const saveVideoProgressById = async (data: { videoId: string; userId: str
     const [existingProgress] = await db
         .select()
         .from(watchHistory)
-        .where(and(eq(watchHistory.userId, data.userId), eq(watchHistory.videoId, data.videoId)));
+        .where(and(eq(watchHistory.profileId, data.profileId), eq(watchHistory.videoId, data.videoId)));
 
     // if video already started watching dont allow sending progress from 0 where user video started again automatically
     if (!!existingProgress && data.positionSec < 20 && data.positionSec <= existingProgress.lastPosition) {
@@ -333,14 +333,14 @@ export const saveVideoProgressById = async (data: { videoId: string; userId: str
     const [result] = await db
         .insert(watchHistory)
         .values({
-            userId: data.userId,
+            profileId: data.profileId,
             videoId: data.videoId,
             lastPosition: data.positionSec,
             isFinished,
             updatedAt: new Date().toISOString(),
         })
         .onConflictDoUpdate({
-            target: [watchHistory.userId, watchHistory.videoId],
+            target: [watchHistory.profileId, watchHistory.videoId],
             set: {
                 lastPosition: data.positionSec,
                 isFinished,

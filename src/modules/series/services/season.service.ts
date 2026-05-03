@@ -19,7 +19,7 @@ export const getSeasonById = async (seasonId: string) => {
     return toSeasonDTO(season);
 };
 
-export const deleteSeasonById = async (data: { seasonId: string; userId: string }) => {
+export const deleteSeasonById = async (data: { seasonId: string; accountId: string }) => {
     await db.transaction(async (tx) => {
         const season = await tx.query.seriesSeasons.findFirst({
             where: eq(seriesSeasons.id, data.seasonId),
@@ -37,7 +37,7 @@ export const deleteSeasonById = async (data: { seasonId: string; userId: string 
         await tx.delete(seriesSeasons).where(eq(seriesSeasons.id, data.seasonId));
         await createAuditLog(
             {
-                actorUserId: data.userId,
+                actorAccountId: data.accountId,
                 action: 'series.season.deleted',
                 targetType: 'season',
                 targetId: season.id,

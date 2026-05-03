@@ -1,7 +1,7 @@
 import z from 'zod';
 
 export const notificationMessageScheme = z.object({
-    userId: z.string(),
+    accountId: z.string(),
     type: z.enum(['info', 'success', 'error', 'warning']),
     title: z.string(),
     message: z.string(),

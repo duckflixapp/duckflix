@@ -1,8 +1,7 @@
 import argon2 from 'argon2';
 import crypto from 'node:crypto';
 import { db } from '@shared/configs/db';
-import { accountTokens, sessions, totpBackupCodes, users, type User } from '@shared/schema';
-import { libraries } from '@schema/library.schema';
+import { accountTokens, accountTotp, accounts, profiles, sessions, totpBackupCodes, type Account } from '@shared/schema';
 import { and, eq, isNull } from 'drizzle-orm';
 import {
     AuthTemporarilyLockedError,
@@ -11,8 +10,8 @@ import {
     TooManyAuthAttemptsError,
     UserNotCreatedError,
 } from './auth.errors';
-import type { UserDTO } from '@duckflixapp/shared';
-import { toUserDTO } from '@shared/mappers/user.mapper';
+import type { AccountDTO } from '@duckflixapp/shared';
+import { toAccountDTO } from '@shared/mappers/user.mapper';
 import { signToken, verifyToken } from '@utils/jwt';
 import { AppError } from '@shared/errors';
 import { ForbiddenError } from '@shared/middlewares/auth.middleware';
@@ -27,6 +26,8 @@ import { verify } from 'otplib';
 import { parseDevice, type ClientHints } from '@shared/utils/device';
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
+const generateOpaqueToken = () => crypto.randomBytes(32).toString('hex');
+const hashOpaqueToken = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
 const getAuthMetadata = (context: { ip?: string; userAgent?: string }) => ({
     ip: context.ip ?? null,
     userAgent: context.userAgent ?? null,
@@ -35,7 +36,7 @@ const loginChallengeExpiryMs = 5 * 60 * 1000;
 
 type AuthContext = { ip?: string; userAgent?: string; clientHints?: ClientHints };
 type LoginChallengeMethod = 'totp' | 'backup_code';
-type AuthenticatedSession = { token: string; refreshToken: string; user: UserDTO };
+type AuthenticatedSession = { token: string; refreshToken: string; user: AccountDTO };
 type LoginResult =
     | ({ requires2fa: false } & AuthenticatedSession)
     | {
@@ -65,18 +66,38 @@ const auditAuthRateLimit = async (
     });
 };
 
-const verifyTotpCredential = async (user: Pick<User, 'totpEnabled' | 'totpSecret'>, credential: string) => {
-    if (!user.totpSecret || !user.totpEnabled) return false;
+const getAccountTotp = async (accountId: string) => {
+    const [totp] = await db.select().from(accountTotp).where(eq(accountTotp.accountId, accountId)).limit(1);
+    return totp ?? null;
+};
 
-    const result = await verify({ token: credential, secret: user.totpSecret });
+const withTotpStatus = async (account: Account) => {
+    const [totp, profile] = await Promise.all([
+        getAccountTotp(account.id),
+        db
+            .select()
+            .from(profiles)
+            .where(eq(profiles.accountId, account.id))
+            .limit(1)
+            .then(([profile]) => profile ?? null),
+    ]);
+
+    return { ...account, profiles: profile ? [profile] : [], totpEnabled: Boolean(totp?.enabled && totp.secret) };
+};
+
+const verifyTotpCredential = async (accountId: string, credential: string) => {
+    const totp = await getAccountTotp(accountId);
+    if (!totp?.secret || !totp.enabled) return false;
+
+    const result = await verify({ token: credential, secret: totp.secret });
     return result.valid;
 };
 
-const verifyBackupCode = async (userId: string, credential: string) => {
+const verifyBackupCode = async (accountId: string, credential: string) => {
     const backupCodes = await db
         .select({ id: totpBackupCodes.id, codeHash: totpBackupCodes.codeHash })
         .from(totpBackupCodes)
-        .where(and(eq(totpBackupCodes.userId, userId), isNull(totpBackupCodes.usedAt)));
+        .where(and(eq(totpBackupCodes.accountId, accountId), isNull(totpBackupCodes.usedAt)));
 
     const normalizedCredential = credential.trim().toUpperCase();
 
@@ -95,14 +116,15 @@ const verifyBackupCode = async (userId: string, credential: string) => {
     return false;
 };
 
-const getLoginChallengeMethods = async (user: Pick<User, 'id' | 'totpEnabled' | 'totpSecret'>): Promise<LoginChallengeMethod[]> => {
-    if (!user.totpEnabled || !user.totpSecret) return [];
+const getLoginChallengeMethods = async (accountId: string): Promise<LoginChallengeMethod[]> => {
+    const totp = await getAccountTotp(accountId);
+    if (!totp?.enabled || !totp.secret) return [];
 
     const methods: LoginChallengeMethod[] = ['totp'];
     const [backupCode] = await db
         .select({ id: totpBackupCodes.id })
         .from(totpBackupCodes)
-        .where(and(eq(totpBackupCodes.userId, user.id), isNull(totpBackupCodes.usedAt)))
+        .where(and(eq(totpBackupCodes.accountId, accountId), isNull(totpBackupCodes.usedAt)))
         .limit(1);
 
     if (backupCode) methods.push('backup_code');
@@ -110,15 +132,16 @@ const getLoginChallengeMethods = async (user: Pick<User, 'id' | 'totpEnabled' | 
     return methods;
 };
 
-const createLoginChallenge = async (userId: string) => {
-    const challengeToken = crypto.randomBytes(32).toString('hex');
+const createLoginChallenge = async (accountId: string) => {
+    const challengeToken = generateOpaqueToken();
+    const challengeTokenHash = hashOpaqueToken(challengeToken);
     const expiresAt = new Date(Date.now() + loginChallengeExpiryMs).toISOString();
 
     await db.transaction(async (tx) => {
-        await tx.delete(accountTokens).where(and(eq(accountTokens.userId, userId), eq(accountTokens.type, 'login_challenge')));
+        await tx.delete(accountTokens).where(and(eq(accountTokens.accountId, accountId), eq(accountTokens.type, 'login_challenge')));
         await tx.insert(accountTokens).values({
-            userId,
-            token: challengeToken,
+            accountId,
+            token: challengeTokenHash,
             type: 'login_challenge',
             expiresAt,
         });
@@ -127,20 +150,40 @@ const createLoginChallenge = async (userId: string) => {
     return { challengeToken, expiresIn: loginChallengeExpiryMs };
 };
 
+const getSelectedProfileIdFromAccessToken = async (accessToken: string | undefined, session: { id: string; accountId: string }) => {
+    if (!accessToken) return undefined;
+
+    try {
+        const payload = verifyToken(accessToken, { ignoreExpiration: true });
+        if (payload.sub !== session.accountId || payload.sid !== session.id || !payload.profileId) return undefined;
+
+        const [profile] = await db
+            .select({ id: profiles.id })
+            .from(profiles)
+            .where(and(eq(profiles.id, payload.profileId), eq(profiles.accountId, session.accountId)))
+            .limit(1);
+
+        return profile?.id;
+    } catch {
+        return undefined;
+    }
+};
+
 const createAuthenticatedSession = async (
-    user: User,
+    account: Account,
     context: AuthContext,
-    source: 'login' | 'loginChallenge'
+    source: 'login' | 'loginChallenge' | 'register'
 ): Promise<AuthenticatedSession> => {
-    const refreshToken = crypto.randomUUID();
+    const refreshToken = generateOpaqueToken();
+    const refreshTokenHash = hashOpaqueToken(refreshToken);
     const now = new Date().toISOString();
     const device = parseDevice({ userAgent: context.userAgent, clientHints: context.clientHints });
 
     const [session] = await db
         .insert(sessions)
         .values({
-            userId: user.id,
-            token: refreshToken,
+            accountId: account.id,
+            token: refreshTokenHash,
             deviceName: device.deviceName,
             deviceType: device.deviceType,
             browserName: device.browserName,
@@ -156,10 +199,10 @@ const createAuthenticatedSession = async (
 
     if (!session) throw new AppError('Session not created', { statusCode: 500 });
 
-    const token = signToken({ sub: user.id, role: user.role, isVerified: user.verified_email, sid: session.id });
+    const token = signToken({ sub: account.id, role: account.role, isVerified: account.verified_email, sid: session.id });
 
     await createAuditLog({
-        actorUserId: user.id,
+        actorAccountId: account.id,
         action: 'session.created',
         targetType: 'session',
         targetId: session.id,
@@ -169,21 +212,21 @@ const createAuthenticatedSession = async (
         },
     });
     await createAuditLog({
-        actorUserId: user.id,
+        actorAccountId: account.id,
         action: 'auth.login.succeeded',
         targetType: 'user',
-        targetId: user.id,
+        targetId: account.id,
         metadata: {
-            email: user.email,
+            email: account.email,
             twoFactor: source === 'loginChallenge',
             ...getAuthMetadata(context),
         },
     });
 
-    return { token, refreshToken, user: toUserDTO(user) };
+    return { token, refreshToken, user: toAccountDTO(await withTotpStatus(account)) };
 };
 
-export const register = async (name: string, email: string, pass: string): Promise<UserDTO> => {
+export const register = async (email: string, pass: string, context: AuthContext): Promise<AuthenticatedSession> => {
     const normalizedEmail = normalizeEmail(email);
     try {
         authAttemptLimiter.checkRegister(normalizedEmail);
@@ -207,68 +250,59 @@ export const register = async (name: string, email: string, pass: string): Promi
         );
 
     const hashedPassword = await argon2.hash(pass);
-    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationToken = generateOpaqueToken();
+    const verificationTokenHash = hashOpaqueToken(verificationToken);
 
     try {
-        const user = await db.transaction(async (tx) => {
-            const existingUser = await tx.select({ id: users.id }).from(users).where(eq(users.system, false)).limit(1);
+        const account = await db.transaction(async (tx) => {
+            const existingAccount = await tx.select({ id: accounts.id }).from(accounts).where(eq(accounts.system, false)).limit(1);
 
-            const [user] = await tx
-                .insert(users)
+            const [account] = await tx
+                .insert(accounts)
                 .values({
-                    name,
                     email: normalizedEmail,
                     password: hashedPassword,
                     verified_email: registration.trustEmails,
-                    role: existingUser.length === 0 ? 'admin' : 'watcher',
+                    role: existingAccount.length === 0 ? 'admin' : 'watcher',
                 })
                 .returning()
                 .catch((e) => {
                     if (isDuplicateKey(e)) throw new EmailAlreadyExistsError();
                     throw e;
                 });
-            if (!user) throw new UserNotCreatedError();
-
-            // create initial libraries
-            await tx.insert(libraries).values([
-                {
-                    userId: user.id,
-                    name: 'My Watchlist',
-                    type: 'watchlist',
-                },
-            ]);
+            if (!account) throw new UserNotCreatedError();
 
             if (!registration.trustEmails)
                 await tx.insert(accountTokens).values({
-                    userId: user.id,
-                    token: verificationToken,
+                    accountId: account.id,
+                    token: verificationTokenHash,
                     type: 'email_verification',
                     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
                 });
 
-            return user;
+            return account;
         });
 
         authAttemptLimiter.resetRegister(normalizedEmail);
 
         if (!registration.trustEmails)
-            await sendVerificationMail(user.name, user.email, verificationToken).catch((e) => {
-                logger.error({ err: e, email: user.email }, 'Failed to send verification email');
+            await sendVerificationMail(account.email, account.email, verificationToken).catch((e) => {
+                logger.error({ err: e, email: account.email }, 'Failed to send verification email');
             });
 
         await createAuditLog({
-            actorUserId: user.id,
+            actorAccountId: account.id,
             action: 'auth.register.succeeded',
             targetType: 'user',
-            targetId: user.id,
+            targetId: account.id,
             metadata: {
-                email: user.email,
-                role: user.role,
-                verifiedEmail: user.verified_email,
+                email: account.email,
+                role: account.role,
+                verifiedEmail: account.verified_email,
             },
         });
 
-        return toUserDTO(user);
+        return createAuthenticatedSession(account, context, 'register');
     } catch (error) {
         authAttemptLimiter.recordFailedRegister(normalizedEmail);
         throw error;
@@ -276,30 +310,34 @@ export const register = async (name: string, email: string, pass: string): Promi
 };
 
 export const verifyEmail = async (token: string) => {
+    const tokenHash = hashOpaqueToken(token);
     const [storedToken] = await db
         .select()
         .from(accountTokens)
-        .where(and(eq(accountTokens.token, token), eq(accountTokens.type, 'email_verification')));
+        .where(and(eq(accountTokens.token, tokenHash), eq(accountTokens.type, 'email_verification')));
 
     if (!storedToken || new Date() > new Date(storedToken.expiresAt)) {
         throw new AppError('Invalid or expired token', { statusCode: 400 });
     }
 
-    const [user] = await db.select({ id: users.id, email: users.email }).from(users).where(eq(users.id, storedToken.userId));
+    const [account] = await db
+        .select({ id: accounts.id, email: accounts.email })
+        .from(accounts)
+        .where(eq(accounts.id, storedToken.accountId));
 
     await db.transaction(async (tx) => {
-        await tx.update(users).set({ verified_email: true }).where(eq(users.id, storedToken.userId));
+        await tx.update(accounts).set({ verified_email: true }).where(eq(accounts.id, storedToken.accountId));
 
         await tx.delete(accountTokens).where(eq(accountTokens.id, storedToken.id));
     });
 
     await createAuditLog({
-        actorUserId: storedToken.userId,
+        actorAccountId: storedToken.accountId,
         action: 'auth.email.verified',
         targetType: 'user',
-        targetId: storedToken.userId,
+        targetId: storedToken.accountId,
         metadata: {
-            email: user?.email ?? null,
+            email: account?.email ?? null,
         },
     });
 };
@@ -315,9 +353,13 @@ export const login = async (email: string, pass: string, context: AuthContext): 
         throw error;
     }
 
-    const user = await db.query.users.findFirst({ where: and(eq(users.email, normalizedEmail), eq(users.system, false)) });
+    const [account] = await db
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.email, normalizedEmail), eq(accounts.system, false)))
+        .limit(1);
 
-    if (!user) {
+    if (!account) {
         authAttemptLimiter.recordFailedLogin(normalizedEmail);
         await createAuditLog({
             action: 'auth.login.failed',
@@ -331,14 +373,14 @@ export const login = async (email: string, pass: string, context: AuthContext): 
         throw new InvalidCredentialsError();
     }
 
-    const isPasswordValid = await argon2.verify(user.password, pass);
+    const isPasswordValid = await argon2.verify(account.password, pass);
     if (!isPasswordValid) {
         authAttemptLimiter.recordFailedLogin(normalizedEmail);
         await createAuditLog({
-            actorUserId: user.id,
+            actorAccountId: account.id,
             action: 'auth.login.failed',
             targetType: 'user',
-            targetId: user.id,
+            targetId: account.id,
             metadata: {
                 email: normalizedEmail,
                 reason: 'invalid_password',
@@ -350,15 +392,15 @@ export const login = async (email: string, pass: string, context: AuthContext): 
 
     authAttemptLimiter.resetLogin(normalizedEmail);
 
-    const loginChallengeMethods = await getLoginChallengeMethods(user);
+    const loginChallengeMethods = await getLoginChallengeMethods(account.id);
     if (loginChallengeMethods.length > 0) {
-        const loginChallenge = await createLoginChallenge(user.id);
+        const loginChallenge = await createLoginChallenge(account.id);
 
         await createAuditLog({
-            actorUserId: user.id,
+            actorAccountId: account.id,
             action: 'auth.login.2fa_required',
             targetType: 'user',
-            targetId: user.id,
+            targetId: account.id,
             metadata: {
                 email: normalizedEmail,
                 methods: loginChallengeMethods,
@@ -373,7 +415,7 @@ export const login = async (email: string, pass: string, context: AuthContext): 
         };
     }
 
-    const session = await createAuthenticatedSession(user, context, 'login');
+    const session = await createAuthenticatedSession(account, context, 'login');
 
     return { requires2fa: false, ...session };
 };
@@ -384,10 +426,11 @@ export const verifyLoginChallenge = async (
     credential: string,
     context: AuthContext
 ): Promise<AuthenticatedSession> => {
+    const challengeTokenHash = hashOpaqueToken(challengeToken);
     const [storedToken] = await db
         .select()
         .from(accountTokens)
-        .where(and(eq(accountTokens.token, challengeToken), eq(accountTokens.type, 'login_challenge')))
+        .where(and(eq(accountTokens.token, challengeTokenHash), eq(accountTokens.type, 'login_challenge')))
         .limit(1);
 
     if (!storedToken) throw new AppError('Invalid or expired two-factor challenge', { statusCode: 401 });
@@ -397,36 +440,38 @@ export const verifyLoginChallenge = async (
         throw new AppError('Invalid or expired two-factor challenge', { statusCode: 401 });
     }
 
-    const user = await db.query.users.findFirst({
-        where: and(eq(users.id, storedToken.userId), eq(users.system, false)),
-    });
+    const [account] = await db
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.id, storedToken.accountId), eq(accounts.system, false)))
+        .limit(1);
 
-    if (!user) {
+    if (!account) {
         await db.delete(accountTokens).where(eq(accountTokens.id, storedToken.id));
         throw new AppError('Invalid or expired two-factor challenge', { statusCode: 401 });
     }
 
-    const limiterKey = getLoginChallengeLimiterKey(user.email);
+    const limiterKey = getLoginChallengeLimiterKey(account.email);
     try {
         authAttemptLimiter.checkLogin(limiterKey);
     } catch (error) {
         if (error instanceof TooManyAuthAttemptsError || error instanceof AuthTemporarilyLockedError) {
-            await auditAuthRateLimit('login', user.email, error);
+            await auditAuthRateLimit('login', account.email, error);
         }
         throw error;
     }
 
-    const isValid = method === 'totp' ? await verifyTotpCredential(user, credential) : await verifyBackupCode(user.id, credential);
+    const isValid = method === 'totp' ? await verifyTotpCredential(account.id, credential) : await verifyBackupCode(account.id, credential);
 
     if (!isValid) {
         authAttemptLimiter.recordFailedLogin(limiterKey);
         await createAuditLog({
-            actorUserId: user.id,
+            actorAccountId: account.id,
             action: 'auth.login.2fa_failed',
             targetType: 'user',
-            targetId: user.id,
+            targetId: account.id,
             metadata: {
-                email: user.email,
+                email: account.email,
                 method,
                 ...getAuthMetadata(context),
             },
@@ -439,21 +484,21 @@ export const verifyLoginChallenge = async (
 
     if (method === 'backup_code') {
         await createAuditLog({
-            actorUserId: user.id,
+            actorAccountId: account.id,
             action: 'auth.login.backup_code_used',
             targetType: 'user',
-            targetId: user.id,
+            targetId: account.id,
             metadata: getAuthMetadata(context),
         });
     }
 
-    return createAuthenticatedSession(user, context, 'loginChallenge');
+    return createAuthenticatedSession(account, context, 'loginChallenge');
 };
 
 export const logout = async (data: { refreshToken?: string; accessToken?: string }) => {
     let session = data.refreshToken
         ? await db.query.sessions.findFirst({
-              where: eq(sessions.token, data.refreshToken),
+              where: eq(sessions.token, hashOpaqueToken(data.refreshToken)),
           })
         : null;
 
@@ -481,7 +526,7 @@ export const logout = async (data: { refreshToken?: string; accessToken?: string
     }
 
     await createAuditLog({
-        actorUserId: session.userId,
+        actorAccountId: session.accountId,
         action: 'auth.logout',
         targetType: 'session',
         targetId: session.id,
@@ -492,9 +537,10 @@ export const logout = async (data: { refreshToken?: string; accessToken?: string
     });
 };
 
-export const refresh = async (oldToken: string, context: AuthContext) => {
+export const refresh = async (oldToken: string, context: AuthContext, oldAccessToken?: string) => {
+    const oldTokenHash = hashOpaqueToken(oldToken);
     const session = await db.query.sessions.findFirst({
-        where: eq(sessions.token, oldToken),
+        where: eq(sessions.token, oldTokenHash),
     });
 
     if (!session) throw new AppError('Invalid refresh token', { statusCode: 401 });
@@ -509,7 +555,7 @@ export const refresh = async (oldToken: string, context: AuthContext) => {
             .set({ revokedAt: new Date().toISOString() })
             .where(and(eq(sessions.id, session.id), isNull(sessions.revokedAt)));
         await createAuditLog({
-            actorUserId: session.userId,
+            actorAccountId: session.accountId,
             action: 'auth.refresh.expired',
             targetType: 'session',
             targetId: session.id,
@@ -521,19 +567,20 @@ export const refresh = async (oldToken: string, context: AuthContext) => {
         throw new AppError('Session expired', { statusCode: 401 });
     }
 
-    const user = await db.query.users.findFirst({
-        where: eq(users.id, session.userId),
-    });
+    const [account] = await db.select().from(accounts).where(eq(accounts.id, session.accountId)).limit(1);
 
-    if (!user) throw new AppError('User not found or deleted', { statusCode: 404 });
+    if (!account) throw new AppError('User not found or deleted', { statusCode: 404 });
+    const profileId = await getSelectedProfileIdFromAccessToken(oldAccessToken, session);
 
     const accessToken = signToken({
-        sub: user.id,
-        role: user.role,
-        isVerified: user.verified_email,
+        sub: account.id,
+        role: account.role,
+        isVerified: account.verified_email,
         sid: session.id,
+        profileId,
     });
-    const refreshToken = crypto.randomUUID();
+    const refreshToken = generateOpaqueToken();
+    const refreshTokenHash = hashOpaqueToken(refreshToken);
     const now = new Date().toISOString();
     const userAgent = context.userAgent ?? session.userAgent;
     const lastIpAddress = context.ip ?? session.lastIpAddress ?? session.ipAddress;
@@ -542,7 +589,7 @@ export const refresh = async (oldToken: string, context: AuthContext) => {
     const [updatedSession] = await db
         .update(sessions)
         .set({
-            token: refreshToken,
+            token: refreshTokenHash,
             userAgent,
             deviceName: device.deviceName,
             deviceType: device.deviceType,
@@ -558,7 +605,7 @@ export const refresh = async (oldToken: string, context: AuthContext) => {
     if (!updatedSession) throw new ForbiddenError('Session has been revoked.');
 
     await createAuditLog({
-        actorUserId: user.id,
+        actorAccountId: account.id,
         action: 'auth.refresh.succeeded',
         targetType: 'session',
         targetId: session.id,
@@ -572,57 +619,60 @@ export const refresh = async (oldToken: string, context: AuthContext) => {
     return {
         token: accessToken,
         refreshToken: refreshToken,
-        user: toUserDTO(user),
+        user: toAccountDTO(await withTotpStatus(account)),
     };
 };
 
 export const stepUp = async (
-    userId: string,
+    accountId: string,
     scope: string,
     method: string,
     credential: string
 ): Promise<{ token: string; expiresIn: number }> => {
-    const user = await db.query.users.findFirst({
-        where: and(eq(users.id, userId), eq(users.system, false)),
-    });
+    const [account] = await db
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.id, accountId), eq(accounts.system, false)))
+        .limit(1);
 
-    if (!user) throw new AppError('Failed to verify user', { statusCode: 401 });
+    if (!account) throw new AppError('Failed to verify user', { statusCode: 401 });
 
     if (method === 'password') {
-        const isValid = await argon2.verify(user.password, credential);
+        const isValid = await argon2.verify(account.password, credential);
         if (!isValid) throw new AppError('Invalid password', { statusCode: 401 });
     } else if (method === 'totp') {
-        if (!user.totpSecret || !user.totpEnabled) throw new AppError('TOTP not configured', { statusCode: 400 });
-
-        const isValid = await verifyTotpCredential(user, credential);
+        const isValid = await verifyTotpCredential(account.id, credential);
         if (!isValid) throw new AppError('Invalid code', { statusCode: 401 });
     } else throw new AppError('Unsupported method', { statusCode: 400 });
 
     const expiresIn = 5 * 60 * 1000;
-    const token = signToken({ sub: userId, scope, stepUp: true }, expiresIn);
+    const token = signToken({ sub: accountId, scope, stepUp: true }, expiresIn);
 
     await createAuditLog({
-        actorUserId: userId,
+        actorAccountId: accountId,
         action: 'auth.step_up.succeeded',
         targetType: 'user',
-        targetId: userId,
+        targetId: accountId,
         metadata: { scope, method },
     });
 
     return { token, expiresIn };
 };
 
-export const getVerificationMethods = async (userId: string): Promise<string[]> => {
-    const user = await db.query.users.findFirst({
-        where: and(eq(users.id, userId), eq(users.system, false)),
-    });
+export const getVerificationMethods = async (accountId: string): Promise<string[]> => {
+    const [account] = await db
+        .select()
+        .from(accounts)
+        .where(and(eq(accounts.id, accountId), eq(accounts.system, false)))
+        .limit(1);
 
-    if (!user) throw new AppError('Failed to verify user', { statusCode: 401 });
+    if (!account) throw new AppError('Failed to verify user', { statusCode: 401 });
 
     const methods: string[] = [];
+    const totp = await getAccountTotp(account.id);
 
-    if (!!user.password) methods.push('password');
-    if (user.totpEnabled && !!user.totpSecret) methods.push('totp');
+    if (!!account.password) methods.push('password');
+    if (totp?.enabled && !!totp.secret) methods.push('totp');
 
     return methods;
 };

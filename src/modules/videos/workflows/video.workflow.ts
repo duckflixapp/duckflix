@@ -19,7 +19,7 @@ import { getStorageStatistics } from '@shared/services/storage.service';
 import type { VideoType } from '@duckflixapp/shared';
 
 export const processVideoWorkflow = async (data: {
-    userId: string;
+    accountId: string;
     videoId: string;
     tempPath: string;
     originalName: string;
@@ -91,7 +91,7 @@ export const processVideoWorkflow = async (data: {
             });
             await tx.update(videos).set({ duration, status: 'ready' }).where(eq(videos.id, data.videoId));
         });
-        notifyJobStatus(data.userId, 'completed', `Upload completed`, `Video uploaded successfully`, data.videoId).catch(() => {});
+        notifyJobStatus(data.accountId, 'completed', `Upload completed`, `Video uploaded successfully`, data.videoId).catch(() => {});
     } catch (e) {
         await fs.unlink(finalPath).catch(() => {});
         throw new AppError('Video could not be saved in database', { cause: e });

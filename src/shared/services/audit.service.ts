@@ -1,12 +1,12 @@
 import type { PaginatedResponse, UserRole } from '@duckflixapp/shared';
 import { and, count, desc, eq, like } from 'drizzle-orm';
 import { db, type Transaction } from '@shared/configs/db';
-import { auditLogs, users } from '@shared/schema';
+import { accounts, auditLogs, profiles } from '@shared/schema';
 
 type AuditClient = typeof db | Transaction;
 
 type CreateAuditLogInput = {
-    actorUserId?: string | null;
+    actorAccountId?: string | null;
     action: string;
     targetType: string;
     targetId?: string | null;
@@ -15,7 +15,7 @@ type CreateAuditLogInput = {
 
 export type AuditLogListItem = {
     id: string;
-    actorUserId: string | null;
+    actorAccountId: string | null;
     actor: {
         id: string;
         name: string;
@@ -33,12 +33,12 @@ type GetAuditLogsOptions = {
     page: number;
     limit: number;
     action?: string;
-    actorUserId?: string;
+    actorAccountId?: string;
 };
 
 export const createAuditLog = async (data: CreateAuditLogInput, client: AuditClient = db): Promise<void> => {
     await client.insert(auditLogs).values({
-        actorUserId: data.actorUserId ?? null,
+        actorAccountId: data.actorAccountId ?? null,
         action: data.action,
         targetType: data.targetType,
         targetId: data.targetId ?? null,
@@ -51,7 +51,7 @@ export const getAuditLogs = async (options: GetAuditLogsOptions): Promise<Pagina
 
     const conditions = [
         options.action ? like(auditLogs.action, `${options.action}%`) : null,
-        options.actorUserId ? eq(auditLogs.actorUserId, options.actorUserId) : null,
+        options.actorAccountId ? eq(auditLogs.actorAccountId, options.actorAccountId) : null,
     ];
     const filters = and(...conditions.filter((condition) => condition != null));
 
@@ -60,19 +60,20 @@ export const getAuditLogs = async (options: GetAuditLogsOptions): Promise<Pagina
         db
             .select({
                 id: auditLogs.id,
-                actorUserId: auditLogs.actorUserId,
+                actorAccountId: auditLogs.actorAccountId,
                 action: auditLogs.action,
                 targetType: auditLogs.targetType,
                 targetId: auditLogs.targetId,
                 metadata: auditLogs.metadata,
                 createdAt: auditLogs.createdAt,
-                actorId: users.id,
-                actorName: users.name,
-                actorEmail: users.email,
-                actorRole: users.role,
+                actorId: accounts.id,
+                actorName: profiles.name,
+                actorEmail: accounts.email,
+                actorRole: accounts.role,
             })
             .from(auditLogs)
-            .leftJoin(users, eq(auditLogs.actorUserId, users.id))
+            .leftJoin(accounts, eq(auditLogs.actorAccountId, accounts.id))
+            .leftJoin(profiles, eq(profiles.accountId, accounts.id))
             .where(filters)
             .orderBy(desc(auditLogs.createdAt))
             .limit(options.limit)
@@ -84,12 +85,12 @@ export const getAuditLogs = async (options: GetAuditLogsOptions): Promise<Pagina
     return {
         data: results.map((result) => ({
             id: result.id,
-            actorUserId: result.actorUserId,
+            actorAccountId: result.actorAccountId,
             actor:
-                result.actorId && result.actorName && result.actorEmail && result.actorRole
+                result.actorId && result.actorEmail && result.actorRole
                     ? {
                           id: result.actorId,
-                          name: result.actorName,
+                          name: result.actorName ?? 'Unknown',
                           email: result.actorEmail,
                           role: result.actorRole,
                       }

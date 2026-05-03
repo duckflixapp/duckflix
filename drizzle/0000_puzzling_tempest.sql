@@ -5,16 +5,16 @@ CREATE TABLE `system_settings` (
 --> statement-breakpoint
 CREATE TABLE `audit_logs` (
 	`id` text PRIMARY KEY NOT NULL,
-	`actor_user_id` text,
+	`actor_account_id` text,
 	`action` text NOT NULL,
 	`target_type` text NOT NULL,
 	`target_id` text,
 	`metadata` text NOT NULL,
 	`created_at` text NOT NULL,
-	FOREIGN KEY (`actor_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE set null
+	FOREIGN KEY (`actor_account_id`) REFERENCES `accounts`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
-CREATE INDEX `audit_logs_actor_user_id_idx` ON `audit_logs` (`actor_user_id`);--> statement-breakpoint
+CREATE INDEX `audit_logs_actor_user_id_idx` ON `audit_logs` (`actor_account_id`);--> statement-breakpoint
 CREATE INDEX `audit_logs_action_idx` ON `audit_logs` (`action`);--> statement-breakpoint
 CREATE INDEX `audit_logs_created_at_idx` ON `audit_logs` (`created_at`);--> statement-breakpoint
 CREATE TABLE `account_tokens` (
@@ -23,25 +23,21 @@ CREATE TABLE `account_tokens` (
 	`token` text NOT NULL,
 	`type` text NOT NULL,
 	`expires_at` text NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`user_id`) REFERENCES `accounts`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `sessions` (
-	`id` text PRIMARY KEY NOT NULL,
-	`user_id` text NOT NULL,
-	`token` text NOT NULL,
-	`is_used` integer DEFAULT false NOT NULL,
-	`user_agent` text,
-	`ip_address` text,
-	`expires_at` text NOT NULL,
+CREATE TABLE `account_totp` (
+	`account_id` text PRIMARY KEY NOT NULL,
+	`secret` text,
+	`pending_secret` text,
+	`enabled` integer DEFAULT false NOT NULL,
 	`created_at` text NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+	`updated_at` text NOT NULL,
+	FOREIGN KEY (`account_id`) REFERENCES `accounts`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `sessions_token_unique` ON `sessions` (`token`);--> statement-breakpoint
-CREATE TABLE `users` (
+CREATE TABLE `accounts` (
 	`id` text PRIMARY KEY NOT NULL,
-	`name` text NOT NULL,
 	`email` text NOT NULL,
 	`is_verified_email` integer DEFAULT false NOT NULL,
 	`password` text NOT NULL,
@@ -50,7 +46,49 @@ CREATE TABLE `users` (
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);--> statement-breakpoint
+CREATE UNIQUE INDEX `accounts_email_unique` ON `accounts` (`email`);--> statement-breakpoint
+CREATE TABLE `profiles` (
+	`id` text PRIMARY KEY NOT NULL,
+	`account_id` text NOT NULL,
+	`picture_asset_id` text,
+	`name` text NOT NULL,
+	`pin_hash` text,
+	`created_at` text NOT NULL,
+	FOREIGN KEY (`account_id`) REFERENCES `accounts`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`picture_asset_id`) REFERENCES `assets`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE INDEX `profiles_account_id_idx` ON `profiles` (`account_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `profiles_account_name_unique_idx` ON `profiles` (`account_id`,lower("name"));--> statement-breakpoint
+CREATE TABLE `sessions` (
+	`id` text PRIMARY KEY NOT NULL,
+	`user_id` text NOT NULL,
+	`token` text NOT NULL,
+	`user_agent` text,
+	`device_name` text,
+	`device_type` text,
+	`browser_name` text,
+	`os_name` text,
+	`ip_address` text,
+	`last_ip_address` text,
+	`last_refreshed_at` text,
+	`expires_at` text NOT NULL,
+	`revoked_at` text,
+	`created_at` text NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `accounts`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `sessions_token_unique` ON `sessions` (`token`);--> statement-breakpoint
+CREATE INDEX `session_user_id` ON `sessions` (`user_id`);--> statement-breakpoint
+CREATE TABLE `totp_backup_codes` (
+	`id` text PRIMARY KEY NOT NULL,
+	`user_id` text NOT NULL,
+	`code_hash` text NOT NULL,
+	`used_at` integer,
+	`created_at` integer,
+	FOREIGN KEY (`user_id`) REFERENCES `accounts`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
 CREATE TABLE `subtitles` (
 	`id` text PRIMARY KEY NOT NULL,
 	`video_id` text NOT NULL,
@@ -83,21 +121,21 @@ CREATE TABLE `videos` (
 	`status` text DEFAULT 'processing' NOT NULL,
 	`type` text NOT NULL,
 	`created_at` text NOT NULL,
-	FOREIGN KEY (`uploader_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE set null
+	FOREIGN KEY (`uploader_id`) REFERENCES `accounts`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
 CREATE TABLE `watch_history` (
 	`id` text PRIMARY KEY NOT NULL,
-	`user_id` text NOT NULL,
+	`profile_id` text NOT NULL,
 	`video_id` text NOT NULL,
 	`last_position` integer DEFAULT 0 NOT NULL,
 	`is_finished` integer DEFAULT false NOT NULL,
 	`updated_at` text NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`profile_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`video_id`) REFERENCES `videos`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `user_video_idx` ON `watch_history` (`user_id`,`video_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `profile_video_idx` ON `watch_history` (`profile_id`,`video_id`);--> statement-breakpoint
 CREATE TABLE `movie_genres` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL
@@ -190,15 +228,15 @@ CREATE TABLE `notifications` (
 --> statement-breakpoint
 CREATE TABLE `library` (
 	`id` text PRIMARY KEY NOT NULL,
-	`user_id` text NOT NULL,
+	`profile_id` text NOT NULL,
 	`name` text NOT NULL,
 	`type` text DEFAULT 'custom' NOT NULL,
 	`size` integer DEFAULT 0 NOT NULL,
 	`created_at` text NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`profile_id`) REFERENCES `profiles`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `user_name_unique_key` ON `library` (`user_id`,`name`);--> statement-breakpoint
+CREATE UNIQUE INDEX `profile_name_unique_key` ON `library` (`profile_id`,`name`);--> statement-breakpoint
 CREATE TABLE `library_items` (
 	`id` text PRIMARY KEY NOT NULL,
 	`library_id` text NOT NULL,
@@ -213,6 +251,15 @@ CREATE TABLE `library_items` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `library_movie_unique_idx` ON `library_items` (`library_id`,`movie_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `library_series_unique_idx` ON `library_items` (`library_id`,`series_id`);--> statement-breakpoint
+CREATE TABLE `assets` (
+	`id` text PRIMARY KEY NOT NULL,
+	`type` text NOT NULL,
+	`source` text NOT NULL,
+	`storage_key` text NOT NULL,
+	`original_name` text,
+	`created_at` text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `series` (
 	`id` text PRIMARY KEY NOT NULL,
 	`title` text NOT NULL,

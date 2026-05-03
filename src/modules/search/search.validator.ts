@@ -23,18 +23,16 @@ export const searchQuerySchema = z.object({
             z.tuple([z.enum(SORT_VALUES), z.enum(SORT_ORDER_VALUES)])
         )
         .default(['title', 'desc']),
-    genres: z.preprocess(
-        (val) => {
-            if (typeof val === 'string') {
-                const split = val.split(',').filter((v) => !!v.length);
-                return split;
-            }
-            if (Array.isArray(val)) return val;
-            return undefined;
-        },
-        z
-            .array(z.string().max(64))
-            .default([])
-            .transform((arr) => Array.from(new Set(arr)).map((v) => v.toLowerCase()))
-    ),
+    genres: z
+        .preprocess(
+            (val) => {
+                if (typeof val === 'string' && val.length > 0) {
+                    return val.split(',').filter(Boolean);
+                }
+                if (Array.isArray(val)) return val;
+                return [];
+            },
+            z.array(z.string().max(64)).transform((arr) => Array.from(new Set(arr)).map((v) => v.toLowerCase()))
+        )
+        .default([]),
 });

@@ -17,6 +17,7 @@ const envSchema = z.object({
     DROP_FOLDER: z.string().min(1),
     TEMP_FOLDER: z.string().min(1),
     STORAGE_FOLDER: z.string().min(1),
+    PUBLIC_FOLDER: z.string().min(1).optional(),
     LIVE_FOLDER: z.string().min(1),
     LOG_FOLDER: z.string().min(1),
 

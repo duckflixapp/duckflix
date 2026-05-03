@@ -8,10 +8,10 @@ import { isDuplicateKey } from '@shared/db.errors';
 import { LibraryNotFoundError } from './library.errors';
 import { createAuditLog } from '@shared/services/audit.service';
 
-export const getUserLibraries = async (userId: string, options?: { custom?: boolean }): Promise<LibraryMinDTO[]> => {
+export const getUserLibraries = async (profileId: string, options?: { custom?: boolean }): Promise<LibraryMinDTO[]> => {
     const custom = !!options?.custom ? eq(libraries.type, 'custom') : null;
 
-    const conditions = [custom, eq(libraries.userId, userId)];
+    const conditions = [custom, eq(libraries.profileId, profileId)];
     const filters = and(...conditions.filter((c) => c != null));
 
     const results = await db.select().from(libraries).where(filters);
@@ -21,7 +21,7 @@ export const getUserLibraries = async (userId: string, options?: { custom?: bool
 
 const reservedLibraryNames = ['watchlist'];
 const MAX_LIBRARIES = 10;
-export const createUserLibrary = async (userId: string, context: { name: string }): Promise<LibraryMinDTO> => {
+export const createUserLibrary = async (profileId: string, context: { accountId: string; name: string }): Promise<LibraryMinDTO> => {
     if (reservedLibraryNames.includes(context.name.toLowerCase())) throw new AppError('Name is unavailable', { statusCode: 409 });
 
     try {
@@ -29,7 +29,7 @@ export const createUserLibrary = async (userId: string, context: { name: string 
             const [userLibraries] = await tx
                 .select({ value: count() })
                 .from(libraries)
-                .where(and(eq(libraries.userId, userId), eq(libraries.type, 'custom')));
+                .where(and(eq(libraries.profileId, profileId), eq(libraries.type, 'custom')));
 
             if (!userLibraries || userLibraries?.value >= MAX_LIBRARIES)
                 throw new AppError(`You have reached the library limit (max ${MAX_LIBRARIES}).`, { statusCode: 403 });
@@ -37,7 +37,7 @@ export const createUserLibrary = async (userId: string, context: { name: string 
                 .insert(libraries)
                 .values({
                     name: context.name,
-                    userId: userId,
+                    profileId: profileId,
                     type: 'custom',
                 })
                 .returning();
@@ -46,7 +46,7 @@ export const createUserLibrary = async (userId: string, context: { name: string 
 
             await createAuditLog(
                 {
-                    actorUserId: userId,
+                    actorAccountId: context.accountId,
                     action: 'library.created',
                     targetType: 'library',
                     targetId: result.id,
@@ -68,12 +68,12 @@ export const createUserLibrary = async (userId: string, context: { name: string 
     }
 };
 
-export const deleteUserLibrary = async (userId: string, libraryId: string): Promise<void> => {
+export const deleteUserLibrary = async (profileId: string, libraryId: string, context: { accountId: string }): Promise<void> => {
     await db.transaction(async (tx) => {
         const [library] = await tx
             .select({ id: libraries.id, type: libraries.type, name: libraries.name })
             .from(libraries)
-            .where(and(eq(libraries.userId, userId), eq(libraries.id, libraryId)));
+            .where(and(eq(libraries.profileId, profileId), eq(libraries.id, libraryId)));
 
         if (!library) throw new LibraryNotFoundError();
 
@@ -82,7 +82,7 @@ export const deleteUserLibrary = async (userId: string, libraryId: string): Prom
         await tx.delete(libraries).where(eq(libraries.id, library.id));
         await createAuditLog(
             {
-                actorUserId: userId,
+                actorAccountId: context.accountId,
                 action: 'library.deleted',
                 targetType: 'library',
                 targetId: library.id,
@@ -96,13 +96,13 @@ export const deleteUserLibrary = async (userId: string, libraryId: string): Prom
     });
 };
 export const addContentToUserLibrary = async (
-    userId: string,
+    profileId: string,
     libraryId: string,
     contentId: string,
     type: 'movie' | 'series'
 ): Promise<void> => {
     try {
-        const conditions = [eq(libraries.userId, userId)];
+        const conditions = [eq(libraries.profileId, profileId)];
         if (libraryId === 'watchlist') conditions.push(eq(libraries.type, 'watchlist'));
         else conditions.push(eq(libraries.id, libraryId));
 
@@ -130,12 +130,12 @@ export const addContentToUserLibrary = async (
 };
 
 export const removeContentFromUserLibrary = async (
-    userId: string,
+    profileId: string,
     libraryId: string,
     contentId: string,
     type: 'movie' | 'series'
 ): Promise<void> => {
-    const conditions = [eq(libraries.userId, userId)];
+    const conditions = [eq(libraries.profileId, profileId)];
     if (libraryId === 'watchlist') conditions.push(eq(libraries.type, 'watchlist'));
     else conditions.push(eq(libraries.id, libraryId));
 
@@ -158,10 +158,12 @@ export const removeContentFromUserLibrary = async (
     });
 };
 
-export const getUserLibrary = async (userId: string, libraryId: string): Promise<LibraryDTO> => {
+export const getUserLibrary = async (profileId: string, libraryId: string): Promise<LibraryDTO> => {
     const result = await db.query.libraries.findFirst({
-        where: and(eq(libraries.userId, userId), eq(libraries.id, libraryId)),
-        with: { user: true },
+        where: and(eq(libraries.profileId, profileId), eq(libraries.id, libraryId)),
+        with: {
+            profile: true,
+        },
     });
 
     if (!result) throw new LibraryNotFoundError();
@@ -170,7 +172,7 @@ export const getUserLibrary = async (userId: string, libraryId: string): Promise
 };
 
 export const getUserLibraryItems = async (
-    userId: string,
+    profileId: string,
     libraryId: string,
     options: {
         page: number;
@@ -191,7 +193,7 @@ export const getUserLibraryItems = async (
         const [library] = await tx
             .select({ id: libraries.id })
             .from(libraries)
-            .where(and(eq(libraries.id, libraryId), eq(libraries.userId, userId)));
+            .where(and(eq(libraries.id, libraryId), eq(libraries.profileId, profileId)));
 
         if (!library) throw new LibraryNotFoundError();
 

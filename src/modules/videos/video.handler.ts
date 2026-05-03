@@ -14,15 +14,15 @@ export const handleWorkflowError = async (videoId: string, error: unknown, conte
             .update(videos)
             .set({ status: 'error' })
             .where(eq(videos.id, videoId))
-            .returning({ userId: videos.uploaderId });
+            .returning({ accountId: videos.uploaderId });
 
-        const userId = updatedVideo?.userId;
-        if (userId) {
+        const accountId = updatedVideo?.accountId;
+        if (accountId) {
             const title = `Error while processing ${context}`;
             let message = 'Unexpected error.';
             if (error instanceof AppError) message = error.message;
 
-            notifyJobStatus(userId, 'error', title, message, videoId);
+            notifyJobStatus(accountId, 'error', title, message, videoId);
         }
     } catch (err: unknown) {
         logger.fatal({ err, videoId, context }, 'CRITICAL: Failed to mark video status as error in DB');
@@ -45,9 +45,9 @@ export const handleProcessingError = async (videoVerId: string, error: unknown, 
         });
 
         if (updatedVersion?.videoId) {
-            const [videoData] = await db.select({ userId: videos.uploaderId }).from(videos).where(eq(videos.id, updatedVersion.videoId));
+            const [videoData] = await db.select({ accountId: videos.uploaderId }).from(videos).where(eq(videos.id, updatedVersion.videoId));
 
-            if (videoData?.userId) {
+            if (videoData?.accountId) {
                 const title = `Error while ${context === 'task' ? 'doing task' : ' transcoding video'}`;
                 let message = 'Unexpected error.';
 
@@ -56,7 +56,7 @@ export const handleProcessingError = async (videoVerId: string, error: unknown, 
                 }
 
                 if (updatedVersion?.videoId)
-                    notifyJobStatus(videoData?.userId, 'error', title, message, updatedVersion.videoId, videoVerId);
+                    notifyJobStatus(videoData?.accountId, 'error', title, message, updatedVersion.videoId, videoVerId);
             }
         }
     } catch (err: unknown) {
@@ -82,16 +82,16 @@ export const handleVideoTask = async (videoVerId: string, context: 'started' | '
 
         if (updatedVersion?.videoId) {
             const [videoData] = await db
-                .select({ id: videos.id, userId: videos.uploaderId })
+                .select({ id: videos.id, accountId: videos.uploaderId })
                 .from(videos)
                 .where(eq(videos.id, updatedVersion.videoId));
 
-            if (!videoData?.userId) return;
+            if (!videoData?.accountId) return;
 
             const title = `Task ${context}`;
             let message = `${capitalize(context)} processing task for: ${videoData.id}`;
 
-            if (updatedVersion?.videoId) notifyJobStatus(videoData?.userId, context, title, message, updatedVersion.videoId, videoVerId);
+            if (updatedVersion?.videoId) notifyJobStatus(videoData?.accountId, context, title, message, updatedVersion.videoId, videoVerId);
         }
         logger.info({ videoVerId, context }, `Video task ${context}`);
     } catch (err: unknown) {

@@ -250,7 +250,7 @@ describe('processVideoWorkflow', () => {
         };
 
         const promise = processVideoWorkflow({
-            userId: 'user-1',
+            accountId: 'user-1',
             videoId: 'video-1',
             tempPath: '/tmp/upload.mkv',
             originalName: 'upload.mkv',
@@ -267,7 +267,7 @@ describe('processVideoWorkflow', () => {
         getStorageStatisticsImpl = async () => ({ availableBytes: 100 });
 
         const promise = processVideoWorkflow({
-            userId: 'user-1',
+            accountId: 'user-1',
             videoId: 'video-1',
             tempPath: '/tmp/upload.mkv',
             originalName: 'upload.mkv',
@@ -288,7 +288,7 @@ describe('processVideoWorkflow', () => {
         };
 
         await processVideoWorkflow({
-            userId: 'user-1',
+            accountId: 'user-1',
             videoId: 'video-1',
             tempPath: '/tmp/upload.mkv',
             originalName: 'movie.mkv',
@@ -319,7 +319,7 @@ describe('processVideoWorkflow', () => {
         };
 
         const promise = processVideoWorkflow({
-            userId: 'user-1',
+            accountId: 'user-1',
             videoId: 'video-1',
             tempPath: '/tmp/upload.mkv',
             originalName: 'movie.mkv',
@@ -348,7 +348,7 @@ describe('processVideoWorkflow', () => {
 
         await expect(
             processVideoWorkflow({
-                userId: 'user-1',
+                accountId: 'user-1',
                 videoId: 'video-1',
                 tempPath: '/tmp/upload.mkv',
                 originalName: 'movie.mkv',

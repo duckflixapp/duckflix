@@ -1,7 +1,7 @@
 import { text, integer, uniqueIndex, check, sqliteTable } from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
 import { movies } from './movie.schema';
-import { users } from './user.schema';
+import { profiles } from './user.schema';
 import { series } from './series.schema';
 
 // ------------------------------------
@@ -13,9 +13,9 @@ export const libraries = sqliteTable(
         id: text('id')
             .primaryKey()
             .$defaultFn(() => crypto.randomUUID()),
-        userId: text('user_id')
+        profileId: text('profile_id')
             .notNull()
-            .references(() => users.id, { onDelete: 'cascade' }),
+            .references(() => profiles.id, { onDelete: 'cascade' }),
         name: text('name').notNull(),
         type: text('type').$type<'custom' | 'watchlist'>().default('custom').notNull(),
         size: integer('size').notNull().default(0),
@@ -23,7 +23,7 @@ export const libraries = sqliteTable(
             .notNull()
             .$defaultFn(() => new Date().toISOString()),
     },
-    (t) => [uniqueIndex('user_name_unique_key').on(t.userId, t.name)]
+    (t) => [uniqueIndex('profile_name_unique_key').on(t.profileId, t.name)]
 );
 
 export const libraryItems = sqliteTable(
@@ -58,9 +58,9 @@ export type LibraryItem = typeof libraryItems.$inferSelect;
 // Relations
 // ------------------------------------
 export const libraryRelations = relations(libraries, ({ one }) => ({
-    user: one(users, {
-        fields: [libraries.userId],
-        references: [users.id],
+    profile: one(profiles, {
+        fields: [libraries.profileId],
+        references: [profiles.id],
     }),
 }));
 
