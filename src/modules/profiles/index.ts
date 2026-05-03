@@ -3,18 +3,20 @@ import { authGuard } from '@shared/middlewares/auth.middleware';
 import { setAuthTokenCookie } from '@shared/utils/cookies';
 import { createRateLimit } from '@shared/configs/ratelimit';
 import {
+    clearSelectedProfile,
     createProfile,
+    deleteProfile,
     getAccountProfiles,
     getProfileAvatars,
     getProfileById,
     removeProfilePin,
-    removeProfile,
     selectProfile,
     updateProfileAvatar,
     updateProfilePin,
 } from './profile.service';
 import {
     createProfileSchema,
+    deleteProfileSchema,
     profileParamsSchema,
     removeProfilePinSchema,
     selectProfileSchema,
@@ -43,7 +45,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
     .post(
         '/logout',
         async ({ user, cookie }) => {
-            const result = await removeProfile({ accountId: user.id, sessionId: user.sessionId });
+            const result = await clearSelectedProfile({ accountId: user.id, sessionId: user.sessionId });
 
             setAuthTokenCookie(cookie, result.token);
 
@@ -53,6 +55,27 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
             cookie: cookieSchema,
             auth: { verified: false, selectedProfile: true },
             detail: { tags: ['Profiles'], summary: 'Logout from profile' },
+        }
+    )
+    .delete(
+        '/@me',
+        async ({ body, user, cookie }) => {
+            const result = await deleteProfile({
+                accountId: user.id,
+                sessionId: user.sessionId,
+                profileId: user.profileId!,
+                pin: body?.pin,
+            });
+
+            setAuthTokenCookie(cookie, result.token);
+
+            return { status: 'success', data: result };
+        },
+        {
+            body: deleteProfileSchema,
+            cookie: cookieSchema,
+            auth: { verified: false, selectedProfile: true },
+            detail: { tags: ['Profiles'], summary: 'Delete selected profile' },
         }
     )
     .patch(

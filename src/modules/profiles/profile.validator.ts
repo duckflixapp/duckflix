@@ -30,3 +30,9 @@ export const updateProfilePinSchema = z.object({
 export const removeProfilePinSchema = z.object({
     pin: profilePinSchema,
 });
+
+export const deleteProfileSchema = z
+    .object({
+        pin: profilePinSchema.optional(),
+    })
+    .optional();

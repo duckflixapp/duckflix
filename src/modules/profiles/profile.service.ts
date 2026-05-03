@@ -203,6 +203,24 @@ export const removeProfilePin = async (data: { accountId: string; profileId: str
     return getProfileById({ accountId: data.accountId, profileId: data.profileId });
 };
 
+export const deleteProfile = async (data: { accountId: string; sessionId: string; profileId: string; pin?: string }) => {
+    const profile = await getProfilePinState({ accountId: data.accountId, profileId: data.profileId });
+    if (profile.pinHash)
+        await verifyProfilePin({ accountId: data.accountId, profileId: data.profileId, pinHash: profile.pinHash, pin: data.pin });
+
+    const [deleted] = await db
+        .delete(profiles)
+        .where(and(eq(profiles.id, data.profileId), eq(profiles.accountId, data.accountId)))
+        .returning({ id: profiles.id });
+
+    if (!deleted) throw new AppError('Profile not found', { statusCode: 404 });
+
+    profilePinLimiter.reset(`${data.accountId}:${data.profileId}`);
+    const token = await signProfileToken({ accountId: data.accountId, sessionId: data.sessionId });
+
+    return { token };
+};
+
 export const updateProfileAvatar = async (data: {
     accountId: string;
     profileId: string;
@@ -246,7 +264,7 @@ export const selectProfile = async (data: { accountId: string; sessionId: string
     return { token, profile: toProfileDTO(profile) };
 };
 
-export const removeProfile = async (data: { accountId: string; sessionId: string }) => {
+export const clearSelectedProfile = async (data: { accountId: string; sessionId: string }) => {
     const token = await signProfileToken({ accountId: data.accountId, sessionId: data.sessionId });
 
     return { token };
