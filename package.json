@@ -2,7 +2,7 @@
     "name": "@duckflixapp/backend",
     "module": "src/server.ts",
     "type": "module",
-    "version": "0.10.1",
+    "version": "0.10.2",
     "private": true,
     "scripts": {
         "start": "bun src/server.ts",
