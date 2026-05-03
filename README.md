@@ -22,3 +22,7 @@ High-performance media streaming backend built with Bun and TypeScript.
 ## Setup
 
 See **[BUILDING.md](./BUILDING.md)** for full setup instructions.
+
+## License
+
+This project is licensed under the [MIT License](./LICENSE).

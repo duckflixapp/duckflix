@@ -4,6 +4,7 @@
     "type": "module",
     "version": "1.0.1",
     "private": true,
+    "license": "MIT",
     "scripts": {
         "start": "bun src/server.ts",
         "dev": "bun --hot src/server.ts",
