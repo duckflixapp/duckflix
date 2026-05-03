@@ -50,12 +50,16 @@ CREATE UNIQUE INDEX `accounts_email_unique` ON `accounts` (`email`);--> statemen
 CREATE TABLE `profiles` (
 	`id` text PRIMARY KEY NOT NULL,
 	`account_id` text NOT NULL,
+	`picture_asset_id` text,
 	`name` text NOT NULL,
+	`pin_hash` text,
 	`created_at` text NOT NULL,
-	FOREIGN KEY (`account_id`) REFERENCES `accounts`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`account_id`) REFERENCES `accounts`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`picture_asset_id`) REFERENCES `assets`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
 CREATE INDEX `profiles_account_id_idx` ON `profiles` (`account_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `profiles_account_name_unique_idx` ON `profiles` (`account_id`,lower("name"));--> statement-breakpoint
 CREATE TABLE `sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,

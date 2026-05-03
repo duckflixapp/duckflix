@@ -1,1 +1,0 @@
-ALTER TABLE `profiles` ADD `pin_hash` text;

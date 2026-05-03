@@ -57,8 +57,8 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
             detail: { tags: ['Profiles'], summary: 'Logout from profile' },
         }
     )
-    .delete(
-        '/@me',
+    .post(
+        '/@me/delete',
         async ({ body, user, cookie }) => {
             const result = await deleteProfile({
                 accountId: user.id,

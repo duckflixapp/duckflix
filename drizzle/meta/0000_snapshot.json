@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "db7fa19c-a36a-4b6f-98ba-366d37dd95ca",
+  "id": "38cfa0db-b86c-4b4c-a9b2-92f5e8fe6441",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "system_settings": {
@@ -337,11 +337,25 @@
           "notNull": true,
           "autoincrement": false
         },
+        "picture_asset_id": {
+          "name": "picture_asset_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "name": {
           "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "pin_hash": {
+          "name": "pin_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "created_at": {
@@ -359,6 +373,14 @@
             "account_id"
           ],
           "isUnique": false
+        },
+        "profiles_account_name_unique_idx": {
+          "name": "profiles_account_name_unique_idx",
+          "columns": [
+            "account_id",
+            "lower(\"name\")"
+          ],
+          "isUnique": true
         }
       },
       "foreignKeys": {
@@ -373,6 +395,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "profiles_picture_asset_id_assets_id_fk": {
+          "name": "profiles_picture_asset_id_assets_id_fk",
+          "tableFrom": "profiles",
+          "tableTo": "assets",
+          "columnsFrom": [
+            "picture_asset_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -2200,6 +2235,14 @@
     "columns": {}
   },
   "internal": {
-    "indexes": {}
+    "indexes": {
+      "profiles_account_name_unique_idx": {
+        "columns": {
+          "lower(\"name\")": {
+            "isExpression": true
+          }
+        }
+      }
+    }
   }
 }
