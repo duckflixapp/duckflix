@@ -32,4 +32,4 @@ jobs:
             - name: Lint
               run: bun run lint
             - name: Run tests
-              run: bun test
+              run: bun run test

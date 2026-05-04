@@ -12,6 +12,7 @@
         "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
         "db:generate": "drizzle-kit generate",
         "db:studio": "drizzle-kit studio",
+        "test": "bun test --env-file=.env.test --preload ./test/setup.ts",
         "format:check": "prettier --check .",
         "lint": "eslint ./src --ext .ts",
         "format": "prettier --write .",
