@@ -1,7 +1,7 @@
-import { and, count, eq, sql } from 'drizzle-orm';
+import { and, count, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@shared/configs/db';
-import { auditLogs, libraries, libraryItems, series, seriesEpisodes, seriesSeasons } from '@shared/schema';
+import { auditLogs, libraries, libraryItems, series, seriesEpisodes, seriesSeasons, videos } from '@shared/schema';
 import type { SeriesRepository } from './series.ports';
 
 export const drizzleSeriesRepository: SeriesRepository = {
@@ -38,6 +38,18 @@ export const drizzleSeriesRepository: SeriesRepository = {
             const tvSeries = await tx.query.series.findFirst({ where: eq(series.id, data.seriesId) });
             if (!tvSeries) return { status: 'not_found' };
 
+            await tx
+                .delete(videos)
+                .where(
+                    inArray(
+                        videos.id,
+                        tx
+                            .select({ videoId: seriesEpisodes.videoId })
+                            .from(seriesEpisodes)
+                            .innerJoin(seriesSeasons, eq(seriesEpisodes.seasonId, seriesSeasons.id))
+                            .where(eq(seriesSeasons.seriesId, data.seriesId))
+                    )
+                );
             await tx.delete(series).where(eq(series.id, data.seriesId));
             await tx.insert(auditLogs).values({
                 actorAccountId: data.accountId,
@@ -83,6 +95,18 @@ export const drizzleSeriesRepository: SeriesRepository = {
                 },
             });
             if (!season) return { status: 'not_found' };
+
+            await tx
+                .delete(videos)
+                .where(
+                    inArray(
+                        videos.id,
+                        tx
+                            .select({ videoId: seriesEpisodes.videoId })
+                            .from(seriesEpisodes)
+                            .where(eq(seriesEpisodes.seasonId, data.seasonId))
+                    )
+                );
 
             await tx.delete(seriesSeasons).where(eq(seriesSeasons.id, data.seasonId));
             await tx.insert(auditLogs).values({
