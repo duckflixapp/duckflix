@@ -1,25 +1,29 @@
-import { and, eq, inArray } from 'drizzle-orm';
-import { db } from '@shared/configs/db';
-import { accountTotp, accounts } from '@schema/user.schema';
-import { toAccountDTO } from '@shared/mappers/user.mapper';
 import { isAtLeast, roleHierarchy, roles, type AccountDTO, type SystemStatisticsDTO, type UserRole } from '@duckflixapp/shared';
-import { AppError } from '@shared/errors';
-import { getStorageStatistics } from '@shared/services/storage.service';
-import { toSystemStatisticsDTO } from '@shared/mappers/system.mapper';
-import { env } from '@core/env';
-import { taskHandler } from '@utils/taskHandler';
-import { liveSessionManager } from '@modules/media/live.service';
-import { createAuditLog, getAuditLogs, type AuditLogListItem } from '@shared/services/audit.service';
-import { systemSettings } from '@shared/services/system.service';
-import type { SystemSettingsT } from '@shared/schema';
 import type { PaginatedResponse } from '@duckflixapp/shared';
+import { AppError } from '@shared/errors';
+import { toSystemStatisticsDTO } from '@shared/mappers/system.mapper';
+import { toAccountDTO } from '@shared/mappers/user.mapper';
+import type { AuditLogListItem } from '@shared/services/audit.service';
+import type { SystemSettingsT } from '@shared/schema';
+import {
+    type AdminAuditLogService,
+    type AdminLiveSessionStatisticsProvider,
+    type AdminRepository,
+    type AdminRuntimeInfoProvider,
+    type AdminStorageStatisticsProvider,
+    type AdminSystemSettingsProvider,
+    type AdminTaskStatisticsProvider,
+    type DeepPartial,
+} from './admin.ports';
 
-type DeepPartial<T> = {
-    [K in keyof T]?: NonNullable<T[K]> extends Array<infer U>
-        ? DeepPartial<U>[]
-        : NonNullable<T[K]> extends object
-          ? DeepPartial<NonNullable<T[K]>>
-          : T[K];
+type AdminServiceDependencies = {
+    adminRepository: AdminRepository;
+    systemSettingsProvider: AdminSystemSettingsProvider;
+    auditLogService: AdminAuditLogService;
+    storageStatisticsProvider: AdminStorageStatisticsProvider;
+    taskStatisticsProvider: AdminTaskStatisticsProvider;
+    liveSessionStatisticsProvider: AdminLiveSessionStatisticsProvider;
+    runtimeInfoProvider: AdminRuntimeInfoProvider;
 };
 
 const SENSITIVE_SYSTEM_SETTING_PATHS = new Set([
@@ -53,132 +57,82 @@ const summarizeSystemSettingsPatch = (patch: unknown) => {
     };
 };
 
-export const getUsersWithRoles = async (): Promise<AccountDTO[]> => {
-    const rolesIncluded = roles.filter((r) => isAtLeast(r, 'watcher'));
-    const results = await db.query.accounts.findMany({
-        where: and(inArray(accounts.role, rolesIncluded), eq(accounts.system, false)),
-        with: {
-            profiles: {
-                limit: 1,
-            },
-        },
-    });
+export const createAdminService = ({
+    adminRepository,
+    systemSettingsProvider,
+    auditLogService,
+    storageStatisticsProvider,
+    taskStatisticsProvider,
+    liveSessionStatisticsProvider,
+    runtimeInfoProvider,
+}: AdminServiceDependencies) => {
+    const getSystemSettings = async (): Promise<SystemSettingsT> => systemSettingsProvider.get();
 
-    const totpRows =
-        results.length > 0
-            ? await db
-                  .select()
-                  .from(accountTotp)
-                  .where(
-                      inArray(
-                          accountTotp.accountId,
-                          results.map((account) => account.id)
-                      )
-                  )
-            : [];
-    const totpByAccountId = new Map(totpRows.map((totp) => [totp.accountId, totp]));
+    const getUsersWithRoles = async (): Promise<AccountDTO[]> => {
+        const rolesIncluded = roles.filter((role) => isAtLeast(role, 'watcher'));
+        const results = await adminRepository.listUsersWithRoles(rolesIncluded);
 
-    return results
-        .sort((a, b) => roleHierarchy[a.role] - roleHierarchy[b.role])
-        .map((account) => {
-            const totp = totpByAccountId.get(account.id);
-            return toAccountDTO({ ...account, totpEnabled: Boolean(totp?.enabled && totp.secret) });
+        return results.sort((a, b) => roleHierarchy[a.role] - roleHierarchy[b.role]).map(toAccountDTO);
+    };
+
+    const changeUserRole = async (email: string, role: UserRole, context: { accountId: string }): Promise<void> => {
+        const result = await adminRepository.changeUserRole({ email, role, actorAccountId: context.accountId });
+
+        if (result.status === 'not_found') throw new AppError('User not found, no changes were made', { statusCode: 404 });
+        if (result.status === 'self_target') throw new AppError('You are not allowed to change your own role', { statusCode: 403 });
+    };
+
+    const deleteUser = async (email: string, context: { accountId: string }): Promise<void> => {
+        const result = await adminRepository.deleteUser({ email, actorAccountId: context.accountId });
+
+        if (result.status === 'not_found') throw new AppError('User not found, no changes were made', { statusCode: 404 });
+        if (result.status === 'self_target') throw new AppError('You are not allowed to delete your own account', { statusCode: 403 });
+    };
+
+    const updateSystemSettings = async (
+        settings: DeepPartial<SystemSettingsT>,
+        context: { accountId: string }
+    ): Promise<SystemSettingsT> => {
+        const system = await systemSettingsProvider.update(settings);
+        const summary = summarizeSystemSettingsPatch(settings);
+
+        await auditLogService.createAuditLog({
+            actorAccountId: context.accountId,
+            action: 'admin.system.updated',
+            targetType: 'system_settings',
+            targetId: '1',
+            metadata: summary,
         });
-};
 
-export const changeUserRole = async (email: string, role: UserRole, context: { accountId: string }): Promise<void> => {
-    return await db.transaction(async (tx) => {
-        const [user] = await tx
-            .select({ id: accounts.id, email: accounts.email, role: accounts.role })
-            .from(accounts)
-            .where(and(eq(accounts.email, email), eq(accounts.system, false)));
-        if (!user) throw new AppError('User not found, no changes were made', { statusCode: 404 });
-        if (user.id == context.accountId) throw new AppError('You are not allowed to change your own role', { statusCode: 403 });
-
-        await tx.update(accounts).set({ role }).where(eq(accounts.id, user.id));
-        await createAuditLog(
-            {
-                actorAccountId: context.accountId,
-                action: 'admin.user.role_changed',
-                targetType: 'user',
-                targetId: user.id,
-                metadata: {
-                    email: user.email,
-                    previousRole: user.role,
-                    nextRole: role,
-                },
-            },
-            tx
-        );
-    });
-};
-
-export const deleteUser = async (email: string, context: { accountId: string }): Promise<void> => {
-    return await db.transaction(async (tx) => {
-        const [user] = await tx
-            .select({ id: accounts.id, email: accounts.email, role: accounts.role })
-            .from(accounts)
-            .where(and(eq(accounts.email, email), eq(accounts.system, false)));
-        if (!user) throw new AppError('User not found, no changes were made', { statusCode: 404 });
-        if (user.id == context.accountId) throw new AppError('You are not allowed to delete your own account', { statusCode: 403 });
-
-        await tx.delete(accounts).where(eq(accounts.id, user.id));
-        await createAuditLog(
-            {
-                actorAccountId: context.accountId,
-                action: 'admin.user.deleted',
-                targetType: 'user',
-                targetId: user.id,
-                metadata: {
-                    email: user.email,
-                    role: user.role,
-                },
-            },
-            tx
-        );
-    });
-};
-
-export const updateSystemSettings = async (
-    settings: DeepPartial<SystemSettingsT>,
-    context: { accountId: string }
-): Promise<SystemSettingsT> => {
-    const system = await systemSettings.update(settings);
-    const summary = summarizeSystemSettingsPatch(settings);
-
-    await createAuditLog({
-        actorAccountId: context.accountId,
-        action: 'admin.system.updated',
-        targetType: 'system_settings',
-        targetId: '1',
-        metadata: summary,
-    });
-
-    return system;
-};
-
-export const listAuditLogs = async (options: {
-    page: number;
-    limit: number;
-    action?: string;
-    actorAccountId?: string;
-}): Promise<PaginatedResponse<AuditLogListItem>> => {
-    return getAuditLogs(options);
-};
-
-export const getSystemStatistics = async (): Promise<SystemStatisticsDTO> => {
-    const storageStats = await getStorageStatistics();
-    const version = env.VERSION;
-    const uptime = process.uptime();
-
-    const sessions = {
-        total: liveSessionManager.size(),
+        return system;
     };
 
-    const tasks = {
-        working: taskHandler.working,
-        queue: taskHandler.queueSize,
+    const listAuditLogs = async (options: {
+        page: number;
+        limit: number;
+        action?: string;
+        actorAccountId?: string;
+    }): Promise<PaginatedResponse<AuditLogListItem>> => auditLogService.listAuditLogs(options);
+
+    const getSystemStatistics = async (): Promise<SystemStatisticsDTO> => {
+        const storageStats = await storageStatisticsProvider.getStorageStatistics();
+        const version = runtimeInfoProvider.getVersion();
+        const uptime = runtimeInfoProvider.getUptime();
+        const sessions = liveSessionStatisticsProvider.getLiveSessionStatistics();
+        const tasks = taskStatisticsProvider.getTaskStatistics();
+
+        return toSystemStatisticsDTO({ version, uptime, sessions, tasks, storage: storageStats });
     };
 
-    return toSystemStatisticsDTO({ version, uptime, sessions, tasks, storage: storageStats });
+    return {
+        changeUserRole,
+        deleteUser,
+        getSystemSettings,
+        getSystemStatistics,
+        getUsersWithRoles,
+        listAuditLogs,
+        updateSystemSettings,
+    };
 };
+
+export type AdminService = ReturnType<typeof createAdminService>;
