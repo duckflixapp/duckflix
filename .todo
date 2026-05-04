@@ -2,6 +2,7 @@ PRIORITY:
 
 - Episode, Season, Series settings & delete
 - Cancel Torrent download
+- Rewrite and optimize to bun File logic from old express multer one
 
 
 SYSTEM
@@ -33,6 +34,7 @@ User
 
 FUTURE
 
+- Discovery & duckflix addons
 - Generate AI subtitles
 - Upload for multiple video files in torrent?
 - While processing video find intro, outro

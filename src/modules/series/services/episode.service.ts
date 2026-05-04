@@ -1,58 +1,47 @@
-import { db } from '@shared/configs/db';
 import { toEpisodeDTO } from '@shared/mappers/series.mapper';
-import { seriesEpisodes } from '@schema/series.schema';
-import { eq } from 'drizzle-orm';
 import { SeasonEpisodeNotFound } from '../errors';
-import { logger } from '@shared/configs/logger';
-import { getOrSyncEpisodeCast } from '@shared/services/cast.service';
+import type { EpisodeCastService, SeriesLogger, SeriesRepository } from '../series.ports';
 
-export const getEpisodeById = async (episodeId: string) => {
-    const episode = await db.query.seriesEpisodes.findFirst({
-        where: eq(seriesEpisodes.id, episodeId),
-        with: {
-            video: {
-                with: {
-                    versions: true,
-                    uploader: {
-                        columns: {
-                            id: true,
-                            email: true,
-                            role: true,
-                            system: true,
-                        },
+type EpisodeServiceDependencies = {
+    seriesRepository: SeriesRepository;
+    episodeCastService: EpisodeCastService;
+    logger: SeriesLogger;
+};
+
+export const createEpisodeService = ({ seriesRepository, episodeCastService, logger }: EpisodeServiceDependencies) => {
+    const getEpisodeById = async (episodeId: string) => {
+        const episode = await seriesRepository.findEpisodeById(episodeId);
+
+        if (!episode) throw new SeasonEpisodeNotFound();
+
+        const cast = await episodeCastService
+            .getOrSyncEpisodeCast(episode.id, {
+                seriesId: episode.season.series.tmdbId,
+                seasonNumber: episode.season.seasonNumber,
+                episodeNumber: episode.episodeNumber,
+            })
+            .catch((err) => {
+                logger.warn(
+                    {
+                        err,
+                        episodeId,
+                        tmdbEpisodeId: episode.tmdbId,
+                        tmdbSeriesId: episode.season.series.tmdbId,
                     },
-                    subtitles: true,
-                },
-            },
-            season: {
-                with: {
-                    series: true,
-                },
-            },
-        },
-    });
+                    'Failed to load episode cast'
+                );
+                return [];
+            });
 
-    if (!episode) throw new SeasonEpisodeNotFound();
-
-    const cast = await getOrSyncEpisodeCast(episode.id, {
-        seriesId: episode.season.series.tmdbId,
-        seasonNumber: episode.season.seasonNumber,
-        episodeNumber: episode.episodeNumber,
-    }).catch((err) => {
-        logger.warn(
-            {
-                err,
-                episodeId,
-                tmdbEpisodeId: episode.tmdbId,
-                tmdbSeriesId: episode.season.series.tmdbId,
-            },
-            'Failed to load episode cast'
-        );
-        return [];
-    });
+        return {
+            ...toEpisodeDTO(episode),
+            cast,
+        };
+    };
 
     return {
-        ...toEpisodeDTO(episode),
-        cast,
+        getEpisodeById,
     };
 };
+
+export type EpisodeService = ReturnType<typeof createEpisodeService>;

@@ -1,11 +1,7 @@
 import { Elysia } from 'elysia';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { createRateLimit } from '@shared/configs/ratelimit';
-
-// Services
-import { getSeriesById, deleteSeriesById } from './services/series.service';
-import { getSeasonById, deleteSeasonById } from './services/season.service';
-import { getEpisodeById } from './services/episode.service';
+import { episodeService, seasonService, seriesService } from './series.container';
 
 // Validators
 import { episodeParamSchema, seasonParamSchema, seriesParamSchema } from './validator';
@@ -22,7 +18,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
             .get(
                 '/:seriesId',
                 async ({ params: { seriesId }, user }) => {
-                    const series = await getSeriesById(seriesId, { profileId: user.profileId! });
+                    const series = await seriesService.getSeriesById(seriesId, { profileId: user.profileId! });
                     return { status: 'success', data: { series } };
                 },
                 {
@@ -34,7 +30,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
             .delete(
                 '/:seriesId',
                 async ({ params: { seriesId }, user, set }) => {
-                    await deleteSeriesById({ seriesId, accountId: user.id });
+                    await seriesService.deleteSeriesById({ seriesId, accountId: user.id });
                     set.status = 204;
                 },
                 {
@@ -50,7 +46,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
             .get(
                 '/:seasonId',
                 async ({ params: { seasonId } }) => {
-                    const season = await getSeasonById(seasonId);
+                    const season = await seasonService.getSeasonById(seasonId);
                     return { status: 'success', data: { season } };
                 },
                 {
@@ -62,7 +58,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
             .delete(
                 '/:seasonId',
                 async ({ params: { seasonId }, user, set }) => {
-                    await deleteSeasonById({ seasonId, accountId: user.id });
+                    await seasonService.deleteSeasonById({ seasonId, accountId: user.id });
                     set.status = 204;
                 },
                 {
@@ -77,7 +73,7 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
         app.get(
             '/:episodeId',
             async ({ params: { episodeId } }) => {
-                const episode = await getEpisodeById(episodeId);
+                const episode = await episodeService.getEpisodeById(episodeId);
                 return { status: 'success', data: { episode } };
             },
             {
