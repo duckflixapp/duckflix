@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import * as AuthService from './auth.service';
+import { authService } from './auth.container';
 import { registerSchema, loginSchema, loginChallengeSchema, verifyEmailSchema, stepUpSchema } from './auth.schema';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { UnauthorizedError } from '@shared/middlewares/auth.middleware';
@@ -31,7 +31,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
     .post(
         '/register',
         async ({ body, headers, cookie, clientIp, set }) => {
-            const result = await AuthService.register(body.email, body.password, getAuthContext(headers, clientIp));
+            const result = await authService.register(body.email, body.password, getAuthContext(headers, clientIp));
             setAuthCookies(cookie, result);
 
             set.status = 201;
@@ -42,7 +42,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
     .post(
         '/verify-email',
         async ({ body }) => {
-            await AuthService.verifyEmail(body.token);
+            await authService.verifyEmail(body.token);
             return { status: 'success' };
         },
         { body: verifyEmailSchema, detail: { tags: ['Auth'], summary: 'Verify Email' } }
@@ -50,7 +50,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
     .post(
         '/login',
         async ({ body, headers, cookie, clientIp }) => {
-            const result = await AuthService.login(body.email, body.password, getAuthContext(headers, clientIp));
+            const result = await authService.login(body.email, body.password, getAuthContext(headers, clientIp));
 
             if (result.requires2fa) {
                 return {
@@ -72,7 +72,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
     .post(
         '/login/verify-2fa',
         async ({ body, headers, cookie, clientIp }) => {
-            const result = await AuthService.verifyLoginChallenge(
+            const result = await authService.verifyLoginChallenge(
                 body.challengeToken,
                 body.method,
                 body.credential,
@@ -92,7 +92,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
             const oldRefreshToken = refresh_token.value;
             if (!oldRefreshToken) throw new UnauthorizedError('Refresh token missing');
 
-            const result = await AuthService.refresh(oldRefreshToken, getAuthContext(headers, clientIp), auth_token.value);
+            const result = await authService.refresh(oldRefreshToken, getAuthContext(headers, clientIp), auth_token.value);
             refreshAuthCookies({ refresh_token, auth_token, csrf_token }, result);
 
             return { status: 'success' };
@@ -103,7 +103,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
         '/logout',
         async ({ cookie }) => {
             const { refresh_token, auth_token, csrf_token } = cookie;
-            await AuthService.logout({
+            await authService.logout({
                 refreshToken: refresh_token.value,
                 accessToken: auth_token.value,
             });
@@ -120,7 +120,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
             .post(
                 '/',
                 async ({ body, user }) => {
-                    const result = await AuthService.stepUp(user.id, body.scope, body.method, body.credential);
+                    const result = await authService.stepUp(user.id, body.scope, body.method, body.credential);
                     return { status: 'success', data: result };
                 },
                 {
@@ -131,7 +131,7 @@ export const authRouter = new Elysia({ prefix: '/auth' })
             .get(
                 '/methods',
                 async ({ user }) => {
-                    const methods = await AuthService.getVerificationMethods(user.id);
+                    const methods = await authService.getVerificationMethods(user.id);
                     return { status: 'success', data: { methods } };
                 },
                 { detail: { tags: ['Auth'], summary: 'Authentication methods to step up' } }
