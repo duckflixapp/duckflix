@@ -2,7 +2,7 @@ import { Elysia } from 'elysia';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { createRateLimit } from '@shared/configs/ratelimit';
 import { killTaskSchema } from './tasks.validator';
-import * as TaskService from './tasks.service';
+import { tasksService } from './tasks.container';
 
 const killTaskLimiter = createRateLimit({
     max: 5,
@@ -19,7 +19,7 @@ export const tasksRouter = new Elysia({ prefix: '/tasks', detail: { tags: ['Task
         async ({ params: { id }, set }) => {
             const { id: validatedId } = killTaskSchema.parse({ id });
 
-            const { wasInQueue, wasRunning } = await TaskService.killMovieTask(validatedId);
+            const { wasInQueue, wasRunning } = await tasksService.killMovieTask(validatedId);
 
             if (!wasInQueue && !wasRunning) {
                 set.status = 404;
