@@ -1,271 +1,228 @@
 import type { ProfileDTO } from '@duckflixapp/shared';
-import argon2 from 'argon2';
-import { db } from '@shared/configs/db';
-import { accounts, assets, profiles } from '@shared/schema';
-import { libraries } from '@schema/library.schema';
+
+import { limits } from '@shared/configs/limits.config';
 import { AppError } from '@shared/errors';
 import { toProfileAvatarDTO, toProfileDTO, type ProfileAvatarDTO } from '@shared/mappers/user.mapper';
-import { signToken } from '@utils/jwt';
-import { and, count, eq } from 'drizzle-orm';
-import { limits } from '@shared/configs/limits.config';
-import { isDuplicateKey } from '@shared/db.errors';
-import { profilePinLimiter } from './profile-pin-limiter';
+import {
+    DuplicateProfileNameError,
+    ProfileCreateFailedError,
+    ProfileLimitReachedError,
+    type ProfilePinAttemptLimiter,
+    type ProfilePinHasher,
+    type ProfilesRepository,
+    type ProfileTokenIssuer,
+} from './profile.ports';
 
-export const getProfileAvatars = async (): Promise<ProfileAvatarDTO[]> => {
-    const results = await db
-        .select({ id: assets.id, storageKey: assets.storageKey })
-        .from(assets)
-        .where(eq(assets.type, 'profile_avatar'))
-        .orderBy(assets.createdAt);
-
-    return results.map(toProfileAvatarDTO);
+type ProfileServiceDependencies = {
+    profilesRepository: ProfilesRepository;
+    profilePinHasher: ProfilePinHasher;
+    profilePinLimiter: ProfilePinAttemptLimiter;
+    profileTokenIssuer: ProfileTokenIssuer;
 };
 
-export const getAccountProfiles = async (accountId: string): Promise<ProfileDTO[]> => {
-    const results = await db
-        .select({
-            id: profiles.id,
-            accountId: profiles.accountId,
-            name: profiles.name,
-            pinHash: profiles.pinHash,
-            createdAt: profiles.createdAt,
-            avatarAssetId: profiles.avatarAssetId,
-            avatarKey: assets.storageKey,
-        })
-        .from(profiles)
-        .leftJoin(assets, eq(profiles.avatarAssetId, assets.id))
-        .where(eq(profiles.accountId, accountId))
-        .orderBy(profiles.createdAt);
-
-    return results.map(toProfileDTO);
+const defaultLibrary = {
+    name: 'My Watchlist',
+    type: 'watchlist' as const,
 };
 
-export const getProfileById = async (data: { accountId: string; profileId: string }): Promise<ProfileDTO> => {
-    const [profile] = await db
-        .select({
-            id: profiles.id,
-            accountId: profiles.accountId,
-            name: profiles.name,
-            pinHash: profiles.pinHash,
-            createdAt: profiles.createdAt,
-            avatarAssetId: profiles.avatarAssetId,
-            avatarKey: assets.storageKey,
-        })
-        .from(profiles)
-        .leftJoin(assets, eq(profiles.avatarAssetId, assets.id))
-        .where(and(eq(profiles.id, data.profileId), eq(profiles.accountId, data.accountId)))
-        .limit(1);
+export const createProfileService = ({
+    profilesRepository,
+    profilePinHasher,
+    profilePinLimiter,
+    profileTokenIssuer,
+}: ProfileServiceDependencies) => {
+    const getProfileAvatars = async (): Promise<ProfileAvatarDTO[]> => {
+        const results = await profilesRepository.listAvatars();
+        return results.map(toProfileAvatarDTO);
+    };
 
-    if (!profile) throw new AppError('Profile not found', { statusCode: 404 });
+    const getAccountProfiles = async (accountId: string): Promise<ProfileDTO[]> => {
+        const results = await profilesRepository.listByAccount(accountId);
+        return results.map(toProfileDTO);
+    };
 
-    return toProfileDTO(profile);
-};
+    const getProfileById = async (data: { accountId: string; profileId: string }): Promise<ProfileDTO> => {
+        const profile = await profilesRepository.findById(data);
+        if (!profile) throw new AppError('Profile not found', { statusCode: 404 });
 
-const assertProfileAvatar = async (avatarAssetId: string) => {
-    const [asset] = await db
-        .select({ id: assets.id })
-        .from(assets)
-        .where(and(eq(assets.id, avatarAssetId), eq(assets.type, 'profile_avatar')))
-        .limit(1);
+        return toProfileDTO(profile);
+    };
 
-    if (!asset) throw new AppError('Profile avatar not found', { statusCode: 404 });
-};
+    const assertProfileAvatar = async (avatarAssetId: string) => {
+        const exists = await profilesRepository.profileAvatarExists(avatarAssetId);
+        if (!exists) throw new AppError('Profile avatar not found', { statusCode: 404 });
+    };
 
-const getAccountForProfileToken = async (accountId: string) => {
-    const [account] = await db
-        .select({ role: accounts.role, verified_email: accounts.verified_email })
-        .from(accounts)
-        .where(and(eq(accounts.id, accountId), eq(accounts.system, false)))
-        .limit(1);
+    const signProfileToken = (data: { accountId: string; sessionId: string; profileId?: string }) =>
+        profileTokenIssuer.signProfileToken(data);
 
-    if (!account) throw new AppError('Account not found', { statusCode: 404 });
-    return account;
-};
+    const verifyProfilePin = async (data: { accountId: string; profileId: string; pinHash: string; pin?: string }) => {
+        const limiterKey = `${data.accountId}:${data.profileId}`;
+        profilePinLimiter.check(limiterKey);
 
-const signProfileToken = async (data: { accountId: string; sessionId: string; profileId?: string }) => {
-    const account = await getAccountForProfileToken(data.accountId);
+        if (!data.pin) throw new AppError('Profile PIN required', { statusCode: 403 });
 
-    return signToken({
-        sub: data.accountId,
-        role: account.role,
-        isVerified: account.verified_email,
-        sid: data.sessionId,
-        profileId: data.profileId,
-    });
-};
+        const valid = await profilePinHasher.verify(data.pinHash, data.pin);
+        if (valid) {
+            profilePinLimiter.reset(limiterKey);
+            return;
+        }
 
-const verifyProfilePin = async (data: { accountId: string; profileId: string; pinHash: string; pin?: string }) => {
-    const limiterKey = `${data.accountId}:${data.profileId}`;
-    profilePinLimiter.check(limiterKey);
+        profilePinLimiter.recordFailure(limiterKey);
+        throw new AppError('Invalid profile PIN', { statusCode: 403 });
+    };
 
-    if (!data.pin) throw new AppError('Profile PIN required', { statusCode: 403 });
+    const getProfilePinState = async (data: { accountId: string; profileId: string }) => {
+        const profile = await profilesRepository.findPinState(data);
+        if (!profile) throw new AppError('Profile not found', { statusCode: 404 });
 
-    const valid = await argon2.verify(data.pinHash, data.pin);
-    if (valid) {
-        profilePinLimiter.reset(limiterKey);
-        return;
-    }
+        return profile;
+    };
 
-    profilePinLimiter.recordFailure(limiterKey);
-    throw new AppError('Invalid profile PIN', { statusCode: 403 });
-};
+    const createProfile = async (data: {
+        accountId: string;
+        sessionId: string;
+        name: string;
+        avatarAssetId?: string | null;
+        pin?: string;
+    }) => {
+        if (data.avatarAssetId) await assertProfileAvatar(data.avatarAssetId);
 
-const getProfilePinState = async (data: { accountId: string; profileId: string }) => {
-    const [profile] = await db
-        .select({ id: profiles.id, pinHash: profiles.pinHash })
-        .from(profiles)
-        .where(and(eq(profiles.id, data.profileId), eq(profiles.accountId, data.accountId)))
-        .limit(1);
+        const name = data.name.trim();
+        const pinHash = data.pin ? await profilePinHasher.hash(data.pin) : null;
 
-    if (!profile) throw new AppError('Profile not found', { statusCode: 404 });
-    return profile;
-};
-
-export const createProfile = async (data: {
-    accountId: string;
-    sessionId: string;
-    name: string;
-    avatarAssetId?: string | null;
-    pin?: string;
-}) => {
-    if (data.avatarAssetId) await assertProfileAvatar(data.avatarAssetId);
-
-    const name = data.name.trim();
-    const pinHash = data.pin ? await argon2.hash(data.pin) : null;
-
-    const profileId = await db.transaction(async (tx) => {
-        const [result] = await tx.select({ count: count() }).from(profiles).where(eq(profiles.accountId, data.accountId));
-        if (result!.count >= limits.profile.limit)
-            throw new AppError('Profile limit reached: ' + limits.profile.limit, { statusCode: 403 });
-
-        const [profile] = await tx
-            .insert(profiles)
-            .values({ accountId: data.accountId, name, avatarAssetId: data.avatarAssetId ?? null, pinHash })
-            .returning({ id: profiles.id })
-            .catch((e) => {
-                if (isDuplicateKey(e)) throw new AppError('Profile name already exists', { statusCode: 409 });
-                throw e;
+        let profileId: string;
+        try {
+            profileId = await profilesRepository.createWithDefaultLibrary({
+                accountId: data.accountId,
+                name,
+                avatarAssetId: data.avatarAssetId ?? null,
+                pinHash,
+                maxProfiles: limits.profile.limit,
+                defaultLibrary,
             });
-        if (!profile) throw new AppError('Profile not created', { statusCode: 500 });
+        } catch (error) {
+            if (error instanceof ProfileLimitReachedError) {
+                throw new AppError('Profile limit reached: ' + error.limit, { statusCode: 403 });
+            }
+            if (error instanceof DuplicateProfileNameError) {
+                throw new AppError('Profile name already exists', { statusCode: 409 });
+            }
+            if (error instanceof ProfileCreateFailedError) {
+                throw new AppError('Profile not created', { statusCode: 500 });
+            }
+            throw error;
+        }
 
-        await tx.insert(libraries).values({
-            profileId: profile.id,
-            name: 'My Watchlist',
-            type: 'watchlist',
-        });
+        const [token, profile] = await Promise.all([
+            signProfileToken({ accountId: data.accountId, sessionId: data.sessionId, profileId }),
+            getProfileById({ accountId: data.accountId, profileId }),
+        ]);
 
-        return profile.id;
-    });
+        return { token, profile };
+    };
 
-    const [token, profile] = await Promise.all([
-        signProfileToken({ accountId: data.accountId, sessionId: data.sessionId, profileId }),
-        getProfileById({ accountId: data.accountId, profileId }),
-    ]);
+    const updateProfilePin = async (data: {
+        accountId: string;
+        profileId: string;
+        pin: string;
+        currentPin?: string;
+    }): Promise<ProfileDTO> => {
+        const current = await getProfilePinState({ accountId: data.accountId, profileId: data.profileId });
+        if (current.pinHash)
+            await verifyProfilePin({
+                accountId: data.accountId,
+                profileId: data.profileId,
+                pinHash: current.pinHash,
+                pin: data.currentPin,
+            });
 
-    return { token, profile };
-};
-
-export const updateProfilePin = async (data: {
-    accountId: string;
-    profileId: string;
-    pin: string;
-    currentPin?: string;
-}): Promise<ProfileDTO> => {
-    const current = await getProfilePinState({ accountId: data.accountId, profileId: data.profileId });
-    if (current.pinHash)
-        await verifyProfilePin({
+        const pinHash = await profilePinHasher.hash(data.pin);
+        const updated = await profilesRepository.updatePin({
             accountId: data.accountId,
             profileId: data.profileId,
-            pinHash: current.pinHash,
-            pin: data.currentPin,
+            pinHash,
         });
 
-    const pinHash = await argon2.hash(data.pin);
-    await db
-        .update(profiles)
-        .set({ pinHash })
-        .where(and(eq(profiles.id, data.profileId), eq(profiles.accountId, data.accountId)));
+        if (!updated) throw new AppError('Profile not found', { statusCode: 404 });
 
-    return getProfileById({ accountId: data.accountId, profileId: data.profileId });
+        return getProfileById({ accountId: data.accountId, profileId: data.profileId });
+    };
+
+    const removeProfilePin = async (data: { accountId: string; profileId: string; pin: string }): Promise<ProfileDTO> => {
+        const current = await getProfilePinState({ accountId: data.accountId, profileId: data.profileId });
+        if (!current.pinHash) throw new AppError('Profile PIN is not set', { statusCode: 400 });
+
+        await verifyProfilePin({ accountId: data.accountId, profileId: data.profileId, pinHash: current.pinHash, pin: data.pin });
+
+        const updated = await profilesRepository.updatePin({
+            accountId: data.accountId,
+            profileId: data.profileId,
+            pinHash: null,
+        });
+
+        if (!updated) throw new AppError('Profile not found', { statusCode: 404 });
+
+        return getProfileById({ accountId: data.accountId, profileId: data.profileId });
+    };
+
+    const deleteProfile = async (data: { accountId: string; sessionId: string; profileId: string; pin?: string }) => {
+        const profile = await getProfilePinState({ accountId: data.accountId, profileId: data.profileId });
+        if (profile.pinHash)
+            await verifyProfilePin({ accountId: data.accountId, profileId: data.profileId, pinHash: profile.pinHash, pin: data.pin });
+
+        const deleted = await profilesRepository.deleteById({ accountId: data.accountId, profileId: data.profileId });
+        if (!deleted) throw new AppError('Profile not found', { statusCode: 404 });
+
+        profilePinLimiter.reset(`${data.accountId}:${data.profileId}`);
+        const token = await signProfileToken({ accountId: data.accountId, sessionId: data.sessionId });
+
+        return { token };
+    };
+
+    const updateProfileAvatar = async (data: {
+        accountId: string;
+        profileId: string;
+        avatarAssetId: string | null;
+    }): Promise<ProfileDTO> => {
+        if (data.avatarAssetId) await assertProfileAvatar(data.avatarAssetId);
+
+        const profileId = await profilesRepository.updateAvatar(data);
+        if (!profileId) throw new AppError('Profile not found', { statusCode: 404 });
+
+        return getProfileById({ accountId: data.accountId, profileId });
+    };
+
+    const selectProfile = async (data: { accountId: string; sessionId: string; profileId: string; pin?: string }) => {
+        const profile = await profilesRepository.findById({ accountId: data.accountId, profileId: data.profileId });
+
+        if (!profile) throw new AppError('Profile not found', { statusCode: 404 });
+        if (profile.pinHash)
+            await verifyProfilePin({ accountId: data.accountId, profileId: profile.id, pinHash: profile.pinHash, pin: data.pin });
+
+        const token = await signProfileToken({ accountId: data.accountId, sessionId: data.sessionId, profileId: profile.id });
+
+        return { token, profile: toProfileDTO(profile) };
+    };
+
+    const clearSelectedProfile = async (data: { accountId: string; sessionId: string }) => {
+        const token = await signProfileToken({ accountId: data.accountId, sessionId: data.sessionId });
+
+        return { token };
+    };
+
+    return {
+        clearSelectedProfile,
+        createProfile,
+        deleteProfile,
+        getAccountProfiles,
+        getProfileAvatars,
+        getProfileById,
+        removeProfilePin,
+        selectProfile,
+        updateProfileAvatar,
+        updateProfilePin,
+    };
 };
 
-export const removeProfilePin = async (data: { accountId: string; profileId: string; pin: string }): Promise<ProfileDTO> => {
-    const current = await getProfilePinState({ accountId: data.accountId, profileId: data.profileId });
-    if (!current.pinHash) throw new AppError('Profile PIN is not set', { statusCode: 400 });
-
-    await verifyProfilePin({ accountId: data.accountId, profileId: data.profileId, pinHash: current.pinHash, pin: data.pin });
-
-    await db
-        .update(profiles)
-        .set({ pinHash: null })
-        .where(and(eq(profiles.id, data.profileId), eq(profiles.accountId, data.accountId)));
-
-    return getProfileById({ accountId: data.accountId, profileId: data.profileId });
-};
-
-export const deleteProfile = async (data: { accountId: string; sessionId: string; profileId: string; pin?: string }) => {
-    const profile = await getProfilePinState({ accountId: data.accountId, profileId: data.profileId });
-    if (profile.pinHash)
-        await verifyProfilePin({ accountId: data.accountId, profileId: data.profileId, pinHash: profile.pinHash, pin: data.pin });
-
-    const [deleted] = await db
-        .delete(profiles)
-        .where(and(eq(profiles.id, data.profileId), eq(profiles.accountId, data.accountId)))
-        .returning({ id: profiles.id });
-
-    if (!deleted) throw new AppError('Profile not found', { statusCode: 404 });
-
-    profilePinLimiter.reset(`${data.accountId}:${data.profileId}`);
-    const token = await signProfileToken({ accountId: data.accountId, sessionId: data.sessionId });
-
-    return { token };
-};
-
-export const updateProfileAvatar = async (data: {
-    accountId: string;
-    profileId: string;
-    avatarAssetId: string | null;
-}): Promise<ProfileDTO> => {
-    if (data.avatarAssetId) await assertProfileAvatar(data.avatarAssetId);
-
-    const [profile] = await db
-        .update(profiles)
-        .set({ avatarAssetId: data.avatarAssetId })
-        .where(and(eq(profiles.id, data.profileId), eq(profiles.accountId, data.accountId)))
-        .returning({ id: profiles.id });
-
-    if (!profile) throw new AppError('Profile not found', { statusCode: 404 });
-
-    return getProfileById({ accountId: data.accountId, profileId: profile.id });
-};
-
-export const selectProfile = async (data: { accountId: string; sessionId: string; profileId: string; pin?: string }) => {
-    const [profile] = await db
-        .select({
-            id: profiles.id,
-            accountId: profiles.accountId,
-            name: profiles.name,
-            pinHash: profiles.pinHash,
-            createdAt: profiles.createdAt,
-            avatarAssetId: profiles.avatarAssetId,
-            avatarKey: assets.storageKey,
-        })
-        .from(profiles)
-        .leftJoin(assets, eq(profiles.avatarAssetId, assets.id))
-        .where(and(eq(profiles.id, data.profileId), eq(profiles.accountId, data.accountId)))
-        .limit(1);
-
-    if (!profile) throw new AppError('Profile not found', { statusCode: 404 });
-    if (profile.pinHash)
-        await verifyProfilePin({ accountId: data.accountId, profileId: profile.id, pinHash: profile.pinHash, pin: data.pin });
-
-    const token = await signProfileToken({ accountId: data.accountId, sessionId: data.sessionId, profileId: profile.id });
-
-    return { token, profile: toProfileDTO(profile) };
-};
-
-export const clearSelectedProfile = async (data: { accountId: string; sessionId: string }) => {
-    const token = await signProfileToken({ accountId: data.accountId, sessionId: data.sessionId });
-
-    return { token };
-};
+export type ProfileService = ReturnType<typeof createProfileService>;
