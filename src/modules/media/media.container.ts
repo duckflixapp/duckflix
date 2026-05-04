@@ -1,7 +1,7 @@
 import { paths } from '@shared/configs/path.config';
 import { sessionClient } from './session/session.client';
 import { createMediaSessionService } from './session/session.service';
-import { liveMediaService, liveSessionManager } from './live.service';
+import { liveMediaService, liveSessionManager } from './live/live.service';
 import { drizzleMediaRepository } from './media.drizzle.repository';
 import { bunMediaFileStore } from './media.file-store';
 import { createMediaService } from './media.service';

@@ -6,7 +6,7 @@ import { paths } from '@shared/configs/path.config';
 import { subtitles, videos, videoVersions } from '@schema/video.schema';
 import { drizzleMediaRepository } from '@modules/media/media.drizzle.repository';
 import { bunMediaFileStore } from '@modules/media/media.file-store';
-import { createLiveMediaService } from '@modules/media/live.service';
+import { createLiveMediaService } from '@modules/media/live/live.service';
 import { createMediaService } from '@modules/media/media.service';
 import { createMediaSessionService } from '@modules/media/session/session.service';
 import { InMemorySessionRepository } from '@modules/media/session/session.memory.repository';

@@ -1,4 +1,4 @@
-import { NoVideoMediaFoundError, VideoNotFoundError } from '../live.errors';
+import { NoVideoMediaFoundError, VideoNotFoundError } from '../live/live.errors';
 import { sessionClient } from '@modules/media/session/session.client';
 import { drizzleMediaRepository } from '../media.drizzle.repository';
 import type { MediaRepository, MediaSessionClient } from '../media.ports';

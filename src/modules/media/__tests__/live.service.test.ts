@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { NotStandardResolutionError, NoVideoMediaFoundError, TooBigResolutionError, VideoNotFoundError } from '@modules/media/live.errors';
+import {
+    NotStandardResolutionError,
+    NoVideoMediaFoundError,
+    TooBigResolutionError,
+    VideoNotFoundError,
+} from '@modules/media/live/live.errors';
 import type { MediaRepository, VideoWithVersions } from '@modules/media/media.ports';
 import type { Subtitle, VideoVersion } from '@schema/video.schema';
 
-const { createLiveMediaService } = await import('@modules/media/live.service');
+const { createLiveMediaService } = await import('@modules/media/live/live.service');
 
 let video: VideoWithVersions | null = null;
 const ensuredSegments: unknown[] = [];

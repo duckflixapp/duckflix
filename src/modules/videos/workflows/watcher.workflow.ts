@@ -8,7 +8,7 @@ import chokidar from 'chokidar';
 import { handleWorkflowError } from '../video.handler';
 import { notifyJobStatus } from '@shared/services/notifications/notification.helper';
 import { AppError } from '@shared/errors';
-import { initiateUpload } from '../services/video.service';
+import { videoService } from '../videos.container';
 
 export const processWatcherWorkflow = async (data: { filePath: string; fileName: string; fileSize: number }, systemAccountId: string) => {
     const metadata = await identifyVideoWorkflow({ filePath: data.filePath });
@@ -18,7 +18,7 @@ export const processWatcherWorkflow = async (data: { filePath: string; fileName:
 
     logger.debug({ fileName: data.fileName, metadata }, '[WatcherWorkflow] Identified video');
 
-    const video = await initiateUpload(metadata, {
+    const video = await videoService.initiateUpload(metadata, {
         accountId: systemAccountId,
         status: 'processing',
     });

@@ -1,5 +1,5 @@
 import { env } from '@core/env';
-import { liveSessionManager } from '@modules/media/live.service';
+import { liveSessionManager } from '@modules/media/live/live.service';
 import { getStorageStatistics } from '@shared/services/storage.service';
 import { createAuditLog, getAuditLogs } from '@shared/services/audit.service';
 import { systemSettings } from '@shared/services/system.service';

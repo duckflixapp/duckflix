@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { NoVideoMediaFoundError, VideoNotFoundError } from '@modules/media/live.errors';
+import { NoVideoMediaFoundError, VideoNotFoundError } from '@modules/media/live/live.errors';
 import { createMediaSessionService } from '@modules/media/session/session.service';
 import type { MediaRepository, MediaSessionClient, VideoWithVersions } from '@modules/media/media.ports';
 import type { Subtitle, VideoVersion } from '@schema/video.schema';
