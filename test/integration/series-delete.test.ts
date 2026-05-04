@@ -79,11 +79,7 @@ const resetFixtures = async () => {
     ]);
 };
 
-const findVideos = async (...ids: string[]) =>
-    await db
-        .select({ id: videos.id })
-        .from(videos)
-        .where(inArray(videos.id, ids));
+const findVideos = async (...ids: string[]) => await db.select({ id: videos.id }).from(videos).where(inArray(videos.id, ids));
 
 describe('series delete integration', () => {
     beforeEach(async () => {
