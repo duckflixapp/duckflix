@@ -228,7 +228,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                         async ({ params: { id: videoId }, body: { language, subtitle: subtitleFile }, set }) => {
                             if (!subtitleFile) throw new AppError('Please provide a valid subtitle file', { statusCode: 400 });
 
-                            if (subtitleFile.size > 5 * 1024 * 1024) {
+                            if (subtitleFile.size > limits.file.subtitle) {
                                 // 5MB limit
                                 throw new AppError('Subtitle file exceeds maximum size of 5MB', { statusCode: 400 });
                             }
