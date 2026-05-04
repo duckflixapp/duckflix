@@ -9,10 +9,10 @@ import { processTorrentFileWorkflow } from './workflows/torrent.workflow';
 import { handleWorkflowError } from './video.handler';
 import { AppError } from '@shared/errors';
 import fs from 'node:fs/promises';
-import path from 'node:path';
 import { importBodySchema, searchQuerySchema, subtitleParamsSchema, uploadBodySchema } from './subtitles.validator';
 import { limits } from '@shared/configs/limits.config';
 import { videoService, videoSubtitlesService, videoVersionsService } from './videos.container';
+import { saveUploadToTemp } from './upload-temp-file';
 
 const uploadLimiter = createRateLimit({ max: 20, duration: 30000 });
 const standardLimiter = createRateLimit({ max: 30, duration: 3000 });
@@ -100,16 +100,11 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                     let savedTorrentPath: string | undefined;
 
                     try {
-                        const tempDir = path.join(process.cwd(), 'uploads/temp');
-                        await fs.mkdir(tempDir, { recursive: true });
-
                         if (videoFile) {
-                            savedVideoPath = path.join(tempDir, `${Date.now()}-${videoFile.name}`);
-                            await Bun.write(savedVideoPath, videoFile);
+                            savedVideoPath = await saveUploadToTemp(videoFile);
                         }
                         if (torrentFile) {
-                            savedTorrentPath = path.join(tempDir, `${Date.now()}-${torrentFile.name}`);
-                            await Bun.write(savedTorrentPath, torrentFile);
+                            savedTorrentPath = await saveUploadToTemp(torrentFile);
                         }
 
                         let metadata = await MetadataService.enrichMetadata(dbUrl, body);
@@ -240,8 +235,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                                 });
                             }
 
-                            const tempPath = path.join(process.cwd(), 'uploads/temp', `${Date.now()}-${subtitleFile.name}`);
-                            await Bun.write(tempPath, subtitleFile);
+                            const tempPath = await saveUploadToTemp(subtitleFile);
 
                             const subtitle = await videoSubtitlesService.saveSubtitle({
                                 videoId,
