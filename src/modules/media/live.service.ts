@@ -1,162 +1,156 @@
-import { eq } from 'drizzle-orm';
-import { videos, type Video, type VideoVersion } from '@schema/video.schema';
-import { db } from '@shared/configs/db';
 import { env } from '@core/env';
-import { NotStandardResolutionError, NoVideoMediaFoundError, TooBigResolutionError, VideoNotFoundError } from './live.errors';
-import { SessionTask } from './sessionTask';
-import path from 'node:path';
 import { paths } from '@shared/configs/path.config';
-import fs from 'node:fs/promises';
+import { NotStandardResolutionError, NoVideoMediaFoundError, TooBigResolutionError, VideoNotFoundError } from './live.errors';
+import { LiveSessionManager } from './live-session-manager';
+import { drizzleMediaRepository } from './media.drizzle.repository';
+import type { MediaPaths, MediaRepository, VideoWithVersions } from './media.ports';
+import type { Video, VideoVersion } from '@schema/video.schema';
 
-const sessionRegistry = new Map<string, SessionTask>();
-const sessionRef = new Map<string, number>();
-
-export const liveSessionManager = {
-    size: () => sessionRegistry.size,
-    destroyAll: () => sessionRegistry.values().forEach((s) => s.destroy()),
-};
-
-const livePresets = [
+export const livePresets = [
     { name: '2160p', height: 2160, bitrate: 20000000 },
     { name: '1440p', height: 1440, bitrate: 10000000 },
     { name: '1080p', height: 1080, bitrate: 5000000 },
     { name: '720p', height: 720, bitrate: 2800000 },
     { name: '480p', height: 480, bitrate: 1400000 },
 ];
-const presetHeights = livePresets.map((p) => p.height);
 
-const masterStream = (v: { streamUrl: string; width: number; height: number; bandwidth: number; name: string; session?: string }) => {
-    let stream = `#EXT-X-STREAM-INF:BANDWIDTH=${v.height * 2000},RESOLUTION=${v.width}x${v.height},NAME="${v.name}"\n`;
-    stream += `${v.streamUrl}${v.session ? '?session=' + v.session : ''}\n`;
-    return stream;
+export const presetHeights = livePresets.map((preset) => preset.height);
+
+const masterStream = (stream: { streamUrl: string; width: number; height: number; bandwidth: number; name: string; session?: string }) => {
+    let item = `#EXT-X-STREAM-INF:BANDWIDTH=${stream.height * 2000},RESOLUTION=${stream.width}x${stream.height},NAME="${stream.name}"\n`;
+    item += `${stream.streamUrl}${stream.session ? '?session=' + stream.session : ''}\n`;
+    return item;
 };
 
-const mediaBase = `${env.BASE_URL}/media`;
+export interface LiveMediaServiceDependencies {
+    mediaRepository: MediaRepository;
+    liveSessionManager: Pick<LiveSessionManager, 'ensureSegment'>;
+    baseUrl: string;
+}
 
-export const generateMasterFile = async (videoId: string, session: string) => {
-    const video = await db.query.videos.findFirst({ where: eq(videos.id, videoId), with: { versions: true } });
-    if (!video) throw new VideoNotFoundError();
+export const createLiveMediaService = ({ mediaRepository, liveSessionManager, baseUrl }: LiveMediaServiceDependencies) => {
+    const mediaBase = `${baseUrl}/media`;
 
-    const original = video.versions.find((v) => v.isOriginal);
-    if (!original) throw new NoVideoMediaFoundError();
+    const getVideoWithOriginal = async (videoId: string): Promise<{ video: VideoWithVersions; original: VideoVersion }> => {
+        const video = await mediaRepository.findVideoWithVersions(videoId);
+        if (!video) throw new VideoNotFoundError();
+        if (!video.duration) throw new NoVideoMediaFoundError();
 
-    const versions = video.versions.filter((v) => v.mimeType === 'application/x-mpegURL').sort((a, b) => b.height - a.height);
-    const includedHeights = versions.map((v) => v.height);
+        const original = video.versions.find((version) => version.isOriginal);
+        if (!original) throw new NoVideoMediaFoundError();
 
-    let master = `#EXTM3U\n`;
+        return { video, original };
+    };
 
-    // add original if not in versions as original
-    if (!includedHeights.includes(original.height)) {
-        const originalWidth = original.width || 1920;
-        master += `#EXT-X-STREAM-INF:BANDWIDTH=${original.height * 2000},RESOLUTION=${originalWidth}x${original.height},NAME="Original"\n`;
-        master += `${mediaBase}/live/${video.id}/${original.height}/index.m3u8?session=${session}\n\n`;
-    }
+    const generateMasterFile = async (videoId: string, session: string) => {
+        const { video, original } = await getVideoWithOriginal(videoId);
+        const versions = video.versions
+            .filter((version) => version.mimeType === 'application/x-mpegURL')
+            .sort((a, b) => b.height - a.height);
+        const includedHeights = versions.map((version) => version.height);
 
-    // add every existing version
-    versions.forEach((v) => {
-        master += masterStream({
-            streamUrl: `${mediaBase}/stream/${v.id}/index.m3u8`,
-            width: v.width ?? 0,
-            height: v.height,
-            bandwidth: v.height * 2000,
-            name: `${v.height}p`,
-            session,
-        });
-    });
+        let master = `#EXTM3U\n`;
 
-    // add live presets
-    const aspect = (original.width || 16) / original.height;
-    livePresets
-        .filter((p) => p.height < original.height && !includedHeights.includes(p.height))
-        .forEach((p) => {
-            const width = Math.round((p.height * aspect) / 2) * 2;
+        if (!includedHeights.includes(original.height)) {
+            const originalWidth = original.width || 1920;
+            master += `#EXT-X-STREAM-INF:BANDWIDTH=${original.height * 2000},RESOLUTION=${originalWidth}x${original.height},NAME="Original"\n`;
+            master += `${mediaBase}/live/${video.id}/${original.height}/index.m3u8?session=${session}\n\n`;
+        }
+
+        versions.forEach((version) => {
             master += masterStream({
-                streamUrl: `${mediaBase}/live/${video.id}/${p.height}/index.m3u8`,
-                width,
-                height: p.height,
-                bandwidth: p.bitrate,
-                name: p.name,
+                streamUrl: `${mediaBase}/stream/${version.id}/index.m3u8`,
+                width: version.width ?? 0,
+                height: version.height,
+                bandwidth: version.height * 2000,
+                name: `${version.height}p`,
                 session,
             });
         });
 
-    return master;
-};
+        const aspect = (original.width || 16) / original.height;
+        livePresets
+            .filter((preset) => preset.height < original.height && !includedHeights.includes(preset.height))
+            .forEach((preset) => {
+                const width = Math.round((preset.height * aspect) / 2) * 2;
+                master += masterStream({
+                    streamUrl: `${mediaBase}/live/${video.id}/${preset.height}/index.m3u8`,
+                    width,
+                    height: preset.height,
+                    bandwidth: preset.bitrate,
+                    name: preset.name,
+                    session,
+                });
+            });
 
-export const getVideoWithOriginal = async (videoId: string): Promise<{ video: Video; original: VideoVersion }> => {
-    const video = await db.query.videos.findFirst({ where: eq(videos.id, videoId), with: { versions: true } });
-    if (!video) throw new VideoNotFoundError();
-    if (!video.duration) throw new NoVideoMediaFoundError();
+        return master;
+    };
 
-    const original = video.versions.find((v) => v.isOriginal);
-    if (!original) throw new NoVideoMediaFoundError();
+    const generateManifestFile = async (
+        video: Video,
+        original: VideoVersion,
+        height: number,
+        session: string,
+        options = { segmentDuration: 6 }
+    ) => {
+        if (height > original.height) throw new TooBigResolutionError();
+        if (!presetHeights.includes(height) && height !== original.height) throw new NotStandardResolutionError();
 
-    return { video, original };
-};
+        const totalSegments = Math.ceil(video.duration! / options.segmentDuration);
 
-export const generateManifestFile = async (
-    video: Video,
-    original: VideoVersion,
-    height: number,
-    session: string,
-    options = { segmentDuration: 6 }
-) => {
-    if (height > original.height) throw new TooBigResolutionError();
-    if (!presetHeights.includes(height) && height !== original.height) throw new NotStandardResolutionError();
-
-    const totalSegments = Math.ceil(video.duration! / options.segmentDuration);
-
-    let m3u8 = `#EXTM3U
+        let m3u8 = `#EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-TARGETDURATION:${options.segmentDuration}
 #EXT-X-MEDIA-SEQUENCE:0
 #EXT-X-PLAYLIST-TYPE:VOD\n`;
 
-    for (let i = 0; i < totalSegments; i++) {
-        const duration = i === totalSegments - 1 ? video.duration! - i * options.segmentDuration : options.segmentDuration;
+        for (let i = 0; i < totalSegments; i++) {
+            const duration = i === totalSegments - 1 ? video.duration! - i * options.segmentDuration : options.segmentDuration;
 
-        m3u8 += `#EXTINF:${duration.toFixed(6)},\n`;
-        m3u8 += `${env.BASE_URL}/media/live/${video.id}/${height}/seg-${i}.ts?session=${session}\n`;
-    }
-    m3u8 += '#EXT-X-ENDLIST';
+            m3u8 += `#EXTINF:${duration.toFixed(6)},\n`;
+            m3u8 += `${baseUrl}/media/live/${video.id}/${height}/seg-${i}.ts?session=${session}\n`;
+        }
 
-    return m3u8;
+        m3u8 += '#EXT-X-ENDLIST';
+
+        return m3u8;
+    };
+
+    const ensureLiveSegment = async (
+        session: string,
+        height: number,
+        original: { storageKey: string; height: number; duration: number },
+        options = { segment: 0, segmentDuration: 6 }
+    ) => liveSessionManager.ensureSegment(session, height, original, options);
+
+    return {
+        generateMasterFile,
+        getVideoWithOriginal,
+        generateManifestFile,
+        ensureLiveSegment,
+        liveSessionManager,
+    };
 };
 
-export const ensureLiveSegment = async (
-    session: string,
-    height: number,
-    original: { storageKey: string; height: number; duration: number },
-    options = { segment: 0, segmentDuration: 6 }
-) => {
-    if (height > original.height) throw new TooBigResolutionError();
-    if (!presetHeights.includes(height)) throw new NotStandardResolutionError();
+export type LiveMediaService = ReturnType<typeof createLiveMediaService>;
 
-    const sessionPath = path.resolve(paths.live, session, String(height));
-    const sessionKey = `${session}:${height}`;
-    let sessionTask = sessionRegistry.get(sessionKey);
-    if (!sessionTask) {
-        const sourcePath = path.resolve(paths.storage, original.storageKey);
-        const totalSegments = Math.ceil(original.duration / options.segmentDuration);
-        sessionTask = new SessionTask(session, sourcePath, sessionPath, options.segmentDuration, height, totalSegments, async () => {
-            sessionRegistry.delete(sessionKey);
+const defaultLiveSessionManager = new LiveSessionManager({
+    paths: paths satisfies MediaPaths,
+    presetHeights,
+    taskFactory: async (...args) => {
+        const { SessionTask } = await import('./sessionTask');
+        return new SessionTask(...args);
+    },
+});
 
-            const ref = (sessionRef.get(session) ?? 0) - 1;
+export const liveMediaService = createLiveMediaService({
+    mediaRepository: drizzleMediaRepository,
+    liveSessionManager: defaultLiveSessionManager,
+    baseUrl: env.BASE_URL,
+});
 
-            if (ref <= 0) {
-                sessionRef.delete(session);
-                await fs.rm(path.resolve(paths.live, session), { recursive: true, force: true }).catch(() => {});
-            } else {
-                sessionRef.set(session, ref);
-                await fs.rm(sessionPath, { recursive: true, force: true }).catch(() => {});
-            }
-        });
-        sessionRegistry.set(sessionKey, sessionTask);
-        sessionRef.set(session, (sessionRef.get(session) ?? 0) + 1);
-        await sessionTask.initalize();
-    }
-
-    await sessionTask.prepareSegment(options.segment, { height });
-
-    return path.join(sessionPath, `seg-${options.segment}.ts`);
-};
+export const liveSessionManager = defaultLiveSessionManager;
+export const generateMasterFile = liveMediaService.generateMasterFile;
+export const getVideoWithOriginal = liveMediaService.getVideoWithOriginal;
+export const generateManifestFile = liveMediaService.generateManifestFile;
+export const ensureLiveSegment = liveMediaService.ensureLiveSegment;

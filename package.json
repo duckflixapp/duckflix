@@ -13,6 +13,7 @@
         "db:generate": "drizzle-kit generate",
         "db:studio": "drizzle-kit studio",
         "test": "bun test --env-file=.env.test --preload ./test/setup.ts",
+        "test:watch": "bun test --watch --env-file=.env.test --preload ./test/setup.ts",
         "format:check": "prettier --check .",
         "lint": "eslint ./src --ext .ts",
         "format": "prettier --write .",

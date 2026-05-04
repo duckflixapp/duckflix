@@ -1,6 +1,8 @@
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
+import { afterAll, beforeAll } from 'bun:test';
+import { env } from 'bun';
 
 const databasePath = process.env.DATABASE_PATH;
 
@@ -31,4 +33,15 @@ const { db } = await import('@shared/configs/db');
 
 migrate(db, { migrationsFolder: path.resolve(process.cwd(), 'drizzle') });
 
-console.log('Test environment is set up.');
+afterAll(async () => {
+    const testFolder = env.TEST_FOLDER_PATH ?? null;
+    if (!testFolder) return;
+
+    await rm(path.resolve(testFolder), { force: true, recursive: true });
+
+    console.log('- Test cleanup finished');
+});
+
+beforeAll(() => {
+    console.log('- Test environment is set up.');
+});

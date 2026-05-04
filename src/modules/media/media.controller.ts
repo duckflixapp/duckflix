@@ -1,70 +1,30 @@
-import path from 'node:path';
-import { eq } from 'drizzle-orm';
-import { db } from '@shared/configs/db';
-import { videoVersions, subtitles } from '@schema/video.schema';
-import { AppError } from '@shared/errors';
-import { paths } from '@shared/configs/path.config';
-import { sessionClient } from './session/session.client';
 import type { Context } from 'elysia';
+import { mediaService } from './media.container';
+import type { MediaService } from './media.service';
 
-export const handleStream = async ({ params, query, set }: Context) => {
-    const { versionId, file } = params;
-    const { session } = query;
-
-    const version = await db.query.videoVersions.findFirst({
-        where: eq(videoVersions.id, versionId!),
-    });
-
-    if (!version) throw new AppError('Video version not found', { statusCode: 404 });
-
-    await sessionClient.validate(session!, version.videoId);
-
-    const absolutePlaylistPath = path.resolve(paths.storage, version.storageKey);
-    const directoryPath = path.dirname(absolutePlaylistPath);
-    const requestedFile = version.mimeType === 'application/x-mpegURL' ? file || 'index.m3u8' : path.basename(version.storageKey);
-    const finalFilePath = path.join(directoryPath, requestedFile);
-
-    const bunFile = Bun.file(finalFilePath);
-    if (!(await bunFile.exists())) {
-        throw new AppError('Media file not found', { statusCode: 404 });
-    }
-
-    if (requestedFile.endsWith('.m3u8')) {
-        let content = await bunFile.text();
-
-        content = content.replace(/^(?!#)(.+\.(ts|m3u8|vtt|aac|mp4)(\?.*)?)$/gm, (match) => {
-            const separator = match.includes('?') ? '&' : '?';
-            return `${match}${separator}session=${session}`;
+export const createMediaController = (service: MediaService) => ({
+    handleStream: async ({ params, query, set }: Context) => {
+        const response = await service.stream({
+            versionId: params.versionId!,
+            file: params.file,
+            session: query.session!,
         });
 
-        set.headers['content-type'] = 'application/x-mpegURL';
-        return content;
-    }
+        if (response.contentType) set.headers['content-type'] = response.contentType;
 
-    if (requestedFile.endsWith('.ts')) set.headers['content-type'] = 'video/MP2T';
-    else if (version.mimeType) set.headers['content-type'] = version.mimeType;
+        return response.body;
+    },
 
-    return bunFile;
-};
+    handleSubtitle: async ({ params, query }: Context) => {
+        const response = await service.subtitle({
+            subtitleId: params.subtitleId!,
+            session: query.session!,
+        });
 
-export const handleSubtitle = async ({ params, query }: Context) => {
-    const { subtitleId } = params;
-    const { session } = query;
+        return response.body;
+    },
+});
 
-    const subtitle = await db.query.subtitles.findFirst({
-        where: eq(subtitles.id, subtitleId!),
-    });
-
-    if (!subtitle) throw new AppError('Subtitle not found', { statusCode: 404 });
-
-    await sessionClient.validate(session!, subtitle.videoId);
-
-    const absolutePath = path.resolve(paths.storage, subtitle.storageKey);
-    const bunFile = Bun.file(absolutePath);
-
-    if (!(await bunFile.exists())) {
-        throw new AppError('Subtitle not found on storage', { statusCode: 404 });
-    }
-
-    return bunFile;
-};
+export const mediaController = createMediaController(mediaService);
+export const handleStream = mediaController.handleStream;
+export const handleSubtitle = mediaController.handleSubtitle;
