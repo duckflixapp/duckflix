@@ -1,19 +1,7 @@
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import Elysia from 'elysia';
 import { markAccountNotificationsSchema, resetPasswordSchema, sessionIdSchema, setupTotpSchema } from './account.schema';
-import {
-    clearAccountNotifications,
-    deleteAccount,
-    getAccountNotifications,
-    getMe,
-    getSessionById,
-    getSessions,
-    getTwoFactorStatus,
-    markAccountNotifications,
-    resetPassword,
-    revokeSessionById,
-} from './account.service';
-import { activateTotp, cancelTotpSetup, deactivateTotp, getTotpSetup } from './totp.service';
+import { accountService, accountTotpService } from './account.container';
 import { clearAuthCookies } from '@shared/utils/cookies';
 
 export const accountRouter = new Elysia({ prefix: '/account' })
@@ -22,7 +10,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
     .get(
         '/@me',
         async ({ user }) => {
-            const account = await getMe(user.id);
+            const account = await accountService.getMe(user.id);
             return { status: 'success', data: { account } };
         },
         {
@@ -33,7 +21,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
     .get(
         '/notifications',
         async ({ user }) => {
-            const notifications = await getAccountNotifications(user.id);
+            const notifications = await accountService.getAccountNotifications(user.id);
             return { status: 'success', data: { notifications } };
         },
         { detail: { tags: ['Account'], summary: 'List account notifications' } }
@@ -42,7 +30,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
         '/notifications/mark',
         async ({ body, user }) => {
             const { notificationIds } = markAccountNotificationsSchema.parse(body);
-            await markAccountNotifications(user.id, {
+            await accountService.markAccountNotifications(user.id, {
                 markAll: notificationIds.length === 0,
                 notificationIds,
             });
@@ -56,7 +44,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
     .delete(
         '/notifications',
         async ({ user, status }) => {
-            await clearAccountNotifications(user.id);
+            await accountService.clearAccountNotifications(user.id);
             return status(204);
         },
         { detail: { tags: ['Account'], summary: 'Clear account notifications' } }
@@ -64,7 +52,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
     .get(
         '/2fa',
         async ({ user }) => {
-            const data = await getTwoFactorStatus(user.id);
+            const data = await accountService.getTwoFactorStatus(user.id);
             return { status: 'success', data };
         },
         { detail: { tags: ['Account'], summary: 'Get 2FA status' } }
@@ -74,7 +62,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             .get(
                 '/',
                 async ({ user }) => {
-                    const sessions = await getSessions({ accountId: user.id, currentSessionId: user.sessionId });
+                    const sessions = await accountService.getSessions({ accountId: user.id, currentSessionId: user.sessionId });
                     return { status: 'success', data: { sessions } };
                 },
                 {
@@ -84,7 +72,11 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             .get(
                 '/:id',
                 async ({ params: { id }, user }) => {
-                    const session = await getSessionById({ accountId: user.id, sessionId: id, currentSessionId: user.sessionId });
+                    const session = await accountService.getSessionById({
+                        accountId: user.id,
+                        sessionId: id,
+                        currentSessionId: user.sessionId,
+                    });
                     return { status: 'success', data: { session } };
                 },
                 {
@@ -96,7 +88,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             .delete(
                 '/:id',
                 async ({ params: { id }, user, status }) => {
-                    await revokeSessionById({ accountId: user.id, sessionId: id, currentSessionId: user.sessionId });
+                    await accountService.revokeSessionById({ accountId: user.id, sessionId: id, currentSessionId: user.sessionId });
                     return status(204);
                 },
                 {
@@ -110,7 +102,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
     .delete(
         '/',
         async ({ user, cookie }) => {
-            await deleteAccount(user.id);
+            await accountService.deleteAccount(user.id);
 
             clearAuthCookies(cookie);
 
@@ -121,7 +113,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
     .patch(
         '/password',
         async ({ body, user }) => {
-            await resetPassword({ accountId: user.id, password: body.password, sessionId: user.sessionId });
+            await accountService.resetPassword({ accountId: user.id, password: body.password, sessionId: user.sessionId });
             return { status: 'success' };
         },
         { body: resetPasswordSchema, detail: { tags: ['Account'], summary: 'Change Password' } }
@@ -131,7 +123,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             .get(
                 '/setup',
                 async ({ user }) => {
-                    const data = await getTotpSetup(user.id);
+                    const data = await accountTotpService.getTotpSetup(user.id);
                     return { status: 'success', data };
                 },
                 { detail: { tags: ['Account'], summary: 'Get TOTP Setup QR' } }
@@ -139,7 +131,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             .delete(
                 '/setup',
                 async ({ user, status }) => {
-                    await cancelTotpSetup(user.id);
+                    await accountTotpService.cancelTotpSetup(user.id);
                     return status(204, { status: 'success' });
                 },
                 { detail: { tags: ['Account'], summary: 'Cancel TOTP setup' } }
@@ -147,7 +139,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             .post(
                 '/setup',
                 async ({ body, user }) => {
-                    const data = await activateTotp(user.id, body.code);
+                    const data = await accountTotpService.activateTotp(user.id, body.code);
                     return { status: 'success', data };
                 },
                 { body: setupTotpSchema, detail: { tags: ['Account'], summary: 'Activate TOTP' } }
@@ -155,7 +147,7 @@ export const accountRouter = new Elysia({ prefix: '/account' })
             .delete(
                 '/',
                 async ({ user }) => {
-                    await deactivateTotp(user.id);
+                    await accountTotpService.deactivateTotp(user.id);
                     return { status: 'success' };
                 },
                 { detail: { tags: ['Account'], summary: 'Disable TOTP' } }
