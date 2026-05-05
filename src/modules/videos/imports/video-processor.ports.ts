@@ -1,5 +1,6 @@
 import type { DownloadProgress, JobProgress, VideoType } from '@duckflixapp/shared';
 import type { VideoMetadata } from '@shared/services/metadata/metadata.types';
+import type { AddonPermission, AddonPrepareContext, AddonWorkspace } from '@modules/addons';
 
 export type RawVideoProcessorSource =
     | {
@@ -62,6 +63,7 @@ type CancellableDownload = {
 };
 
 export type VideoProcessorContext = {
+    workspace?: AddonWorkspace;
     emit(event: VideoProcessorEvent): Promise<void> | void;
     download: {
         register: (process: CancellableDownload) => unknown;
@@ -74,7 +76,9 @@ export type VideoProcessor = {
     id: string;
     builtIn: boolean;
     initialStatus?: 'processing' | 'downloading';
+    permissions?: readonly AddonPermission[];
     sourceTypes: readonly RawVideoProcessorSource['sourceType'][];
+    prepare?(context: AddonPrepareContext): Promise<void> | void;
     validateSource(source: RawVideoProcessorSource): Promise<void> | void;
     identify?(input: VideoProcessorIdentifyInput): Promise<VideoMetadata | null>;
     start(input: VideoProcessorStartInput, context: VideoProcessorContext): Promise<VideoProcessorStartOutput>;

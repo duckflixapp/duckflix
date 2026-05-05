@@ -7,6 +7,7 @@ export const uploaderProcessor: VideoProcessor = {
     id: 'uploader',
     builtIn: true,
     initialStatus: 'processing',
+    permissions: ['filesystem:job'],
     sourceTypes: ['file'],
 
     validateSource(source) {

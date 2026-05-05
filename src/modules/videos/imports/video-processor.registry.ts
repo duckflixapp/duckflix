@@ -1,8 +1,9 @@
 import { AppError } from '@shared/errors';
 import type { RawVideoProcessorSource, VideoProcessor } from './video-processor.ports';
+import { VideoProcessorRuntime, type VideoProcessorRunProcessor } from './video-processor.runtime';
 
 export class VideoProcessorRegistry {
-    private readonly processors = new Map<string, VideoProcessor>();
+    private readonly processors = new Map<string, VideoProcessorRuntime>();
 
     constructor(processors: VideoProcessor[] = []) {
         processors.forEach((processor) => this.register(processor));
@@ -10,7 +11,7 @@ export class VideoProcessorRegistry {
 
     public register(processor: VideoProcessor) {
         if (this.processors.has(processor.id)) throw new AppError(`Video processor already registered: ${processor.id}`);
-        this.processors.set(processor.id, processor);
+        this.processors.set(processor.id, new VideoProcessorRuntime(processor));
     }
 
     public list() {
@@ -21,7 +22,10 @@ export class VideoProcessorRegistry {
         return this.processors.get(id) ?? null;
     }
 
-    public ensureSourceSupported(processor: VideoProcessor, sourceType: RawVideoProcessorSource['sourceType']) {
+    public ensureSourceSupported(
+        processor: Pick<VideoProcessorRuntime | VideoProcessorRunProcessor, 'id' | 'sourceTypes'>,
+        sourceType: RawVideoProcessorSource['sourceType']
+    ) {
         if (!processor.sourceTypes.includes(sourceType)) {
             throw new AppError(`Processor "${processor.id}" does not support "${sourceType}" sources`, { statusCode: 400 });
         }

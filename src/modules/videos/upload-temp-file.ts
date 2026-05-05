@@ -21,12 +21,13 @@ export const sanitizeUploadFileName = (name: string) => {
     return safeName || 'upload';
 };
 
-export const saveUploadToTemp = async (file: File) => {
-    await fs.mkdir(paths.uploads, { recursive: true });
+export const saveUploadToTemp = async (file: File, targetDir = paths.uploads) => {
+    const uploadDir = path.resolve(targetDir);
+    await fs.mkdir(uploadDir, { recursive: true });
 
     const safeName = sanitizeUploadFileName(file.name);
-    const filePath = path.resolve(paths.uploads, `${randomUUID()}-${safeName}`);
-    const uploadRoot = paths.uploads.endsWith(path.sep) ? paths.uploads : `${paths.uploads}${path.sep}`;
+    const filePath = path.resolve(uploadDir, `${randomUUID()}-${safeName}`);
+    const uploadRoot = uploadDir.endsWith(path.sep) ? uploadDir : `${uploadDir}${path.sep}`;
 
     if (!filePath.startsWith(uploadRoot)) {
         throw new AppError('Invalid upload file path', { statusCode: 400 });

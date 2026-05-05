@@ -7,6 +7,7 @@ export const torrentProcessor: VideoProcessor = {
     id: 'torrent',
     builtIn: true,
     initialStatus: 'downloading',
+    permissions: ['filesystem:job', 'p2p'],
     sourceTypes: ['file'],
     validateSource: (source): Promise<void> | void => {
         if (source.sourceType === 'file') {

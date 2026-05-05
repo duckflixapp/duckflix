@@ -92,29 +92,32 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                 async ({ user, body, set }) => {
                     const { type, dbUrl } = body;
 
-                    const processor = videoProcessorRegistry.resolve(body.processor);
-                    if (!processor) throw new AppError('Failed to find processor for: ' + body.processor, { statusCode: 404 });
+                    const processorRuntime = videoProcessorRegistry.resolve(body.processor);
+                    if (!processorRuntime) throw new AppError('Failed to find processor for: ' + body.processor, { statusCode: 404 });
 
                     const rawSource =
                         body.sourceType === 'file'
                             ? ({ sourceType: 'file', file: body.source } as const)
                             : ({ sourceType: 'text', value: body.source } as const);
 
-                    videoProcessorRegistry.ensureSourceSupported(processor, rawSource.sourceType);
-                    await processor.validateSource(rawSource);
-
+                    const addonRun = await processorRuntime.prepareRun();
+                    const { processor } = addonRun;
                     let savedSourcePath: string | undefined;
+                    let cleanupSourceOnError = true;
 
                     try {
+                        videoProcessorRegistry.ensureSourceSupported(processor, rawSource.sourceType);
+                        await processor.validateSource(rawSource);
+
                         const source = rawSource.sourceType === 'file' ? { ...rawSource, tempPath: '' } : rawSource;
                         if (source.sourceType === 'file') {
-                            savedSourcePath = await saveUploadToTemp(source.file);
+                            savedSourcePath = await saveUploadToTemp(source.file, addonRun.workspace?.inputDir);
                             source.tempPath = savedSourcePath;
                         }
 
                         let metadata = await MetadataService.enrichMetadata(dbUrl, body);
 
-                        if (!metadata && processor.identify) metadata = await processor.identify({ source, requestedType: type });
+                        if (!metadata) metadata = await processor.identify({ source, requestedType: type });
 
                         if (!metadata) {
                             throw new AppError('Failed to retrieve metadata. Please provide valid video data or db url', {
@@ -140,9 +143,12 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                                     tempPath: path,
                                     originalName: fileName,
                                     fileSize: fileSize,
-                                }).catch((error) => handleWorkflowError(video.id, error, 'video'));
+                                })
+                                    .catch((error) => handleWorkflowError(video.id, error, 'video'))
+                                    .finally(() => addonRun.cleanup());
                             })
                             .catch(async (error) => {
+                                await addonRun.cleanup();
                                 if (error instanceof DownloadCancelledError) {
                                     await db.update(videos).set({ status: 'error' }).where(eq(videos.id, video.id));
                                     logger.info({ videoId: video.id, processor: processor.id }, 'Video import canceled');
@@ -153,6 +159,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             });
 
                         savedSourcePath = undefined;
+                        cleanupSourceOnError = false;
 
                         set.status = 201;
                         return {
@@ -161,7 +168,8 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             data: { video },
                         };
                     } catch (e) {
-                        if (savedSourcePath) await fs.unlink(savedSourcePath).catch(() => {});
+                        if (savedSourcePath && cleanupSourceOnError) await fs.unlink(savedSourcePath).catch(() => {});
+                        await addonRun.cleanup();
                         throw e;
                     }
                 },
