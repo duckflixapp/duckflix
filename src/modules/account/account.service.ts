@@ -1,4 +1,11 @@
-import type { AccountSessionDTO, AccountSessionMinDTO, AccountTwoFactorStatusDTO, NotificationDTO, UserRole } from '@duckflixapp/shared';
+import type {
+    AccountSessionDTO,
+    AccountSessionMinDTO,
+    AccountTwoFactorStatusDTO,
+    NotificationDTO,
+    PaginatedResponse,
+    UserRole,
+} from '@duckflixapp/shared';
 
 import { AppError } from '@shared/errors';
 import { toAccountSessionDTO, toAccountSessionMinDTO, toAccountTwoFactorStatusDTO } from '@shared/mappers/account.mapper';
@@ -13,17 +20,6 @@ export type AccountMeDTO = {
     isVerified: boolean;
     isTotpEnabled: boolean;
     createdAt: string;
-};
-
-export type AccountNotificationsDTO = {
-    notifications: NotificationDTO[];
-    meta: {
-        totalItems: number;
-        itemCount: number;
-        itemsPerPage: number;
-        totalPages: number;
-        currentPage: number;
-    };
 };
 
 type AccountServiceDependencies = {
@@ -47,11 +43,11 @@ export const createAccountService = ({ accountRepository, passwordHasher }: Acco
     const getAccountNotifications = async (
         accountId: string,
         options: { page: number; limit: number }
-    ): Promise<AccountNotificationsDTO> => {
+    ): Promise<PaginatedResponse<NotificationDTO>> => {
         const { results, totalItems } = await accountRepository.listNotifications(accountId, options);
 
         return {
-            notifications: results.map(toNotificationDTO),
+            data: results.map(toNotificationDTO),
             meta: {
                 totalItems,
                 itemCount: results.length,

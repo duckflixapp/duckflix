@@ -56,7 +56,7 @@ describe('AccountService', () => {
 
         const result = await service.getAccountNotifications('account-1', { page: 2, limit: 10 });
 
-        expect(result.notifications).toHaveLength(1);
+        expect(result.data).toHaveLength(1);
         expect(result.meta).toEqual({
             totalItems: 23,
             itemCount: 1,

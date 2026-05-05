@@ -27,8 +27,8 @@ export const accountRouter = new Elysia({ prefix: '/account' })
     .get(
         '/notifications',
         async ({ user, query }) => {
-            const { notifications, meta } = await accountService.getAccountNotifications(user.id, query);
-            return { status: 'success', data: { notifications }, meta };
+            const data = await accountService.getAccountNotifications(user.id, query);
+            return { status: 'success', ...data };
         },
         { query: accountNotificationsQuerySchema, detail: { tags: ['Account'], summary: 'List account notifications' } }
     )
