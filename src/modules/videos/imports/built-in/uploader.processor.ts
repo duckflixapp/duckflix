@@ -23,6 +23,10 @@ export const uploaderProcessor: VideoProcessor = {
         }
     },
 
+    async prepare(_) {
+        return;
+    },
+
     async identify({ source, requestedType }) {
         if (source.sourceType !== 'file') return null;
 

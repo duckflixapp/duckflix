@@ -2,40 +2,22 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { paths } from '@shared/configs/path.config';
-import type { AddonKind, AddonPrepareTarget, AddonWorkspace, PreparedAddonRun } from './addons.ports';
+import { AppError } from '@shared/errors';
+import type { AddonDefinition, AddonRunner, AddonRuntimeKind, AddonWorkspace, AddonRun } from './addons.ports';
 
-type AddonRuntimeTarget = Omit<AddonPrepareTarget, 'kind'>;
+export class AddonService {
+    private readonly runners = new Map<AddonRuntimeKind, AddonRunner>();
 
-export class AddonRuntime<TAddon extends AddonRuntimeTarget> {
     constructor(
-        protected readonly addon: TAddon,
-        protected readonly kind: AddonKind,
+        runners: AddonRunner[],
         private readonly rootPath = paths.addons
-    ) {}
-
-    public get instance() {
-        return this.addon;
+    ) {
+        runners.forEach((runner) => this.runners.set(runner.runtime, runner));
     }
 
-    public get id() {
-        return this.addon.id;
-    }
-
-    public get permissions() {
-        return this.addon.permissions;
-    }
-
-    public prepareRun(): Promise<PreparedAddonRun> {
-        return this.prepare({
-            id: this.addon.id,
-            kind: this.kind,
-            permissions: this.addon.permissions,
-            prepare: this.addon.prepare,
-        });
-    }
-
-    private async prepare(addon: AddonPrepareTarget): Promise<PreparedAddonRun> {
+    public async prepareRun(addon: AddonDefinition): Promise<AddonRun> {
         let workspace: AddonWorkspace | undefined;
+        let runnerRun: Awaited<ReturnType<AddonRunner['prepareRun']>> | undefined;
 
         try {
             if (addon.permissions?.includes('filesystem:job')) {
@@ -47,6 +29,11 @@ export class AddonRuntime<TAddon extends AddonRuntimeTarget> {
                     return workspace;
                 },
             });
+
+            const runner = this.runners.get(addon.runtime);
+            if (!runner) throw new AppError(`Addon runtime is not available: ${addon.runtime}`, { statusCode: 500 });
+
+            runnerRun = await runner.prepareRun(addon, { workspace });
         } catch (error) {
             if (workspace) await fs.rm(workspace.root, { recursive: true, force: true }).catch(() => {});
             throw error;
@@ -55,17 +42,23 @@ export class AddonRuntime<TAddon extends AddonRuntimeTarget> {
         return {
             addonId: addon.id,
             kind: addon.kind,
+            runtime: addon.runtime,
             get workspace() {
                 return workspace;
             },
+            call: async (method, ...args) => {
+                if (!runnerRun) throw new AppError('Addon run is not prepared', { statusCode: 500 });
+                return runnerRun.call(method, ...args);
+            },
             cleanup: async () => {
+                await runnerRun?.cleanup();
                 if (!workspace) return;
                 await fs.rm(workspace.root, { recursive: true, force: true }).catch(() => {});
             },
         };
     }
 
-    private async createWorkspace(addon: AddonPrepareTarget): Promise<AddonWorkspace> {
+    private async createWorkspace(addon: AddonDefinition): Promise<AddonWorkspace> {
         const id = randomUUID();
         const root = path.resolve(this.rootPath, addon.kind, addon.id, id);
         const workspace = {

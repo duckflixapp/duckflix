@@ -1,6 +1,5 @@
-export { videoProcessorRegistry } from './imports.container';
-export { VideoProcessorRuntime, VideoProcessorRunProcessor } from './video-processor.runtime';
-export type { PreparedVideoProcessorRun } from './video-processor.runtime';
+export { videoProcessorRegistry, VideoProcessorAddon, VideoProcessorRegistry, VideoProcessorRun } from './video-processor.registry';
+export type { VideoProcessorRunHandle } from './video-processor.registry';
 export type {
     PreparedVideoProcessorSource,
     RawVideoProcessorSource,

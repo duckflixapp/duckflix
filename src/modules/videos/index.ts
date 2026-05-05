@@ -92,16 +92,16 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                 async ({ user, body, set }) => {
                     const { type, dbUrl } = body;
 
-                    const processorRuntime = videoProcessorRegistry.resolve(body.processor);
-                    if (!processorRuntime) throw new AppError('Failed to find processor for: ' + body.processor, { statusCode: 404 });
+                    const processorAddon = videoProcessorRegistry.resolve(body.processor);
+                    if (!processorAddon) throw new AppError('Failed to find processor for: ' + body.processor, { statusCode: 404 });
 
                     const rawSource =
                         body.sourceType === 'file'
                             ? ({ sourceType: 'file', file: body.source } as const)
                             : ({ sourceType: 'text', value: body.source } as const);
 
-                    const addonRun = await processorRuntime.prepareRun();
-                    const { processor } = addonRun;
+                    const processorRun = await processorAddon.prepareRun();
+                    const { processor } = processorRun;
                     let savedSourcePath: string | undefined;
                     let cleanupSourceOnError = true;
 
@@ -111,7 +111,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
 
                         const source = rawSource.sourceType === 'file' ? { ...rawSource, tempPath: '' } : rawSource;
                         if (source.sourceType === 'file') {
-                            savedSourcePath = await saveUploadToTemp(source.file, addonRun.workspace?.inputDir);
+                            savedSourcePath = await saveUploadToTemp(source.file, processorRun.workspace?.inputDir);
                             source.tempPath = savedSourcePath;
                         }
 
@@ -145,10 +145,10 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                                     fileSize: fileSize,
                                 })
                                     .catch((error) => handleWorkflowError(video.id, error, 'video'))
-                                    .finally(() => addonRun.cleanup());
+                                    .finally(() => processorRun.cleanup());
                             })
                             .catch(async (error) => {
-                                await addonRun.cleanup();
+                                await processorRun.cleanup();
                                 if (error instanceof DownloadCancelledError) {
                                     await db.update(videos).set({ status: 'error' }).where(eq(videos.id, video.id));
                                     logger.info({ videoId: video.id, processor: processor.id }, 'Video import canceled');
@@ -169,7 +169,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                         };
                     } catch (e) {
                         if (savedSourcePath && cleanupSourceOnError) await fs.unlink(savedSourcePath).catch(() => {});
-                        await addonRun.cleanup();
+                        await processorRun.cleanup();
                         throw e;
                     }
                 },

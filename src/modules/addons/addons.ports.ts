@@ -1,5 +1,6 @@
 export type AddonPermission = 'network' | 'filesystem:job' | 'p2p';
 export type AddonKind = 'video.processor';
+export type AddonRuntimeKind = 'builtIn' | 'wasi';
 
 export type AddonWorkspace = {
     id: string;
@@ -15,24 +16,39 @@ export type AddonPrepareContext = {
     workspace?: AddonWorkspace;
 };
 
-export type AddonPrepareTarget = {
+export type AddonDefinition<TImplementation = unknown> = {
     id: string;
     kind: AddonKind;
+    runtime: AddonRuntimeKind;
     permissions?: readonly AddonPermission[];
+    implementation: TImplementation;
     prepare?(context: AddonPrepareContext): Promise<void> | void;
 };
 
-export type PreparedAddonRun = {
+export type AddonRun = {
     addonId: string;
     kind: AddonKind;
+    runtime: AddonRuntimeKind;
     workspace?: AddonWorkspace;
+    call<TOutput>(method: string, ...args: unknown[]): Promise<TOutput>;
     cleanup(): Promise<void>;
+};
+
+export type AddonRunnerRun = {
+    call<TOutput>(method: string, ...args: unknown[]): Promise<TOutput>;
+    cleanup(): Promise<void>;
+};
+
+export type AddonRunner = {
+    runtime: AddonRuntimeKind;
+    prepareRun(addon: AddonDefinition, context: { workspace?: AddonWorkspace }): Promise<AddonRunnerRun>;
 };
 
 export type VideoProcessorCapability = {
     kind: 'video.processor';
     processors: Array<{
         id: string;
+        runtime: AddonRuntimeKind;
         sourceTypes: string[];
     }>;
 };

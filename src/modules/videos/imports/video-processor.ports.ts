@@ -1,6 +1,6 @@
 import type { DownloadProgress, JobProgress, VideoType } from '@duckflixapp/shared';
 import type { VideoMetadata } from '@shared/services/metadata/metadata.types';
-import type { AddonPermission, AddonPrepareContext, AddonWorkspace } from '@modules/addons';
+import type { AddonPermission, AddonPrepareContext, AddonWorkspace } from '@modules/addons/addons.ports';
 
 export type RawVideoProcessorSource =
     | {
