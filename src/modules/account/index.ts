@@ -1,6 +1,12 @@
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import Elysia from 'elysia';
-import { markAccountNotificationsSchema, resetPasswordSchema, sessionIdSchema, setupTotpSchema } from './account.schema';
+import {
+    accountNotificationsQuerySchema,
+    markAccountNotificationsSchema,
+    resetPasswordSchema,
+    sessionIdSchema,
+    setupTotpSchema,
+} from './account.schema';
 import { accountService, accountTotpService } from './account.container';
 import { clearAuthCookies } from '@shared/utils/cookies';
 
@@ -20,11 +26,11 @@ export const accountRouter = new Elysia({ prefix: '/account' })
     )
     .get(
         '/notifications',
-        async ({ user }) => {
-            const notifications = await accountService.getAccountNotifications(user.id);
-            return { status: 'success', data: { notifications } };
+        async ({ user, query }) => {
+            const { notifications, meta } = await accountService.getAccountNotifications(user.id, query);
+            return { status: 'success', data: { notifications }, meta };
         },
-        { detail: { tags: ['Account'], summary: 'List account notifications' } }
+        { query: accountNotificationsQuerySchema, detail: { tags: ['Account'], summary: 'List account notifications' } }
     )
     .patch(
         '/notifications/mark',

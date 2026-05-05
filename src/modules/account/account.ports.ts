@@ -30,6 +30,11 @@ export type AccountNotificationRecord = {
     createdAt: string;
 };
 
+export type AccountNotificationPage = {
+    results: AccountNotificationRecord[];
+    totalItems: number;
+};
+
 export type AccountSessionRecord = {
     id: string;
     accountId: string;
@@ -52,7 +57,7 @@ export interface AccountRepository {
     findUserEmail(accountId: string): Promise<{ email: string } | null>;
     userExists(accountId: string): Promise<boolean>;
     getTotp(accountId: string): Promise<AccountTotpRecord | null>;
-    listNotifications(accountId: string): Promise<AccountNotificationRecord[]>;
+    listNotifications(accountId: string, options: { page: number; limit: number }): Promise<AccountNotificationPage>;
     markNotifications(accountId: string, options: { markAll: boolean; notificationIds?: string[] }): Promise<void>;
     clearNotifications(accountId: string): Promise<void>;
     deleteAccountWithAudit(accountId: string): Promise<boolean>;

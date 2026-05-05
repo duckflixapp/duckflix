@@ -24,3 +24,8 @@ export const markAccountNotificationsSchema = z.object({
         z.array(z.uuid('Invalid Notification ID')).max(30, 'Too many Notifications, You can send [] to mark all')
     ),
 });
+
+export const accountNotificationsQuerySchema = z.object({
+    page: z.coerce.number().int().positive().max(10000, 'Page limit exceeded').default(1),
+    limit: z.coerce.number().int().positive().max(50).default(10),
+});

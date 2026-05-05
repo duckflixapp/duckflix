@@ -15,6 +15,17 @@ export type AccountMeDTO = {
     createdAt: string;
 };
 
+export type AccountNotificationsDTO = {
+    notifications: NotificationDTO[];
+    meta: {
+        totalItems: number;
+        itemCount: number;
+        itemsPerPage: number;
+        totalPages: number;
+        currentPage: number;
+    };
+};
+
 type AccountServiceDependencies = {
     accountRepository: AccountRepository;
     passwordHasher: AccountPasswordHasher;
@@ -33,9 +44,22 @@ export const createAccountService = ({ accountRepository, passwordHasher }: Acco
         };
     };
 
-    const getAccountNotifications = async (accountId: string): Promise<NotificationDTO[]> => {
-        const results = await accountRepository.listNotifications(accountId);
-        return results.map(toNotificationDTO);
+    const getAccountNotifications = async (
+        accountId: string,
+        options: { page: number; limit: number }
+    ): Promise<AccountNotificationsDTO> => {
+        const { results, totalItems } = await accountRepository.listNotifications(accountId, options);
+
+        return {
+            notifications: results.map(toNotificationDTO),
+            meta: {
+                totalItems,
+                itemCount: results.length,
+                itemsPerPage: options.limit,
+                totalPages: Math.ceil(totalItems / options.limit),
+                currentPage: options.page,
+            },
+        };
     };
 
     const markAccountNotifications = (accountId: string, options: { markAll: boolean; notificationIds?: string[] }) =>

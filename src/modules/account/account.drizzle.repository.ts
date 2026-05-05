@@ -47,13 +47,25 @@ export const drizzleAccountRepository: AccountRepository = {
         return totp ?? null;
     },
 
-    async listNotifications(accountId: string) {
-        return db
-            .select()
-            .from(notifications)
-            .where(eq(notifications.accountId, accountId))
-            .orderBy(desc(notifications.createdAt))
-            .limit(10);
+    async listNotifications(accountId: string, options: { page: number; limit: number }) {
+        const offset = (options.page - 1) * options.limit;
+
+        return db.transaction(async (tx) => {
+            const [total] = await tx.select({ totalItems: count() }).from(notifications).where(eq(notifications.accountId, accountId));
+
+            const results = await tx
+                .select()
+                .from(notifications)
+                .where(eq(notifications.accountId, accountId))
+                .orderBy(desc(notifications.createdAt))
+                .limit(options.limit)
+                .offset(offset);
+
+            return {
+                results,
+                totalItems: total?.totalItems ?? 0,
+            };
+        });
     },
 
     async markNotifications(accountId: string, options: { markAll: boolean; notificationIds?: string[] }) {
