@@ -6,7 +6,7 @@ import { AppError } from '@shared/errors';
 const publicRoot = path.resolve(paths.public);
 
 export const assetsRouter = new Elysia().get('/assets/*', async ({ params, set }) => {
-    const requestedPath = (params as Record<string, string>)['*'];
+    const requestedPath = params['*'];
     if (!requestedPath) throw new AppError('Asset not found', { statusCode: 404 });
 
     const filePath = path.resolve(publicRoot, requestedPath);

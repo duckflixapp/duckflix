@@ -1,237 +1,136 @@
 import type { LibraryDTO, LibraryItemDTO, LibraryMinDTO, PaginatedResponse } from '@duckflixapp/shared';
-import { db } from '@shared/configs/db';
-import { libraries, libraryItems, movies, series } from '@schema/index';
-import { and, count, desc, eq, ilike, sql } from 'drizzle-orm';
-import { toLibraryDTO, toLibraryItemDTO, toLibraryMinDTO } from '@shared/mappers/library.mapper';
+
 import { AppError } from '@shared/errors';
-import { isDuplicateKey } from '@shared/db.errors';
+import { toLibraryDTO, toLibraryItemDTO, toLibraryMinDTO } from '@shared/mappers/library.mapper';
 import { LibraryNotFoundError } from './library.errors';
-import { createAuditLog } from '@shared/services/audit.service';
+import {
+    DuplicateLibraryItemError,
+    DuplicateLibraryNameError,
+    LibraryCreateFailedError,
+    LibraryLimitReachedError,
+    type ContentType,
+    type LibraryRepository,
+} from './library.ports';
 
-export const getUserLibraries = async (profileId: string, options?: { custom?: boolean }): Promise<LibraryMinDTO[]> => {
-    const custom = !!options?.custom ? eq(libraries.type, 'custom') : null;
-
-    const conditions = [custom, eq(libraries.profileId, profileId)];
-    const filters = and(...conditions.filter((c) => c != null));
-
-    const results = await db.select().from(libraries).where(filters);
-
-    return results.map(toLibraryMinDTO);
+type LibraryServiceDependencies = {
+    libraryRepository: LibraryRepository;
 };
 
 const reservedLibraryNames = ['watchlist'];
 const MAX_LIBRARIES = 10;
-export const createUserLibrary = async (profileId: string, context: { accountId: string; name: string }): Promise<LibraryMinDTO> => {
-    if (reservedLibraryNames.includes(context.name.toLowerCase())) throw new AppError('Name is unavailable', { statusCode: 409 });
 
-    try {
-        const result = await db.transaction(async (tx) => {
-            const [userLibraries] = await tx
-                .select({ value: count() })
-                .from(libraries)
-                .where(and(eq(libraries.profileId, profileId), eq(libraries.type, 'custom')));
+export const createLibraryService = ({ libraryRepository }: LibraryServiceDependencies) => {
+    const getUserLibraries = async (profileId: string, options?: { custom?: boolean }): Promise<LibraryMinDTO[]> => {
+        const results = await libraryRepository.listByProfile(profileId, options);
+        return results.map(toLibraryMinDTO);
+    };
 
-            if (!userLibraries || userLibraries?.value >= MAX_LIBRARIES)
-                throw new AppError(`You have reached the library limit (max ${MAX_LIBRARIES}).`, { statusCode: 403 });
-            const [result] = await tx
-                .insert(libraries)
-                .values({
-                    name: context.name,
-                    profileId: profileId,
-                    type: 'custom',
-                })
-                .returning();
+    const createUserLibrary = async (profileId: string, context: { accountId: string; name: string }): Promise<LibraryMinDTO> => {
+        if (reservedLibraryNames.includes(context.name.toLowerCase())) throw new AppError('Name is unavailable', { statusCode: 409 });
 
-            if (!result) throw new AppError('Library not created', { statusCode: 500 });
+        try {
+            const result = await libraryRepository.createCustom({
+                profileId,
+                accountId: context.accountId,
+                name: context.name,
+                maxLibraries: MAX_LIBRARIES,
+            });
 
-            await createAuditLog(
-                {
-                    actorAccountId: context.accountId,
-                    action: 'library.created',
-                    targetType: 'library',
-                    targetId: result.id,
-                    metadata: {
-                        name: result.name,
-                        type: result.type,
-                    },
-                },
-                tx
-            );
-
-            return result;
-        });
-
-        return toLibraryMinDTO(result);
-    } catch (e) {
-        if (isDuplicateKey(e)) throw new AppError(`You already have library with that name.`, { statusCode: 409 });
-        throw e;
-    }
-};
-
-export const deleteUserLibrary = async (profileId: string, libraryId: string, context: { accountId: string }): Promise<void> => {
-    await db.transaction(async (tx) => {
-        const [library] = await tx
-            .select({ id: libraries.id, type: libraries.type, name: libraries.name })
-            .from(libraries)
-            .where(and(eq(libraries.profileId, profileId), eq(libraries.id, libraryId)));
-
-        if (!library) throw new LibraryNotFoundError();
-
-        if (library.type !== 'custom') throw new AppError(`You can only delete custom playlists`, { statusCode: 403 });
-
-        await tx.delete(libraries).where(eq(libraries.id, library.id));
-        await createAuditLog(
-            {
-                actorAccountId: context.accountId,
-                action: 'library.deleted',
-                targetType: 'library',
-                targetId: library.id,
-                metadata: {
-                    name: library.name,
-                    type: library.type,
-                },
-            },
-            tx
-        );
-    });
-};
-export const addContentToUserLibrary = async (
-    profileId: string,
-    libraryId: string,
-    contentId: string,
-    type: 'movie' | 'series'
-): Promise<void> => {
-    try {
-        const conditions = [eq(libraries.profileId, profileId)];
-        if (libraryId === 'watchlist') conditions.push(eq(libraries.type, 'watchlist'));
-        else conditions.push(eq(libraries.id, libraryId));
-
-        await db.transaction(async (tx) => {
-            const [library] = await tx
-                .select({ id: libraries.id })
-                .from(libraries)
-                .where(and(...conditions));
-            if (!library) throw new LibraryNotFoundError();
-
-            if (type === 'movie') {
-                const [movie] = await tx.select({ id: movies.id }).from(movies).where(eq(movies.id, contentId));
-                if (!movie) throw new AppError('Movie not found', { statusCode: 404 });
-                await tx.insert(libraryItems).values({ libraryId: library.id, movieId: movie.id });
-            } else {
-                const [s] = await tx.select({ id: series.id }).from(series).where(eq(series.id, contentId));
-                if (!s) throw new AppError('Series not found', { statusCode: 404 });
-                await tx.insert(libraryItems).values({ libraryId: library.id, seriesId: s.id });
+            return toLibraryMinDTO(result);
+        } catch (error) {
+            if (error instanceof LibraryLimitReachedError) {
+                throw new AppError(`You have reached the library limit (max ${error.limit}).`, { statusCode: 403 });
             }
+            if (error instanceof DuplicateLibraryNameError) {
+                throw new AppError(`You already have library with that name.`, { statusCode: 409 });
+            }
+            if (error instanceof LibraryCreateFailedError) {
+                throw new AppError('Library not created', { statusCode: 500 });
+            }
+            throw error;
+        }
+    };
+
+    const deleteUserLibrary = async (profileId: string, libraryId: string, context: { accountId: string }): Promise<void> => {
+        const result = await libraryRepository.deleteCustom({ profileId, libraryId, accountId: context.accountId });
+
+        if (result === 'not_found') throw new LibraryNotFoundError();
+        if (result === 'not_custom') throw new AppError(`You can only delete custom playlists`, { statusCode: 403 });
+    };
+
+    const addContentToUserLibrary = async (profileId: string, libraryId: string, contentId: string, type: ContentType): Promise<void> => {
+        try {
+            const result = await libraryRepository.addContent({ profileId, libraryId, contentId, type });
+
+            if (result === 'library_not_found') throw new LibraryNotFoundError();
+            if (result === 'content_not_found')
+                throw new AppError(type === 'movie' ? 'Movie not found' : 'Series not found', { statusCode: 404 });
+        } catch (error) {
+            if (error instanceof DuplicateLibraryItemError) throw new AppError(`Content is already in library.`, { statusCode: 409 });
+            throw error;
+        }
+    };
+
+    const removeContentFromUserLibrary = async (
+        profileId: string,
+        libraryId: string,
+        contentId: string,
+        type: ContentType
+    ): Promise<void> => {
+        const result = await libraryRepository.removeContent({ profileId, libraryId, contentId, type });
+
+        if (result === 'library_not_found') throw new LibraryNotFoundError();
+        if (result === 'item_not_found') throw new AppError('Content not found in library', { statusCode: 404 });
+    };
+
+    const getUserLibrary = async (profileId: string, libraryId: string): Promise<LibraryDTO> => {
+        const result = await libraryRepository.findById({ profileId, libraryId });
+
+        if (!result) throw new LibraryNotFoundError();
+
+        return toLibraryDTO(result);
+    };
+
+    const getUserLibraryItems = async (
+        profileId: string,
+        libraryId: string,
+        options: {
+            page: number;
+            limit: number;
+            search?: string;
+        }
+    ): Promise<PaginatedResponse<LibraryItemDTO>> => {
+        const result = await libraryRepository.listItems({
+            profileId,
+            libraryId,
+            page: options.page,
+            limit: options.limit,
+            search: options.search,
         });
-    } catch (err) {
-        if (isDuplicateKey(err)) throw new AppError(`Content is already in library.`, { statusCode: 409 });
-        throw err;
-    }
-};
 
-export const removeContentFromUserLibrary = async (
-    profileId: string,
-    libraryId: string,
-    contentId: string,
-    type: 'movie' | 'series'
-): Promise<void> => {
-    const conditions = [eq(libraries.profileId, profileId)];
-    if (libraryId === 'watchlist') conditions.push(eq(libraries.type, 'watchlist'));
-    else conditions.push(eq(libraries.id, libraryId));
+        if (!result) throw new LibraryNotFoundError();
 
-    await db.transaction(async (tx) => {
-        const [library] = await tx
-            .select({ id: libraries.id })
-            .from(libraries)
-            .where(and(...conditions));
-        if (!library) throw new LibraryNotFoundError();
-
-        const deleteFilter =
-            type === 'movie'
-                ? and(eq(libraryItems.libraryId, library.id), eq(libraryItems.movieId, contentId))
-                : and(eq(libraryItems.libraryId, library.id), eq(libraryItems.seriesId, contentId));
-
-        const [item] = await tx.select({ id: libraryItems.id }).from(libraryItems).where(deleteFilter);
-        if (!item) throw new AppError('Content not found in library', { statusCode: 404 });
-
-        await tx.delete(libraryItems).where(deleteFilter);
-    });
-};
-
-export const getUserLibrary = async (profileId: string, libraryId: string): Promise<LibraryDTO> => {
-    const result = await db.query.libraries.findFirst({
-        where: and(eq(libraries.profileId, profileId), eq(libraries.id, libraryId)),
-        with: {
-            profile: true,
-        },
-    });
-
-    if (!result) throw new LibraryNotFoundError();
-
-    return toLibraryDTO(result);
-};
-
-export const getUserLibraryItems = async (
-    profileId: string,
-    libraryId: string,
-    options: {
-        page: number;
-        limit: number;
-        search?: string;
-    }
-): Promise<PaginatedResponse<LibraryItemDTO>> => {
-    const offset = (options.page - 1) * options.limit;
-
-    const searchFilter = options.search
-        ? sql`(${ilike(movies.title, `%${options.search}%`)} OR ${ilike(series.title, `%${options.search}%`)})`
-        : null;
-
-    const conditions = [searchFilter, eq(libraryItems.libraryId, libraryId)];
-    const filters = and(...conditions.filter((c) => c != null));
-
-    const [results, total] = await db.transaction(async (tx) => {
-        const [library] = await tx
-            .select({ id: libraries.id })
-            .from(libraries)
-            .where(and(eq(libraries.id, libraryId), eq(libraries.profileId, profileId)));
-
-        if (!library) throw new LibraryNotFoundError();
-
-        return Promise.all([
-            tx
-                .select({
-                    id: libraryItems.id,
-                    libraryId: libraryItems.libraryId,
-                    addedAt: libraryItems.addedAt,
-                    movie: movies,
-                    series: series,
-                })
-                .from(libraryItems)
-                .leftJoin(movies, eq(libraryItems.movieId, movies.id))
-                .leftJoin(series, eq(libraryItems.seriesId, series.id))
-                .where(filters)
-                .orderBy(desc(libraryItems.addedAt))
-                .limit(options.limit)
-                .offset(offset),
-            tx
-                .select({ value: count() })
-                .from(libraryItems)
-                .leftJoin(movies, eq(libraryItems.movieId, movies.id))
-                .leftJoin(series, eq(libraryItems.seriesId, series.id))
-                .where(filters),
-        ]);
-    });
-
-    const totalItems = total[0]?.value ?? 0;
+        return {
+            data: result.results.map(toLibraryItemDTO),
+            meta: {
+                totalItems: result.totalItems,
+                itemCount: result.results.length,
+                itemsPerPage: options.limit,
+                totalPages: Math.ceil(result.totalItems / options.limit),
+                currentPage: options.page,
+            },
+        };
+    };
 
     return {
-        data: results.map(toLibraryItemDTO),
-        meta: {
-            totalItems,
-            itemCount: results.length,
-            itemsPerPage: options.limit,
-            totalPages: Math.ceil(totalItems / options.limit),
-            currentPage: options.page,
-        },
+        addContentToUserLibrary,
+        createUserLibrary,
+        deleteUserLibrary,
+        getUserLibraries,
+        getUserLibrary,
+        getUserLibraryItems,
+        removeContentFromUserLibrary,
     };
 };
+
+export type LibraryService = ReturnType<typeof createLibraryService>;

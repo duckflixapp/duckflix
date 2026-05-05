@@ -2,7 +2,7 @@ import { Elysia } from 'elysia';
 import { createRateLimit } from '@shared/configs/ratelimit';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { searchQuerySchema } from './search.validator';
-import { unifiedSearch } from './search.service';
+import { searchService } from './search.container';
 
 const searchLimiter = createRateLimit({
     max: 45,
@@ -24,7 +24,7 @@ export const searchRouter = new Elysia({ prefix: '/search' })
                 genres: query.genres,
             };
 
-            const paginatedData = await unifiedSearch(options);
+            const paginatedData = await searchService.unifiedSearch(options);
 
             return {
                 status: 'success',

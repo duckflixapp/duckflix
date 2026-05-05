@@ -1,9 +1,5 @@
-# uploads
-storage/
-temp/
+# data
 data/
-live/
-drop/
 
 # certs
 certs/

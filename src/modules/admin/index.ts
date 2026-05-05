@@ -2,9 +2,8 @@ import { Elysia } from 'elysia';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { toSystemDTO } from '@shared/mappers/system.mapper';
 import { auditLogsQuerySchema, changeUserRoleSchema, systemSettingsUpdateSchema, userSchema } from './admin.validator';
-import * as AdminService from './admin.service';
+import { adminService } from './admin.container';
 import { createRateLimit } from '@shared/configs/ratelimit';
-import { systemSettings } from '@shared/services/system.service';
 
 export const adminRouter = new Elysia({ prefix: '/admin' })
     .use(authGuard)
@@ -13,7 +12,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
     .get(
         '/system',
         async () => {
-            const system = await systemSettings.get();
+            const system = await adminService.getSystemSettings();
             return { status: 'success', data: { system: toSystemDTO(system) } };
         },
         { detail: { tags: ['Admin'], summary: 'Details' } }
@@ -26,7 +25,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
             if (body?.external?.openSubtitles?.password?.includes('**********')) delete body.external.openSubtitles.password;
             if (body?.external?.email?.smtpSettings?.password?.includes('**********')) delete body.external.email.smtpSettings.password;
 
-            const system = await AdminService.updateSystemSettings(body, { accountId: user.id });
+            const system = await adminService.updateSystemSettings(body, { accountId: user.id });
             return { status: 'success', data: { system: toSystemDTO(system) } };
         },
         { body: systemSettingsUpdateSchema, detail: { tags: ['Admin'], summary: 'Update' } }
@@ -34,7 +33,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
     .get(
         '/users',
         async () => {
-            const users = await AdminService.getUsersWithRoles();
+            const users = await adminService.getUsersWithRoles();
             return { status: 'success', data: { users } };
         },
         { detail: { tags: ['Admin'], summary: 'List Users' } }
@@ -42,7 +41,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
     .get(
         '/audit-logs',
         async ({ query }) => {
-            const auditLogs = await AdminService.listAuditLogs(query);
+            const auditLogs = await adminService.listAuditLogs(query);
             return { status: 'success', ...auditLogs };
         },
         { query: auditLogsQuerySchema, detail: { tags: ['Admin'], summary: 'Audit Logs' } }
@@ -50,7 +49,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
     .patch(
         '/users',
         async ({ body, user }) => {
-            await AdminService.changeUserRole(body.email, body.role, { accountId: user.id });
+            await adminService.changeUserRole(body.email, body.role, { accountId: user.id });
             return new Response(null, { status: 204 });
         },
         { body: changeUserRoleSchema, detail: { tags: ['Admin'], summary: 'Update Roles' } }
@@ -58,7 +57,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
     .delete(
         '/users',
         async ({ body, user }) => {
-            await AdminService.deleteUser(body.email, { accountId: user.id });
+            await adminService.deleteUser(body.email, { accountId: user.id });
             return new Response(null, { status: 204 });
         },
         { body: userSchema, detail: { tags: ['Admin'], summary: 'Remove User' } }
@@ -66,7 +65,7 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
     .get(
         '/stats',
         async () => {
-            const statistics = await AdminService.getSystemStatistics();
+            const statistics = await adminService.getSystemStatistics();
             return { status: 'success', data: { statistics } };
         },
         { detail: { tags: ['Admin'], summary: 'Statistics' } }

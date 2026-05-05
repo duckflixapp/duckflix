@@ -2,18 +2,7 @@ import { Elysia, t } from 'elysia';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { setAuthTokenCookie } from '@shared/utils/cookies';
 import { createRateLimit } from '@shared/configs/ratelimit';
-import {
-    clearSelectedProfile,
-    createProfile,
-    deleteProfile,
-    getAccountProfiles,
-    getProfileAvatars,
-    getProfileById,
-    removeProfilePin,
-    selectProfile,
-    updateProfileAvatar,
-    updateProfilePin,
-} from './profile.service';
+import { profilesService } from './profile.container';
 import {
     createProfileSchema,
     deleteProfileSchema,
@@ -34,7 +23,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
     .get(
         '/@me',
         async ({ user }) => {
-            const profile = await getProfileById({ accountId: user.id, profileId: user.profileId! });
+            const profile = await profilesService.getProfileById({ accountId: user.id, profileId: user.profileId! });
             return { status: 'success', data: { profile } };
         },
         {
@@ -45,7 +34,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
     .post(
         '/logout',
         async ({ user, cookie }) => {
-            const result = await clearSelectedProfile({ accountId: user.id, sessionId: user.sessionId });
+            const result = await profilesService.clearSelectedProfile({ accountId: user.id, sessionId: user.sessionId });
 
             setAuthTokenCookie(cookie, result.token);
 
@@ -60,7 +49,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
     .post(
         '/@me/delete',
         async ({ body, user, cookie }) => {
-            const result = await deleteProfile({
+            const result = await profilesService.deleteProfile({
                 accountId: user.id,
                 sessionId: user.sessionId,
                 profileId: user.profileId!,
@@ -81,7 +70,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
     .patch(
         '/@me/avatar',
         async ({ body, user }) => {
-            const profile = await updateProfileAvatar({
+            const profile = await profilesService.updateProfileAvatar({
                 accountId: user.id,
                 profileId: user.profileId!,
                 avatarAssetId: body.avatarAssetId,
@@ -98,7 +87,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
     .patch(
         '/@me/pin',
         async ({ body, user }) => {
-            const profile = await updateProfilePin({
+            const profile = await profilesService.updateProfilePin({
                 accountId: user.id,
                 profileId: user.profileId!,
                 pin: body.pin,
@@ -116,7 +105,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
     .delete(
         '/@me/pin',
         async ({ body, user }) => {
-            const profile = await removeProfilePin({
+            const profile = await profilesService.removeProfilePin({
                 accountId: user.id,
                 profileId: user.profileId!,
                 pin: body.pin,
@@ -133,7 +122,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
     .post(
         '/',
         async ({ body, user, cookie, set }) => {
-            const result = await createProfile({
+            const result = await profilesService.createProfile({
                 accountId: user.id,
                 sessionId: user.sessionId,
                 name: body.name,
@@ -156,7 +145,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
     .get(
         '/avatars',
         async () => {
-            const avatars = await getProfileAvatars();
+            const avatars = await profilesService.getProfileAvatars();
             return { status: 'success', data: { avatars } };
         },
         {
@@ -167,7 +156,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
     .get(
         '/',
         async ({ user }) => {
-            const profiles = await getAccountProfiles(user.id);
+            const profiles = await profilesService.getAccountProfiles(user.id);
             return { status: 'success', data: { profiles } };
         },
         {
@@ -178,7 +167,7 @@ export const profilesRouter = new Elysia({ prefix: '/profiles' })
     .post(
         '/:id/select',
         async ({ body, params: { id }, user, cookie }) => {
-            const result = await selectProfile({
+            const result = await profilesService.selectProfile({
                 accountId: user.id,
                 sessionId: user.sessionId,
                 profileId: id,

@@ -1,20 +1,14 @@
 import { Elysia } from 'elysia';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { createRateLimit } from '@shared/configs/ratelimit';
-import * as VideoService from './services/video.service';
 import * as MetadataService from '@shared/services/metadata/metadata.service';
 import { addVersionSchema, createProgressSchema, createVideoSchema, videoParamsSchema, videoVersionParamsSchema } from './video.validator';
-import { identifyVideoWorkflow } from './workflows/identify.workflow';
-import { processVideoWorkflow } from './workflows/video.workflow';
-import { processTorrentFileWorkflow } from './workflows/torrent.workflow';
-import { handleWorkflowError } from './video.handler';
 import { AppError } from '@shared/errors';
 import fs from 'node:fs/promises';
-import path from 'node:path';
-import * as VersionService from './services/versions.service';
-import * as SubtitlesService from './services/subtitles.service';
 import { importBodySchema, searchQuerySchema, subtitleParamsSchema, uploadBodySchema } from './subtitles.validator';
 import { limits } from '@shared/configs/limits.config';
+import { videoService, videoSubtitlesService, videoVersionsService } from './videos.container';
+import { saveUploadToTemp } from './upload-temp-file';
 
 const uploadLimiter = createRateLimit({ max: 20, duration: 30000 });
 const standardLimiter = createRateLimit({ max: 30, duration: 3000 });
@@ -26,7 +20,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
     .get(
         '/:id',
         async ({ params: { id } }) => {
-            const video = await VideoService.getVideoById(id);
+            const video = await videoService.getVideoById(id);
             return { status: 'success', data: { video } };
         },
         { params: videoParamsSchema, detail: { summary: 'Details' } }
@@ -35,7 +29,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
     .get(
         '/:id/progress',
         async ({ user, params: { id } }) => {
-            const watchHistory = await VideoService.getVideoProgressById({ profileId: user.profileId!, videoId: id });
+            const watchHistory = await videoService.getVideoProgressById({ profileId: user.profileId!, videoId: id });
             return { status: 'success', data: { watchHistory } };
         },
         { params: videoParamsSchema, detail: { summary: 'Progress' } }
@@ -44,7 +38,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
     .post(
         '/:id/progress',
         async ({ user, params: { id }, body: { positionSec } }) => {
-            const watchHistory = await VideoService.saveVideoProgressById({ profileId: user.profileId!, videoId: id, positionSec });
+            const watchHistory = await videoService.saveVideoProgressById({ profileId: user.profileId!, videoId: id, positionSec });
             return { status: 'success', data: { watchHistory } };
         },
         { params: videoParamsSchema, body: createProgressSchema, detail: { summary: 'Save Progress' } }
@@ -53,7 +47,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
     .get(
         '/:id/resolve',
         async ({ params: { id } }) => {
-            const content = await VideoService.resolveVideo(id);
+            const content = await videoService.resolveVideo(id);
             return { status: 'success', data: { content } };
         },
         { params: videoParamsSchema, detail: { summary: 'Resolve' } }
@@ -102,21 +96,17 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                     let savedTorrentPath: string | undefined;
 
                     try {
-                        const tempDir = path.join(process.cwd(), 'uploads/temp');
-                        await fs.mkdir(tempDir, { recursive: true });
-
                         if (videoFile) {
-                            savedVideoPath = path.join(tempDir, `${Date.now()}-${videoFile.name}`);
-                            await Bun.write(savedVideoPath, videoFile);
+                            savedVideoPath = await saveUploadToTemp(videoFile);
                         }
                         if (torrentFile) {
-                            savedTorrentPath = path.join(tempDir, `${Date.now()}-${torrentFile.name}`);
-                            await Bun.write(savedTorrentPath, torrentFile);
+                            savedTorrentPath = await saveUploadToTemp(torrentFile);
                         }
 
                         let metadata = await MetadataService.enrichMetadata(dbUrl, body);
 
                         if (!metadata && savedVideoPath) {
+                            const { identifyVideoWorkflow } = await import('./workflows/identify.workflow');
                             metadata = await identifyVideoWorkflow({
                                 filePath: savedVideoPath,
                                 fileName: videoFile!.name,
@@ -124,6 +114,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             });
                         }
                         if (!metadata && savedTorrentPath) {
+                            const { identifyVideoWorkflow } = await import('./workflows/identify.workflow');
                             metadata = await identifyVideoWorkflow(
                                 { filePath: savedTorrentPath, fileName: torrentFile!.name, type },
                                 { checkHash: false }
@@ -136,12 +127,15 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             });
                         }
 
-                        const video = await VideoService.initiateUpload(metadata, {
+                        const video = await videoService.initiateUpload(metadata, {
                             accountId: user.id,
                             status: videoFile ? 'processing' : 'downloading',
                         });
 
                         if (videoFile && savedVideoPath) {
+                            const { processVideoWorkflow } = await import('./workflows/video.workflow');
+                            const { handleWorkflowError } = await import('./video.handler');
+
                             processVideoWorkflow({
                                 accountId: user.id,
                                 videoId: video.id,
@@ -152,6 +146,9 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                                 fileSize: videoFile.size,
                             }).catch((e) => handleWorkflowError(video.id, e, 'video'));
                         } else if (savedTorrentPath) {
+                            const { processTorrentFileWorkflow } = await import('./workflows/torrent.workflow');
+                            const { handleWorkflowError } = await import('./video.handler');
+
                             processTorrentFileWorkflow({
                                 accountId: user.id,
                                 videoId: video.id,
@@ -184,7 +181,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
             .delete(
                 '/:id',
                 async ({ params: { id }, user, set }) => {
-                    await VideoService.deleteVideoById(id, { accountId: user.id });
+                    await videoService.deleteVideoById(id, { accountId: user.id });
                     set.status = 204;
                 },
                 { params: videoParamsSchema, detail: { summary: 'Remove' } }
@@ -195,7 +192,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                     .get(
                         '/',
                         async ({ params: { id } }) => {
-                            const versions = await VersionService.getAllVideoVersions(id);
+                            const versions = await videoVersionsService.getAllVideoVersions(id);
                             return { status: 'success', data: { versions } };
                         },
                         { params: videoParamsSchema, detail: { tags: ['Video Versions'], summary: 'List Versions' } }
@@ -204,7 +201,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                     .post(
                         '/',
                         async ({ params: { id }, body, set }) => {
-                            await VersionService.addVideoVersion(id, body.height);
+                            await videoVersionsService.addVideoVersion(id, body.height);
                             set.status = 201;
                             return { status: 'success' };
                         },
@@ -214,7 +211,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                     .delete(
                         '/:versionId',
                         async ({ params: { id, versionId }, set }) => {
-                            await VersionService.deleteVideoVersion(id, versionId);
+                            await videoVersionsService.deleteVideoVersion(id, versionId);
                             set.status = 204;
                         },
                         { params: videoVersionParamsSchema, detail: { tags: ['Video Versions'], summary: 'Remove Version' } }
@@ -228,7 +225,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                         async ({ params: { id: videoId }, body: { language, subtitle: subtitleFile }, set }) => {
                             if (!subtitleFile) throw new AppError('Please provide a valid subtitle file', { statusCode: 400 });
 
-                            if (subtitleFile.size > 5 * 1024 * 1024) {
+                            if (subtitleFile.size > limits.file.subtitle) {
                                 // 5MB limit
                                 throw new AppError('Subtitle file exceeds maximum size of 5MB', { statusCode: 400 });
                             }
@@ -242,10 +239,9 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                                 });
                             }
 
-                            const tempPath = path.join(process.cwd(), 'uploads/temp', `${Date.now()}-${subtitleFile.name}`);
-                            await Bun.write(tempPath, subtitleFile);
+                            const tempPath = await saveUploadToTemp(subtitleFile);
 
-                            const subtitle = await SubtitlesService.saveSubtitle({
+                            const subtitle = await videoSubtitlesService.saveSubtitle({
                                 videoId,
                                 tempPath,
                                 originalName: subtitleFile.name,
@@ -266,7 +262,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                     .delete(
                         '/:subtitleId',
                         async ({ params: { id: videoId, subtitleId }, set }) => {
-                            await SubtitlesService.deleteSubtitleById({ videoId, subtitleId });
+                            await videoSubtitlesService.deleteSubtitleById({ videoId, subtitleId });
                             set.status = 204;
                         },
                         { params: subtitleParamsSchema, detail: { tags: ['Video Subtitles'], summary: 'Remove' } }
@@ -275,7 +271,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                     .get(
                         '/search',
                         async ({ params: { id }, query: { language } }) => {
-                            const subtitles = await SubtitlesService.searchOpenSubtitles({ videoId: id, language });
+                            const subtitles = await videoSubtitlesService.searchOpenSubtitles({ videoId: id, language });
                             return { status: 'success', data: { subtitles } };
                         },
                         { params: videoParamsSchema, query: searchQuerySchema, detail: { tags: ['Video Subtitles'], summary: 'Search' } }
@@ -285,7 +281,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                         '/import',
                         async ({ params: { id }, body, set }) => {
                             const { fileId } = importBodySchema.parse(body);
-                            const subtitle = await SubtitlesService.importOpenSubtitles({ videoId: id, fileId });
+                            const subtitle = await videoSubtitlesService.importOpenSubtitles({ videoId: id, fileId });
                             set.status = 201;
                             return { status: 'success', data: { subtitle } };
                         },

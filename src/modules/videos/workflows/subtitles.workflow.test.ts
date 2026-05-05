@@ -47,6 +47,7 @@ mock.module('node:fs/promises', () => ({
         unlink: async (filePath: string) => {
             calls.unlink.push(filePath);
         },
+        rm: async () => {},
     },
 }));
 

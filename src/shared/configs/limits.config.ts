@@ -3,6 +3,7 @@ import { env } from '@core/env';
 export const limits = {
     file: {
         upload: env.UPLOAD_FILE_LIMIT,
+        subtitle: 5 * 1024 * 1024, // 5MB maximum subtitle size
     },
     authentication: {
         session_expiry_ms: 28 * 24 * 60 * 60 * 1000, // 28 days

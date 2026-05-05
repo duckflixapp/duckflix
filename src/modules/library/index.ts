@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia';
 import { authGuard } from '@shared/middlewares/auth.middleware';
-import * as LibraryService from './library.service';
+import { libraryService } from './library.container';
 import {
     getUserLibrariesScheme,
     libraryScheme,
@@ -23,7 +23,7 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
     .get(
         '/',
         async ({ user, query }) => {
-            const libraries = await LibraryService.getUserLibraries(user.profileId!, query);
+            const libraries = await libraryService.getUserLibraries(user.profileId!, query);
 
             return { status: 'success', data: { libraries } };
         },
@@ -35,7 +35,7 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
     .post(
         '/',
         async ({ user, body }) => {
-            const library = await LibraryService.createUserLibrary(user.profileId!, { accountId: user.id, ...body });
+            const library = await libraryService.createUserLibrary(user.profileId!, { accountId: user.id, ...body });
 
             return { status: 'success', data: { library } };
         },
@@ -47,7 +47,7 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
     .get(
         '/:libraryId',
         async ({ user, params: { libraryId } }) => {
-            const library = await LibraryService.getUserLibrary(user.profileId!, libraryId);
+            const library = await libraryService.getUserLibrary(user.profileId!, libraryId);
             return { status: 'success', data: { library } };
         },
         {
@@ -58,7 +58,7 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
     .delete(
         '/:libraryId',
         async ({ user, params: { libraryId }, set }) => {
-            await LibraryService.deleteUserLibrary(user.profileId!, libraryId, { accountId: user.id });
+            await libraryService.deleteUserLibrary(user.profileId!, libraryId, { accountId: user.id });
             set.status = 204;
         },
         {
@@ -69,7 +69,7 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
     .get(
         '/:libraryId/items',
         async ({ user, params: { libraryId }, query }) => {
-            const paginatedResults = await LibraryService.getUserLibraryItems(user.profileId!, libraryId, query);
+            const paginatedResults = await libraryService.getUserLibraryItems(user.profileId!, libraryId, query);
 
             return { status: 'success', ...paginatedResults };
         },
@@ -82,7 +82,7 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
     .post(
         '/:libraryId/items/:contentId',
         async ({ user, params: { libraryId, contentId }, query, set }) => {
-            await LibraryService.addContentToUserLibrary(user.profileId!, libraryId, contentId, query.type);
+            await libraryService.addContentToUserLibrary(user.profileId!, libraryId, contentId, query.type);
 
             set.status = 204;
         },
@@ -95,7 +95,7 @@ export const libraryRouter = new Elysia({ prefix: '/libraries' })
     .delete(
         '/:libraryId/items/:contentId',
         async ({ user, params: { libraryId, contentId }, query, set }) => {
-            await LibraryService.removeContentFromUserLibrary(user.profileId!, libraryId, contentId, query.type);
+            await libraryService.removeContentFromUserLibrary(user.profileId!, libraryId, contentId, query.type);
 
             set.status = 204;
         },

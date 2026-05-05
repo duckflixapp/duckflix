@@ -1,9 +1,7 @@
 import { Elysia } from 'elysia';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { createRateLimit } from '@shared/configs/ratelimit';
-import { createSession } from './session/session.service';
 import * as MediaController from './media.controller';
-import * as LiveMediaService from './live.service';
 import {
     createSessionBodySchema,
     authQuerySchema,
@@ -15,9 +13,7 @@ import {
 } from './media.validator';
 import { AppError } from '@shared/errors';
 import { sessionGuard } from './media.middleware';
-import { db } from '@shared/configs/db';
-import { subtitles, videoVersions } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { liveMediaService, mediaRepository, mediaSessionService } from './media.container';
 
 const defaultLimiter = createRateLimit({ max: 30, duration: 3000 });
 const streamLimiter = createRateLimit({ max: 30, duration: 1000 });
@@ -29,7 +25,7 @@ export const mediaRouter = new Elysia({ prefix: '/media' })
     .post(
         '/session',
         async ({ user, body: { videoId } }) => {
-            const sessionId = await createSession(user.id, videoId);
+            const sessionId = await mediaSessionService.createSession(user.id, videoId);
             return { status: 'success', data: { sessionId } };
         },
         {
@@ -43,9 +39,7 @@ export const mediaRouter = new Elysia({ prefix: '/media' })
             .use(streamLimiter)
             .guard({
                 mediaSession: async ({ params: { versionId } }) => {
-                    const version = await db.query.videoVersions.findFirst({
-                        where: eq(videoVersions.id, versionId!),
-                    });
+                    const version = await mediaRepository.findVideoVersion(versionId!);
                     if (!version) throw new AppError('Version not found', { statusCode: 404 });
                     return version.videoId;
                 },
@@ -67,9 +61,7 @@ export const mediaRouter = new Elysia({ prefix: '/media' })
             .use(defaultLimiter)
             .guard({
                 mediaSession: async ({ params: { subtitleId } }) => {
-                    const sub = await db.query.subtitles.findFirst({
-                        where: eq(subtitles.id, subtitleId!),
-                    });
+                    const sub = await mediaRepository.findSubtitle(subtitleId!);
                     if (!sub) throw new AppError('Subtitle not found', { statusCode: 404 });
 
                     return sub!.videoId;
@@ -89,7 +81,7 @@ export const mediaRouter = new Elysia({ prefix: '/media' })
             .get(
                 '/master.m3u8',
                 async ({ params: { videoId }, mediaSession }) => {
-                    const master = await LiveMediaService.generateMasterFile(videoId, mediaSession.id);
+                    const master = await liveMediaService.generateMasterFile(videoId, mediaSession.id);
                     return new Response(master, { headers: { 'Content-Type': 'application/x-mpegURL' } });
                 },
                 { query: authQuerySchema, params: liveMasterSchema, detail: { summary: 'Master Playlist' } }
@@ -98,8 +90,8 @@ export const mediaRouter = new Elysia({ prefix: '/media' })
             .get(
                 '/:height/index.m3u8',
                 async ({ params: { videoId, height }, mediaSession }) => {
-                    const { video, original } = await LiveMediaService.getVideoWithOriginal(videoId);
-                    const m3u8 = await LiveMediaService.generateManifestFile(video, original, height, mediaSession.id, {
+                    const { video, original } = await liveMediaService.getVideoWithOriginal(videoId);
+                    const m3u8 = await liveMediaService.generateManifestFile(video, original, height, mediaSession.id, {
                         segmentDuration: 6,
                     });
                     return new Response(m3u8, { headers: { 'Content-Type': 'application/x-mpegURL' } });
@@ -113,7 +105,7 @@ export const mediaRouter = new Elysia({ prefix: '/media' })
                     const indexMatch = segmentName.match(/\d+/);
                     if (!indexMatch) throw new AppError('Invalid segment name', { statusCode: 400 });
 
-                    const path = await LiveMediaService.ensureLiveSegment(mediaSession.id, height, mediaSession.data.original, {
+                    const path = await liveMediaService.ensureLiveSegment(mediaSession.id, height, mediaSession.data.original, {
                         segment: parseInt(indexMatch[0]),
                         segmentDuration: 6,
                     });

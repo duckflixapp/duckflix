@@ -3,10 +3,7 @@ import { authGuard } from '@shared/middlewares/auth.middleware';
 import { createRateLimit } from '@shared/configs/ratelimit';
 import { AppError } from '@shared/errors';
 
-// Services
-import * as MoviesService from './services/movies.service';
-import * as GenresService from './services/genres.service';
-import * as MetadataService from '@shared/services/metadata/metadata.service';
+import { movieGenresService, movieMetadataEnricher, moviesService } from './movies.container';
 
 // Validators
 import { movieParamsSchema, movieQuerySchema, updateMovieSchema } from './validators/movies.validator';
@@ -23,7 +20,7 @@ export const moviesRouter = new Elysia({ prefix: '/movies', detail: { tags: ['Mo
             .get(
                 '/',
                 async () => {
-                    const genresDto = await GenresService.getGenres();
+                    const genresDto = await movieGenresService.getGenres();
                     return { status: 'success', data: { genres: genresDto } };
                 },
                 { detail: { summary: 'List Genres' } }
@@ -33,7 +30,7 @@ export const moviesRouter = new Elysia({ prefix: '/movies', detail: { tags: ['Mo
                 '/',
                 async ({ body, set }) => {
                     const { name } = createGenreSchema.parse(body);
-                    const genre = await GenresService.createGenre(name);
+                    const genre = await movieGenresService.createGenre(name);
                     set.status = 201;
                     return { status: 'success', data: { genre } };
                 },
@@ -51,7 +48,7 @@ export const moviesRouter = new Elysia({ prefix: '/movies', detail: { tags: ['Mo
                 '/',
                 async ({ query }) => {
                     const options = movieQuerySchema.parse(query);
-                    const paginatedResults = await MoviesService.getMovies(options);
+                    const paginatedResults = await moviesService.getMovies(options);
                     return { status: 'success', ...paginatedResults };
                 },
                 { query: movieQuerySchema, detail: { summary: 'List Movies' } }
@@ -60,7 +57,7 @@ export const moviesRouter = new Elysia({ prefix: '/movies', detail: { tags: ['Mo
             .get(
                 '/featured',
                 async ({ user }) => {
-                    const movieDto = await MoviesService.getFeatured({ profileId: user.profileId! });
+                    const movieDto = await moviesService.getFeatured({ profileId: user.profileId! });
                     if (!movieDto) throw new AppError('Movie not found', { statusCode: 404 });
 
                     return { status: 'success', data: { movie: movieDto } };
@@ -71,7 +68,7 @@ export const moviesRouter = new Elysia({ prefix: '/movies', detail: { tags: ['Mo
             .get(
                 '/:id',
                 async ({ params: { id }, user }) => {
-                    const movieDto = await MoviesService.getMovieById(id, { profileId: user.profileId! });
+                    const movieDto = await moviesService.getMovieById(id, { profileId: user.profileId! });
                     if (!movieDto) throw new AppError('Movie not found', { statusCode: 404 });
 
                     return { status: 'success', data: { movie: movieDto } };
@@ -83,12 +80,11 @@ export const moviesRouter = new Elysia({ prefix: '/movies', detail: { tags: ['Mo
                 '/:id',
                 async ({ params: { id }, body }) => {
                     const validatedData = updateMovieSchema.parse(body);
-                    const enrichMetadata = MetadataService.metadataUpdateEnrichers['movie'];
-                    const metadata = await enrichMetadata(validatedData.dbUrl, validatedData);
+                    const metadata = await movieMetadataEnricher.enrichMovieUpdate(validatedData.dbUrl, validatedData);
 
                     if (!metadata) throw new AppError('No metadata', { statusCode: 400 });
 
-                    const movie = await MoviesService.updateMovieById(id, metadata);
+                    const movie = await moviesService.updateMovieById(id, metadata);
                     return { status: 'success', data: { movie } };
                 },
                 {
