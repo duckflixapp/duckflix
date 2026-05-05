@@ -79,3 +79,10 @@ export type VideoProcessor = {
     identify?(input: VideoProcessorIdentifyInput): Promise<VideoMetadata | null>;
     start(input: VideoProcessorStartInput, context: VideoProcessorContext): Promise<VideoProcessorStartOutput>;
 };
+
+export class DownloadCancelledError extends Error {
+    constructor() {
+        super('cancelled-download');
+        this.name = 'DownloadCancelledError';
+    }
+}

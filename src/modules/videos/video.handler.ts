@@ -6,7 +6,6 @@ import { capitalize } from '@utils/string';
 import type { DownloadProgress, JobProgress } from '@duckflixapp/shared';
 import { notifyJobStatus } from '@shared/services/notifications/notification.helper';
 import { logger } from '@shared/configs/logger';
-import { socket } from '@server';
 
 export const handleWorkflowError = async (videoId: string, error: unknown, context: string) => {
     try {
@@ -100,12 +99,13 @@ export const handleVideoTask = async (videoVerId: string, context: 'started' | '
     logger.debug({ videoVerId }, `[VideoTask] processing task ${context}`);
 };
 
-export const emitVideoProgress = (
+export const emitVideoProgress = async (
     videoId: string,
     status: 'downloading' | 'processing' | 'error',
     progress?: JobProgress | DownloadProgress,
     versionId?: string
 ) => {
+    const { socket } = await import('@server');
     socket.to(`video:${videoId}`).emit('video:progress', {
         status,
         versionId,

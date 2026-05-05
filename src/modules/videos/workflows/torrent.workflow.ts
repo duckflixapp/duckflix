@@ -6,7 +6,7 @@ import { TorrentCanceledError, TorrentClient, validateTorrentFileSize } from '@u
 import { RqbitClient } from '@shared/lib/rqbit';
 import { env } from '@core/env';
 import { TorrentDownloadError } from '../video.errors';
-import type { VideoProcessorContext } from '../imports/video-processor.ports';
+import { DownloadCancelledError, type VideoProcessorContext } from '../imports/video-processor.ports';
 import type { DownloadProgress } from '@duckflixapp/shared';
 
 const rqbitClient = new RqbitClient({ baseUrl: env.RQBIT_URL! });
@@ -77,7 +77,7 @@ export const processTorrentFileWorkflow = async (data: { torrentPath: string }, 
                 title: `Video download canceled`,
                 message: `Torrent download was canceled.`,
             });
-            throw err;
+            throw new DownloadCancelledError();
         }
         throw new TorrentDownloadError(err);
     } finally {

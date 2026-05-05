@@ -86,7 +86,9 @@ const processTask = async (task: VideoVersion, originalPath: string, outputPath:
             totalDuration,
         });
         taskRegistry.register(task.id, job);
-        job.addListener('progress', (progress) => emitVideoProgress(task.videoId, 'processing', progress, task.id));
+        job.addListener('progress', (progress) => {
+            void Promise.resolve(emitVideoProgress(task.videoId, 'processing', progress, task.id)).catch(() => {});
+        });
 
         const successfull = await job.start();
         taskRegistry.unregister(task.id);

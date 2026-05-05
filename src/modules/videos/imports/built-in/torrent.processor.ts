@@ -7,7 +7,7 @@ export const torrentProcessor: VideoProcessor = {
     id: 'torrent',
     builtIn: true,
     initialStatus: 'downloading',
-    sourceTypes: ['file', 'text'],
+    sourceTypes: ['file'],
     validateSource: (source): Promise<void> | void => {
         if (source.sourceType === 'file') {
             if (source.file.size > 5 * 1024 * 1024) {
@@ -37,7 +37,8 @@ export const torrentProcessor: VideoProcessor = {
     },
 
     start: async ({ source }, context): Promise<VideoProcessorStartOutput> => {
-        if (source.sourceType !== 'file') throw new Error('download from updated is not supported yet');
+        if (source.sourceType !== 'file') throw new AppError('Torrent processor only supports .torrent file sources', { statusCode: 400 });
+
         const { name, path, size } = await processTorrentFileWorkflow({ torrentPath: source.tempPath }, context);
 
         return { fileName: name, fileSize: size, path };
