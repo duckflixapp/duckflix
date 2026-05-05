@@ -1,8 +1,6 @@
 PRIORITY: 
 
-- Episode, Season, Series settings & delete
 - Cancel Torrent download
-- Rewrite and optimize to bun File logic from old express multer one
 
 
 SYSTEM
