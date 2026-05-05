@@ -8,7 +8,7 @@ import { notifyJobStatus } from '@shared/services/notifications/notification.hel
 import { logger } from '@shared/configs/logger';
 import { socket } from '@server';
 
-export const handleWorkflowError = async (videoId: string, error: unknown, context: 'video' | 'torrent') => {
+export const handleWorkflowError = async (videoId: string, error: unknown, context: string) => {
     try {
         const [updatedVideo] = await db
             .update(videos)

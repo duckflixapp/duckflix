@@ -1,4 +1,4 @@
-import type { VideoType } from '@duckflixapp/shared';
+import type { DownloadProgress, JobProgress, VideoType } from '@duckflixapp/shared';
 import type { VideoMetadata } from '@shared/services/metadata/metadata.types';
 
 export type RawVideoProcessorSource =
@@ -38,6 +38,38 @@ export type VideoProcessorStartOutput = {
     fileSize: number;
 };
 
+export type VideoProcessorEvent =
+    | {
+          type: 'progress';
+          phase: 'downloading' | 'processing';
+          progress: JobProgress | DownloadProgress | undefined;
+      }
+    | {
+          type: 'status';
+          status: 'started' | 'downloaded' | 'completed' | 'canceled' | 'error';
+          title: string;
+          message: string;
+      }
+    | {
+          type: 'log';
+          level: 'debug' | 'info' | 'warn' | 'error';
+          message: string;
+          data?: Record<string, unknown>;
+      };
+
+type CancellableDownload = {
+    cancel(): Promise<void> | void;
+};
+
+export type VideoProcessorContext = {
+    emit(event: VideoProcessorEvent): Promise<void> | void;
+    download: {
+        register: (process: CancellableDownload) => unknown;
+        unregister: () => unknown;
+    };
+    signal?: AbortSignal;
+};
+
 export type VideoProcessor = {
     id: string;
     builtIn: boolean;
@@ -45,5 +77,5 @@ export type VideoProcessor = {
     sourceTypes: readonly RawVideoProcessorSource['sourceType'][];
     validateSource(source: RawVideoProcessorSource): Promise<void> | void;
     identify?(input: VideoProcessorIdentifyInput): Promise<VideoMetadata | null>;
-    start(input: VideoProcessorStartInput): Promise<VideoProcessorStartOutput>;
+    start(input: VideoProcessorStartInput, context: VideoProcessorContext): Promise<VideoProcessorStartOutput>;
 };

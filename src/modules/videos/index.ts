@@ -10,8 +10,12 @@ import { limits } from '@shared/configs/limits.config';
 import { videoService, videoSubtitlesService, videoVersionsService } from './videos.container';
 import { saveUploadToTemp } from './upload-temp-file';
 import { videoProcessorRegistry } from './imports';
-import { processVideoWorkflow } from './workflows/video.workflow';
-import { handleWorkflowError } from './video.handler';
+import { logger } from '@shared/configs/logger';
+import type { VideoProcessorContext } from './imports/video-processor.ports';
+import { downloadRegistry } from './workflows/download.registry';
+import { db } from '@shared/configs/db';
+import { videos } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 const uploadLimiter = createRateLimit({ max: 20, duration: 30000 });
 const standardLimiter = createRateLimit({ max: 30, duration: 3000 });
@@ -100,12 +104,35 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             status: processor.initialStatus ?? 'processing',
                         });
 
+                        const context = {
+                            emit: async (event) => {
+                                if (event.type === 'progress') {
+                                    const { emitVideoProgress } = await import('./video.handler');
+                                    emitVideoProgress(video.id, event.phase, event.progress);
+                                }
+
+                                if (event.type === 'status') {
+                                    const { notifyJobStatus } = await import('@shared/services/notifications/notification.helper');
+                                    notifyJobStatus(user.id, event.status, event.title, event.message, video.id).catch(() => {});
+                                }
+
+                                if (event.type === 'log') {
+                                    logger[event.level]({ ...event.data, videoId: video.id }, event.message);
+                                }
+                            },
+                            download: {
+                                register: (d) => downloadRegistry.register(video.id, d),
+                                unregister: () => downloadRegistry.unregister(video.id),
+                            },
+                        } satisfies VideoProcessorContext;
+
                         processor
-                            .start({
-                                metadata,
-                                source,
-                            })
+                            .start({ metadata, source }, context)
                             .then(async ({ fileName, fileSize, path }) => {
+                                await db.update(videos).set({ status: 'processing' }).where(eq(videos.id, video.id));
+                                const { processVideoWorkflow } = await import('./workflows/video.workflow');
+                                const { handleWorkflowError } = await import('./video.handler');
+
                                 processVideoWorkflow({
                                     accountId: user.id,
                                     videoId: video.id,
@@ -115,6 +142,10 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                                     originalName: fileName,
                                     fileSize: fileSize,
                                 }).catch((error) => handleWorkflowError(video.id, error, 'video'));
+                            })
+                            .catch(async (error) => {
+                                const { handleWorkflowError } = await import('./video.handler');
+                                await handleWorkflowError(video.id, error, 'processor-' + processor.id);
                             });
 
                         savedSourcePath = undefined;

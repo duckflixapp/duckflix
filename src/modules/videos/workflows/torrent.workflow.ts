@@ -1,31 +1,18 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { db } from '@shared/configs/db';
-import type { DownloadProgress, VideoType } from '@duckflixapp/shared';
 import { paths } from '@shared/configs/path.config';
 import { AppError } from '@shared/errors';
 import { TorrentCanceledError, TorrentClient, validateTorrentFileSize } from '@utils/torrent';
 import { RqbitClient } from '@shared/lib/rqbit';
-import { emitVideoProgress } from '../video.handler';
-import { notifyJobStatus } from '@shared/services/notifications/notification.helper';
 import { env } from '@core/env';
-import { logger } from '@shared/configs/logger';
-import { eq } from 'drizzle-orm';
-import { videos } from '@shared/schema/video.schema';
 import { TorrentDownloadError } from '../video.errors';
-import { processVideoWorkflow } from './video.workflow';
-import { downloadRegistry } from './download.registry';
+import type { VideoProcessorContext } from '../imports/video-processor.ports';
+import type { DownloadProgress } from '@duckflixapp/shared';
 
 const rqbitClient = new RqbitClient({ baseUrl: env.RQBIT_URL! });
 const torrentClient = new TorrentClient({ rqbit: rqbitClient });
 
-export const processTorrentFileWorkflow = async (data: {
-    accountId: string;
-    videoId: string;
-    torrentPath: string;
-    type: VideoType;
-    imdbId: string | null;
-}) => {
+export const processTorrentFileWorkflow = async (data: { torrentPath: string }, context: VideoProcessorContext) => {
     let torrentBuffer: Buffer;
     try {
         const valid = await validateTorrentFileSize(data.torrentPath);
@@ -43,53 +30,67 @@ export const processTorrentFileWorkflow = async (data: {
     const torrent = await torrentClient.download(torrentBuffer).catch((e) => {
         throw new TorrentDownloadError(e);
     });
-    downloadRegistry.register(data.videoId, torrent);
+    context.download.register(torrent);
 
-    torrent.addListener('progress', (progress) => emitVideoProgress(data.videoId, 'downloading', progress as DownloadProgress));
+    torrent.addListener('progress', (progress) =>
+        context.emit({ type: 'progress', phase: 'downloading', progress: progress satisfies DownloadProgress })
+    );
 
-    torrent.addListener('error', ({ error, code }) => {
-        logger.debug(
-            {
+    torrent.addListener('error', ({ error, code }) =>
+        context.emit({
+            type: 'log',
+            level: 'debug',
+            message: 'Torrent download status error',
+            data: {
                 err: error,
                 errorCode: code,
-                videoId: data.videoId,
                 context: 'torrent_client',
             },
-            'Torrent download status error'
-        );
-    });
+        })
+    );
 
     try {
-        logger.info({ videoId: data.videoId }, 'Torrent waiting for download...');
-        notifyJobStatus(data.accountId, 'started', `Video started downloading`, data.videoId, data.videoId).catch(() => {});
+        context.emit({
+            type: 'log',
+            level: 'info',
+            message: 'Torrent waiting for download...',
+        });
+        context.emit({
+            type: 'status',
+            status: 'started',
+            title: 'Download started',
+            message: `Torrent started downloading video`,
+        });
         await torrent.waitDownload();
-        logger.info({ videoId: data.videoId }, 'Torrent download finished...');
+        context.emit({
+            type: 'log',
+            level: 'info',
+            message: 'Torrent download finished...',
+        });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
         fs.rm(torrent.dir, { recursive: true, force: true }).catch(() => {});
         if (err instanceof TorrentCanceledError) {
-            await db
-                .update(videos)
-                .set({ status: 'error' })
-                .where(eq(videos.id, data.videoId))
-                .catch((e) => {
-                    logger.error({ err: e, videoId: data.videoId }, 'Failed to mark canceled torrent download');
-                });
-            notifyJobStatus(data.accountId, 'canceled', `Video download canceled`, `Torrent download was canceled.`, data.videoId).catch(
-                () => {}
-            );
-            return;
+            context.emit({
+                type: 'status',
+                status: 'canceled',
+                title: `Video download canceled`,
+                message: `Torrent download was canceled.`,
+            });
+            throw err;
         }
         throw new TorrentDownloadError(err);
     } finally {
-        downloadRegistry.unregister(data.videoId);
+        context.download.unregister();
     }
 
     try {
-        await db.update(videos).set({ status: 'processing' }).where(eq(videos.id, data.videoId));
-        notifyJobStatus(data.accountId, 'downloaded', `Video downloaded`, `Video download completed. Processing...`, data.videoId).catch(
-            () => {}
-        );
+        context.emit({
+            type: 'status',
+            status: 'downloaded',
+            title: `Video downloaded`,
+            message: `Video download completed. Processing...`,
+        });
     } catch (e) {
         await fs.rm(torrent.dir, { recursive: true, force: true }).catch(() => {});
         torrent.destroy().catch(() => {});
@@ -102,7 +103,7 @@ export const processTorrentFileWorkflow = async (data: {
         const downloadedPath = path.join(torrent.dir, mainFile.name);
 
         const ext = path.extname(mainFile.name);
-        safePath = path.join(paths.downloads, `${data.videoId}-torrent${ext}`);
+        safePath = path.join(paths.downloads, `${crypto.randomUUID()}-torrent${ext}`);
         await fs.rename(downloadedPath, safePath);
     } catch (e) {
         throw new AppError('Video could not be copied after downloading', { cause: e });
@@ -111,13 +112,5 @@ export const processTorrentFileWorkflow = async (data: {
         torrent.destroy().catch(() => {}); // ignore error
     }
 
-    await processVideoWorkflow({
-        accountId: data.accountId,
-        videoId: data.videoId,
-        tempPath: safePath,
-        originalName: mainFile.name,
-        fileSize: mainFile.length,
-        type: data.type,
-        imdbId: data.imdbId,
-    });
+    return { path: safePath, name: mainFile.name, size: mainFile.length };
 };
