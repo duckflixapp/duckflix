@@ -127,7 +127,7 @@ describe('MediaService', () => {
     test('rejects unsafe HLS file names before reading storage', async () => {
         videoVersions.set('version-1', makeVersion());
 
-        await expect(service.stream({ versionId: 'version-1', file: '../secret.ts', session: 'session-1' })).rejects.toThrow(AppError);
+        expect(service.stream({ versionId: 'version-1', file: '../secret.ts', session: 'session-1' })).rejects.toThrow(AppError);
         expect(filePaths).toEqual([]);
     });
 

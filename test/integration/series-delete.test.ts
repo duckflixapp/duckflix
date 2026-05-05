@@ -87,7 +87,7 @@ describe('series delete integration', () => {
     });
 
     test('deleting a season deletes videos for episodes in that season only', async () => {
-        await expect(drizzleSeriesRepository.deleteSeasonById({ seasonId: seasonOneId, accountId })).resolves.toMatchObject({
+        expect(drizzleSeriesRepository.deleteSeasonById({ seasonId: seasonOneId, accountId })).resolves.toMatchObject({
             status: 'deleted',
         });
 
@@ -98,7 +98,7 @@ describe('series delete integration', () => {
     });
 
     test('deleting a series deletes videos for all episodes in the series', async () => {
-        await expect(drizzleSeriesRepository.deleteSeriesById({ seriesId, accountId })).resolves.toMatchObject({
+        expect(drizzleSeriesRepository.deleteSeriesById({ seriesId, accountId })).resolves.toMatchObject({
             status: 'deleted',
         });
 

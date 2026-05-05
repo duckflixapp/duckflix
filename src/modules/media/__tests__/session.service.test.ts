@@ -57,7 +57,7 @@ describe('MediaSessionService', () => {
     });
 
     test('creates a media session for the original video version', async () => {
-        await expect(service.createSession('account-1', 'video-1')).resolves.toBe('media-session-1');
+        expect(service.createSession('account-1', 'video-1')).resolves.toBe('media-session-1');
 
         expect(createdSessions).toEqual([
             {
@@ -75,18 +75,18 @@ describe('MediaSessionService', () => {
     test('throws when video does not exist', async () => {
         video = null;
 
-        await expect(service.createSession('account-1', 'video-1')).rejects.toThrow(VideoNotFoundError);
+        expect(service.createSession('account-1', 'video-1')).rejects.toThrow(VideoNotFoundError);
     });
 
     test('throws when video has no duration', async () => {
         video = makeVideo({ duration: null });
 
-        await expect(service.createSession('account-1', 'video-1')).rejects.toThrow(NoVideoMediaFoundError);
+        expect(service.createSession('account-1', 'video-1')).rejects.toThrow(NoVideoMediaFoundError);
     });
 
     test('throws when video has no original version', async () => {
         video = makeVideo({ versions: [] });
 
-        await expect(service.createSession('account-1', 'video-1')).rejects.toThrow(NoVideoMediaFoundError);
+        expect(service.createSession('account-1', 'video-1')).rejects.toThrow(NoVideoMediaFoundError);
     });
 });

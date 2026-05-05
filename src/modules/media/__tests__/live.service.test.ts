@@ -98,25 +98,25 @@ describe('LiveMediaService', () => {
 
     test('rejects unknown or incomplete video media', async () => {
         video = null;
-        await expect(service.getVideoWithOriginal('video-1')).rejects.toThrow(VideoNotFoundError);
+        expect(service.getVideoWithOriginal('video-1')).rejects.toThrow(VideoNotFoundError);
 
         video = makeVideo({ duration: null });
-        await expect(service.getVideoWithOriginal('video-1')).rejects.toThrow(NoVideoMediaFoundError);
+        expect(service.getVideoWithOriginal('video-1')).rejects.toThrow(NoVideoMediaFoundError);
 
         video = makeVideo({ versions: [] });
-        await expect(service.getVideoWithOriginal('video-1')).rejects.toThrow(NoVideoMediaFoundError);
+        expect(service.getVideoWithOriginal('video-1')).rejects.toThrow(NoVideoMediaFoundError);
     });
 
     test('rejects invalid manifest resolutions', async () => {
         const currentVideo = makeVideo();
         const original = currentVideo.versions.find((item) => item.isOriginal)!;
 
-        await expect(service.generateManifestFile(currentVideo, original, 2160, 'session-1')).rejects.toThrow(TooBigResolutionError);
-        await expect(service.generateManifestFile(currentVideo, original, 999, 'session-1')).rejects.toThrow(NotStandardResolutionError);
+        expect(service.generateManifestFile(currentVideo, original, 2160, 'session-1')).rejects.toThrow(TooBigResolutionError);
+        expect(service.generateManifestFile(currentVideo, original, 999, 'session-1')).rejects.toThrow(NotStandardResolutionError);
     });
 
     test('delegates live segment creation to the session manager', async () => {
-        await expect(
+        expect(
             service.ensureLiveSegment(
                 'session-1',
                 720,

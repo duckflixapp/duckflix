@@ -1,7 +1,6 @@
 import { AppError } from '@shared/errors';
 import path from 'node:path';
 import { paths } from '@shared/configs/path.config';
-import { startProcessing } from '../video.processor';
 import fs from 'node:fs/promises';
 import { toVideoVersionDTO } from '@shared/mappers/video.mapper';
 import { taskHandler } from '@utils/taskHandler';
@@ -35,6 +34,7 @@ export const createVideoVersionsService = ({ videoVersionsRepository }: VideoVer
         if (existing) throw new AppError('Version already exists', { statusCode: 409 });
 
         const originalPath = path.resolve(paths.storage, original.storageKey);
+        const { startProcessing } = await import('../video.processor');
 
         await startProcessing(videoId, [height], paths.storage, originalPath);
     };

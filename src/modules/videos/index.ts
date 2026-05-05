@@ -3,10 +3,6 @@ import { authGuard } from '@shared/middlewares/auth.middleware';
 import { createRateLimit } from '@shared/configs/ratelimit';
 import * as MetadataService from '@shared/services/metadata/metadata.service';
 import { addVersionSchema, createProgressSchema, createVideoSchema, videoParamsSchema, videoVersionParamsSchema } from './video.validator';
-import { identifyVideoWorkflow } from './workflows/identify.workflow';
-import { processVideoWorkflow } from './workflows/video.workflow';
-import { processTorrentFileWorkflow } from './workflows/torrent.workflow';
-import { handleWorkflowError } from './video.handler';
 import { AppError } from '@shared/errors';
 import fs from 'node:fs/promises';
 import { importBodySchema, searchQuerySchema, subtitleParamsSchema, uploadBodySchema } from './subtitles.validator';
@@ -110,6 +106,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                         let metadata = await MetadataService.enrichMetadata(dbUrl, body);
 
                         if (!metadata && savedVideoPath) {
+                            const { identifyVideoWorkflow } = await import('./workflows/identify.workflow');
                             metadata = await identifyVideoWorkflow({
                                 filePath: savedVideoPath,
                                 fileName: videoFile!.name,
@@ -117,6 +114,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             });
                         }
                         if (!metadata && savedTorrentPath) {
+                            const { identifyVideoWorkflow } = await import('./workflows/identify.workflow');
                             metadata = await identifyVideoWorkflow(
                                 { filePath: savedTorrentPath, fileName: torrentFile!.name, type },
                                 { checkHash: false }
@@ -135,6 +133,9 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                         });
 
                         if (videoFile && savedVideoPath) {
+                            const { processVideoWorkflow } = await import('./workflows/video.workflow');
+                            const { handleWorkflowError } = await import('./video.handler');
+
                             processVideoWorkflow({
                                 accountId: user.id,
                                 videoId: video.id,
@@ -145,6 +146,9 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                                 fileSize: videoFile.size,
                             }).catch((e) => handleWorkflowError(video.id, e, 'video'));
                         } else if (savedTorrentPath) {
+                            const { processTorrentFileWorkflow } = await import('./workflows/torrent.workflow');
+                            const { handleWorkflowError } = await import('./video.handler');
+
                             processTorrentFileWorkflow({
                                 accountId: user.id,
                                 videoId: video.id,
