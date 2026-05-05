@@ -9,6 +9,9 @@ import { importBodySchema, searchQuerySchema, subtitleParamsSchema, uploadBodySc
 import { limits } from '@shared/configs/limits.config';
 import { videoService, videoSubtitlesService, videoVersionsService } from './videos.container';
 import { saveUploadToTemp } from './upload-temp-file';
+import { videoProcessorRegistry } from './imports';
+import { processVideoWorkflow } from './workflows/video.workflow';
+import { handleWorkflowError } from './video.handler';
 
 const uploadLimiter = createRateLimit({ max: 20, duration: 30000 });
 const standardLimiter = createRateLimit({ max: 30, duration: 3000 });
@@ -62,64 +65,29 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                 async ({ user, body, set }) => {
                     const { type, dbUrl } = body;
 
-                    const videoFile = body.video;
-                    const torrentFile = body.torrent;
+                    const processor = videoProcessorRegistry.resolve(body.processor);
+                    if (!processor) throw new AppError('Failed to find processor for: ' + body.processor, { statusCode: 404 });
 
-                    if (!videoFile && !torrentFile)
-                        throw new AppError('Please provide either a valid video or torrent file', { statusCode: 400 });
+                    const rawSource =
+                        body.sourceType === 'file'
+                            ? ({ sourceType: 'file', file: body.source } as const)
+                            : ({ sourceType: 'text', value: body.source } as const);
 
-                    if (videoFile) {
-                        if (videoFile.size > limits.file.upload * 1024 * 1024) {
-                            throw new AppError('Video file exceeds maximum allowed size.', { statusCode: 400 });
-                        }
+                    videoProcessorRegistry.ensureSourceSupported(processor, rawSource.sourceType);
+                    await processor.validateSource(rawSource);
 
-                        const isValidMime = videoFile.type.startsWith('video/') || videoFile.type === 'application/octet-stream';
-                        if (!isValidMime) {
-                            throw new AppError('Only video files (mp4, mkv, avi, mov) are allowed', { statusCode: 400 });
-                        }
-                    }
-
-                    if (torrentFile) {
-                        if (torrentFile.size > 5 * 1024 * 1024) {
-                            throw new AppError('Torrent file is suspiciously large', { statusCode: 400 });
-                        }
-
-                        const isTorrentMime = torrentFile.type === 'application/x-bittorrent';
-                        const isTorrentExt = torrentFile.name.toLowerCase().endsWith('.torrent');
-
-                        if (!isTorrentMime && !isTorrentExt) {
-                            throw new AppError('The "torrent" field must contain a .torrent file.', { statusCode: 400 });
-                        }
-                    }
-
-                    let savedVideoPath: string | undefined;
-                    let savedTorrentPath: string | undefined;
+                    let savedSourcePath: string | undefined;
 
                     try {
-                        if (videoFile) {
-                            savedVideoPath = await saveUploadToTemp(videoFile);
-                        }
-                        if (torrentFile) {
-                            savedTorrentPath = await saveUploadToTemp(torrentFile);
+                        const source = rawSource.sourceType === 'file' ? { ...rawSource, tempPath: '' } : rawSource;
+                        if (source.sourceType === 'file') {
+                            savedSourcePath = await saveUploadToTemp(source.file);
+                            source.tempPath = savedSourcePath;
                         }
 
                         let metadata = await MetadataService.enrichMetadata(dbUrl, body);
 
-                        if (!metadata && savedVideoPath) {
-                            const { identifyVideoWorkflow } = await import('./workflows/identify.workflow');
-                            metadata = await identifyVideoWorkflow({
-                                filePath: savedVideoPath,
-                                fileName: videoFile!.name,
-                                type,
-                            });
-                        }
-                        if (!metadata && savedTorrentPath) {
-                            const { identifyVideoWorkflow } = await import('./workflows/identify.workflow');
-                            metadata = await identifyVideoWorkflow(
-                                { filePath: savedTorrentPath, fileName: torrentFile!.name, type },
-                                { checkHash: false }
-                            );
-                        }
+                        if (!metadata && processor.identify) metadata = await processor.identify({ source, requestedType: type });
 
                         if (!metadata) {
                             throw new AppError('Failed to retrieve metadata. Please provide valid video data or db url', {
@@ -129,44 +97,36 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
 
                         const video = await videoService.initiateUpload(metadata, {
                             accountId: user.id,
-                            status: videoFile ? 'processing' : 'downloading',
+                            status: processor.initialStatus ?? 'processing',
                         });
 
-                        if (videoFile && savedVideoPath) {
-                            const { processVideoWorkflow } = await import('./workflows/video.workflow');
-                            const { handleWorkflowError } = await import('./video.handler');
+                        processor
+                            .start({
+                                metadata,
+                                source,
+                            })
+                            .then(async ({ fileName, fileSize, path }) => {
+                                processVideoWorkflow({
+                                    accountId: user.id,
+                                    videoId: video.id,
+                                    type: metadata.type,
+                                    imdbId: metadata.imdbId,
+                                    tempPath: path,
+                                    originalName: fileName,
+                                    fileSize: fileSize,
+                                }).catch((error) => handleWorkflowError(video.id, error, 'video'));
+                            });
 
-                            processVideoWorkflow({
-                                accountId: user.id,
-                                videoId: video.id,
-                                type: metadata.type,
-                                imdbId: metadata.imdbId,
-                                tempPath: savedVideoPath,
-                                originalName: videoFile.name,
-                                fileSize: videoFile.size,
-                            }).catch((e) => handleWorkflowError(video.id, e, 'video'));
-                        } else if (savedTorrentPath) {
-                            const { processTorrentFileWorkflow } = await import('./workflows/torrent.workflow');
-                            const { handleWorkflowError } = await import('./video.handler');
-
-                            processTorrentFileWorkflow({
-                                accountId: user.id,
-                                videoId: video.id,
-                                type: metadata.type,
-                                imdbId: metadata.imdbId,
-                                torrentPath: savedTorrentPath,
-                            }).catch((e) => handleWorkflowError(video.id, e, 'torrent'));
-                        }
+                        savedSourcePath = undefined;
 
                         set.status = 201;
                         return {
                             status: 'success',
-                            message: torrentFile ? 'Torrent download initiated.' : 'Video processing started.',
+                            message: 'Video processing started.',
                             data: { video },
                         };
                     } catch (e) {
-                        if (savedVideoPath) await fs.unlink(savedVideoPath).catch(() => {});
-                        if (savedTorrentPath) await fs.unlink(savedTorrentPath).catch(() => {});
+                        if (savedSourcePath) await fs.unlink(savedSourcePath).catch(() => {});
                         throw e;
                     }
                 },
