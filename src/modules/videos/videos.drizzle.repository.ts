@@ -232,6 +232,11 @@ export const drizzleVideosRepository: VideosRepository = {
         );
     },
 
+    async findStatus(videoId) {
+        const [video] = await db.select({ id: videos.id, status: videos.status }).from(videos).where(eq(videos.id, videoId));
+        return video ?? null;
+    },
+
     async findForDelete(videoId) {
         return (
             (await db.query.videos.findFirst({

@@ -58,10 +58,23 @@ mock.module('@utils/taskHandler', () => ({
     taskHandler: { cancel: () => true },
 }));
 
+const downloadRegistryCalls: string[] = [];
+let downloadRegistryCancelImpl = async (_videoId: string) => true;
+
+mock.module('../workflows/download.registry', () => ({
+    downloadRegistry: {
+        cancel: async (videoId: string) => {
+            downloadRegistryCalls.push(videoId);
+            return await downloadRegistryCancelImpl(videoId);
+        },
+    },
+}));
+
 const { createVideoService } = await import('../services/video.service');
 
 let uploadedVideo: Video | null = null;
 let videoById: RichVideo | null = null;
+let videoStatusRecord: Pick<Video, 'id' | 'status'> | null = null;
 let durationRecord: Pick<Video, 'id' | 'duration'> | null = null;
 let existingProgress: WatchHistory | null = null;
 let progressRecord: VideoProgressRecord | null = null;
@@ -71,6 +84,7 @@ const upsertCalls: unknown[] = [];
 const videosRepository: VideosRepository = {
     initiateUpload: async () => uploadedVideo!,
     findById: async () => videoById,
+    findStatus: async () => videoStatusRecord,
     findForDelete: async () => null as VideoDeleteRecord | null,
     deleteById: async () => {},
     findProgress: async () => progressRecord,
@@ -116,11 +130,14 @@ describe('VideoService', () => {
     beforeEach(() => {
         uploadedVideo = makeVideo();
         videoById = null;
+        videoStatusRecord = null;
         durationRecord = { id: 'video-1', duration: 100 };
         existingProgress = null;
         progressRecord = null;
         resolveRecord = null;
         upsertCalls.length = 0;
+        downloadRegistryCalls.length = 0;
+        downloadRegistryCancelImpl = async () => true;
     });
 
     test('initiateUpload returns a minimal video DTO', async () => {
@@ -195,6 +212,29 @@ describe('VideoService', () => {
         expect(service.saveVideoProgressById({ videoId: 'video-1', profileId: 'profile-1', positionSec: 10 })).rejects.toThrow(
             VideoNotFoundError
         );
+    });
+
+    test('cancelVideoDownload cancels an active torrent download', async () => {
+        videoStatusRecord = { id: 'video-1', status: 'downloading' };
+
+        await service.cancelVideoDownload('video-1');
+
+        expect(downloadRegistryCalls).toEqual(['video-1']);
+    });
+
+    test('cancelVideoDownload rejects when video is not downloading', async () => {
+        videoStatusRecord = { id: 'video-1', status: 'ready' };
+
+        expect(service.cancelVideoDownload('video-1')).rejects.toMatchObject({ statusCode: 409 });
+        expect(downloadRegistryCalls).toEqual([]);
+    });
+
+    test('cancelVideoDownload rejects when there is no active download', async () => {
+        videoStatusRecord = { id: 'video-1', status: 'downloading' };
+        downloadRegistryCancelImpl = async () => false;
+
+        expect(service.cancelVideoDownload('video-1')).rejects.toMatchObject({ statusCode: 404 });
+        expect(downloadRegistryCalls).toEqual(['video-1']);
     });
 
     test('resolveVideo returns linked movie content', async () => {

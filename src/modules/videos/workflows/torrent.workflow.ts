@@ -4,7 +4,7 @@ import { db } from '@shared/configs/db';
 import type { DownloadProgress, VideoType } from '@duckflixapp/shared';
 import { paths } from '@shared/configs/path.config';
 import { AppError } from '@shared/errors';
-import { TorrentClient, validateTorrentFileSize } from '@utils/torrent';
+import { TorrentCanceledError, TorrentClient, validateTorrentFileSize } from '@utils/torrent';
 import { RqbitClient } from '@shared/lib/rqbit';
 import { emitVideoProgress } from '../video.handler';
 import { notifyJobStatus } from '@shared/services/notifications/notification.helper';
@@ -14,6 +14,7 @@ import { eq } from 'drizzle-orm';
 import { videos } from '@shared/schema/video.schema';
 import { TorrentDownloadError } from '../video.errors';
 import { processVideoWorkflow } from './video.workflow';
+import { downloadRegistry } from './download.registry';
 
 const rqbitClient = new RqbitClient({ baseUrl: env.RQBIT_URL! });
 const torrentClient = new TorrentClient({ rqbit: rqbitClient });
@@ -42,6 +43,7 @@ export const processTorrentFileWorkflow = async (data: {
     const torrent = await torrentClient.download(torrentBuffer).catch((e) => {
         throw new TorrentDownloadError(e);
     });
+    downloadRegistry.register(data.videoId, torrent);
 
     torrent.addListener('progress', (progress) => emitVideoProgress(data.videoId, 'downloading', progress as DownloadProgress));
 
@@ -65,7 +67,22 @@ export const processTorrentFileWorkflow = async (data: {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
         fs.rm(torrent.dir, { recursive: true, force: true }).catch(() => {});
+        if (err instanceof TorrentCanceledError) {
+            await db
+                .update(videos)
+                .set({ status: 'error' })
+                .where(eq(videos.id, data.videoId))
+                .catch((e) => {
+                    logger.error({ err: e, videoId: data.videoId }, 'Failed to mark canceled torrent download');
+                });
+            notifyJobStatus(data.accountId, 'canceled', `Video download canceled`, `Torrent download was canceled.`, data.videoId).catch(
+                () => {}
+            );
+            return;
+        }
         throw new TorrentDownloadError(err);
+    } finally {
+        downloadRegistry.unregister(data.videoId);
     }
 
     try {

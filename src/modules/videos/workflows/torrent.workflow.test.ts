@@ -17,6 +17,8 @@ const calls = {
     waitDownloadCalls: [] as number[],
     destroyCalls: [] as number[],
     addListenerCalls: [] as Array<{ event: string; torrentId: number }>,
+    registerDownload: [] as Array<{ videoId: string; torrentId: number }>,
+    unregisterDownload: [] as string[],
     ffprobe: [] as string[],
     computeHash: [] as string[],
     getSubtitles: [] as unknown[],
@@ -26,12 +28,15 @@ const calls = {
     transactionUpdate: [] as unknown[],
 };
 
+class MockTorrentCanceledError extends Error {}
+
 type MockTorrent = {
     id: number;
     dir: string;
     files: Array<{ name: string; length: number }>;
     addListener: (event: string, callback: (...args: unknown[]) => void) => void;
     waitDownload: () => Promise<void>;
+    cancel: () => Promise<void>;
     destroy: () => Promise<void>;
     emitProgress: (payload: unknown) => void;
     emitError: (payload: unknown) => void;
@@ -98,6 +103,7 @@ const createTorrent = (overrides: Partial<MockTorrent> = {}): MockTorrent => {
         waitDownload: async () => {
             calls.waitDownloadCalls.push(torrent.id);
         },
+        cancel: async () => {},
         destroy: async () => {
             calls.destroyCalls.push(torrent.id);
         },
@@ -142,6 +148,7 @@ mock.module('@shared/configs/path.config', () => ({
 }));
 
 mock.module('@utils/torrent', () => ({
+    TorrentCanceledError: MockTorrentCanceledError,
     validateTorrentFileSize: async (torrentPath: string) => {
         calls.validateTorrentFileSize.push(torrentPath);
         return validateTorrentFileSizeImpl(torrentPath);
@@ -153,6 +160,13 @@ mock.module('@utils/torrent', () => ({
             calls.downloadCalls.push(buffer);
             return await downloadImpl(buffer);
         }
+    },
+}));
+
+mock.module('./download.registry', () => ({
+    downloadRegistry: {
+        register: (videoId: string, torrent: MockTorrent) => calls.registerDownload.push({ videoId, torrentId: torrent.id }),
+        unregister: (videoId: string) => calls.unregisterDownload.push(videoId),
     },
 }));
 
@@ -368,6 +382,7 @@ describe('processTorrentFileWorkflow', () => {
         await expect(promise).rejects.toBeInstanceOf(TorrentDownloadError);
         expect(calls.mkdir).toEqual([{ path: '/downloads', options: { recursive: true } }]);
         expect(calls.unlink).toContain('/tmp/upload.torrent');
+        expect(calls.registerDownload).toHaveLength(0);
     });
 
     test('cleans torrent directory and destroys torrent when status update fails after download', async () => {
@@ -389,6 +404,7 @@ describe('processTorrentFileWorkflow', () => {
         expect(calls.rm).toContainEqual({ path: '/downloads/torrent-dir', options: { recursive: true, force: true } });
         expect(calls.destroyCalls).toContain(99);
         expect(calls.ffprobe).toHaveLength(0);
+        expect(calls.unregisterDownload).toEqual(['video-1']);
     });
 
     test('renames the largest downloaded file and hands off into the real video workflow', async () => {
@@ -408,6 +424,8 @@ describe('processTorrentFileWorkflow', () => {
             ['user-1', 'downloaded', 'Video downloaded', 'Video download completed. Processing...', 'video-1'],
             ['user-1', 'completed', 'Upload completed', 'Video uploaded successfully', 'video-1'],
         ]);
+        expect(calls.registerDownload).toEqual([{ videoId: 'video-1', torrentId: 99 }]);
+        expect(calls.unregisterDownload).toEqual(['video-1']);
         expect(calls.rename).toContainEqual({
             from: '/downloads/torrent-dir/sample-video.mkv',
             to: '/downloads/video-1-torrent.mkv',
@@ -437,5 +455,33 @@ describe('processTorrentFileWorkflow', () => {
         });
 
         expect(calls.emitVideoProgress).toContainEqual(['video-1', 'downloading', { percent: 42 }]);
+    });
+
+    test('marks the video as error and notifies canceled when download is canceled', async () => {
+        const torrent = createTorrent({
+            waitDownload: async () => {
+                calls.waitDownloadCalls.push(99);
+                throw new MockTorrentCanceledError();
+            },
+        });
+        downloadImpl = async () => torrent;
+
+        await processTorrentFileWorkflow({
+            accountId: 'user-1',
+            videoId: 'video-1',
+            torrentPath: '/tmp/upload.torrent',
+            type: 'movie',
+            imdbId: null,
+        });
+
+        expect(calls.dbUpdateSet).toContainEqual({ status: 'error' });
+        expect(calls.notifyJobStatus).toEqual([
+            ['user-1', 'started', 'Video started downloading', 'video-1', 'video-1'],
+            ['user-1', 'canceled', 'Video download canceled', 'Torrent download was canceled.', 'video-1'],
+        ]);
+        expect(calls.rm).toContainEqual({ path: '/downloads/torrent-dir', options: { recursive: true, force: true } });
+        expect(calls.rename).toHaveLength(0);
+        expect(calls.destroyCalls).toHaveLength(0);
+        expect(calls.unregisterDownload).toEqual(['video-1']);
     });
 });

@@ -12,6 +12,7 @@ import { paths } from '@shared/configs/path.config';
 import { createAuditLog } from '@shared/services/audit.service';
 import { drizzleVideosRepository } from '../videos.drizzle.repository';
 import type { VideosRepository } from '../videos.ports';
+import { downloadRegistry } from '../workflows/download.registry';
 
 type VideoServiceDependencies = {
     videosRepository: VideosRepository;
@@ -89,6 +90,15 @@ export const createVideoService = ({ videosRepository }: VideoServiceDependencie
         });
     };
 
+    const cancelVideoDownload = async (videoId: string) => {
+        const video = await videosRepository.findStatus(videoId);
+        if (!video) throw new VideoNotFoundError();
+        if (video.status !== 'downloading') throw new AppError('Video is not currently downloading', { statusCode: 409 });
+
+        const wasCanceled = await downloadRegistry.cancel(videoId);
+        if (!wasCanceled) throw new AppError('Download could not be found or is not currently active.', { statusCode: 404 });
+    };
+
     const getVideoProgressById = async (data: { videoId: string; profileId: string }) => {
         const video = await videosRepository.findProgress(data);
         if (!video) throw new VideoNotFoundError();
@@ -140,6 +150,7 @@ export const createVideoService = ({ videosRepository }: VideoServiceDependencie
         initiateUpload,
         getVideoById,
         deleteVideoById,
+        cancelVideoDownload,
         getVideoProgressById,
         saveVideoProgressById,
         resolveVideo,

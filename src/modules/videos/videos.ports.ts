@@ -31,6 +31,7 @@ export type SubtitleNameRecord = Pick<Subtitle, 'language' | 'name'> & Partial<P
 export interface VideosRepository {
     initiateUpload(metadata: VideoMetadata, data: { accountId: string; status: VideoUploadStatus }): Promise<Video>;
     findById(videoId: string): Promise<RichVideo | null>;
+    findStatus(videoId: string): Promise<Pick<Video, 'id' | 'status'> | null>;
     findForDelete(videoId: string): Promise<VideoDeleteRecord | null>;
     deleteById(videoId: string): Promise<void>;
     findProgress(data: { videoId: string; profileId: string }): Promise<VideoProgressRecord | null>;

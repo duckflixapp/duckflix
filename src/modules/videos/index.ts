@@ -179,6 +179,18 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
             )
 
             .delete(
+                '/:id/download',
+                async ({ params: { id } }) => {
+                    await videoService.cancelVideoDownload(id);
+                    return {
+                        status: 'success',
+                        message: 'Torrent download canceled.',
+                    };
+                },
+                { params: videoParamsSchema, detail: { summary: 'Cancel Download' } }
+            )
+
+            .delete(
                 '/:id',
                 async ({ params: { id }, user, set }) => {
                     await videoService.deleteVideoById(id, { accountId: user.id });

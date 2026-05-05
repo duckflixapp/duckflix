@@ -20,8 +20,15 @@ class TorrentError extends AppError {
     }
 }
 
+export class TorrentCanceledError extends AppError {
+    constructor() {
+        super('Torrent download canceled', { statusCode: 499 });
+    }
+}
+
 export class Torrent extends EventEmitter {
     private timeoutId: NodeJS.Timeout | null = null;
+    private waitReject: ((reason?: unknown) => void) | null = null;
 
     constructor(
         private readonly client: TorrentClient,
@@ -67,6 +74,7 @@ export class Torrent extends EventEmitter {
     public async waitDownload(): Promise<void> {
         return new Promise((resolve, reject) => {
             if (this.timeoutId) return reject(new Error('Already waiting download for this torrent'));
+            this.waitReject = reject;
 
             let errorCount = 0;
             const timeout = async () => {
@@ -88,11 +96,13 @@ export class Torrent extends EventEmitter {
 
                     if (stats.finished || progress >= 1) {
                         this.stopTracking();
+                        this.waitReject = null;
                         return resolve();
                     }
 
                     if (stats.state === 'error') {
                         this.stopTracking();
+                        this.waitReject = null;
                         const error = stats.error ? new Error(stats.error) : undefined;
                         return reject(new TorrentError('rqbit reported a torrent error', error));
                     }
@@ -100,6 +110,7 @@ export class Torrent extends EventEmitter {
                     this.timeoutId = setTimeout(timeout, 1000);
                 } catch (err) {
                     this.stopTracking();
+                    this.waitReject = null;
                     reject(new TorrentError('unexpected torrent error', err));
                 }
             };
@@ -113,11 +124,27 @@ export class Torrent extends EventEmitter {
         this.timeoutId = null;
     }
 
-    public destroy() {
+    public async cancel() {
+        const reject = this.waitReject;
         this.stopTracking();
+        this.waitReject = null;
         this.removeAllListeners('progress');
         this.removeAllListeners('error');
-        return this.client.remove(this.id);
+        try {
+            await this.client.remove(this.id);
+        } catch (err) {
+            reject?.(err);
+            throw err;
+        }
+        reject?.(new TorrentCanceledError());
+    }
+
+    public async destroy() {
+        await this.client.remove(this.id);
+        this.stopTracking();
+        this.waitReject = null;
+        this.removeAllListeners('progress');
+        this.removeAllListeners('error');
     }
 }
 
