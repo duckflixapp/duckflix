@@ -1,12 +1,8 @@
 PRIORITY: 
-
-- Cancel Torrent download
-
+- Better upload form. Wizzard-like
 
 SYSTEM
 
-- Better upload form. Wizzard-like
-- Notification pagination
 - Pasting magnets
 - Cache banner & poster
 
@@ -22,7 +18,6 @@ ADMIN
 WATCH
 
 - Seeking on keyboard(canceled reqs)?
-- Cast -> local subtitles, sync media controlls
 
 User
 
@@ -37,3 +32,4 @@ FUTURE
 - Upload for multiple video files in torrent?
 - While processing video find intro, outro
 - Keep track of invalidated tokens?
+- Cast -> player, local subtitles, sync media controlls
