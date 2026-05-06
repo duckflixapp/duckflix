@@ -10,7 +10,7 @@ export class AddonService {
 
     constructor(
         runners: AddonRunner[],
-        private readonly rootPath = paths.addons
+        private readonly rootPath = paths.addonWorkspaces
     ) {
         runners.forEach((runner) => this.runners.set(runner.runtime, runner));
     }
@@ -54,6 +54,7 @@ export class AddonService {
                 await runnerRun?.cleanup();
                 if (!workspace) return;
                 await fs.rm(workspace.root, { recursive: true, force: true }).catch(() => {});
+                await fs.rmdir(workspace.root).catch(() => {});
             },
         };
     }

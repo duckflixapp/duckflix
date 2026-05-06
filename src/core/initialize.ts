@@ -9,6 +9,7 @@ import { recoverZombieMovies, recoverZombieProcesses } from './recovery';
 import { seedDatabase } from './seeder';
 import { filesCleanup } from './cleanup';
 import { initializeBundledAssets } from './assets';
+import { addonLoader } from '@modules/addons';
 
 export const initalize = async () => {
     await systemSettings.update({}); // update with default settings
@@ -34,6 +35,9 @@ export const initalize = async () => {
 
     // initialize watcher
     await initializeWatcher(systemAccountId);
+
+    // initialize addons
+    await addonLoader.loadExternalAddons();
     logger.info('System initialized successfully.');
 };
 

@@ -16,12 +16,13 @@ export type AddonPrepareContext = {
     workspace?: AddonWorkspace;
 };
 
-export type AddonDefinition<TImplementation = unknown> = {
+export type AddonDefinition<TImplementation = unknown, TMetadata = unknown> = {
     id: string;
     kind: AddonKind;
     runtime: AddonRuntimeKind;
     permissions?: readonly AddonPermission[];
     implementation: TImplementation;
+    metadata?: TMetadata;
     prepare?(context: AddonPrepareContext): Promise<void> | void;
 };
 
@@ -48,7 +49,6 @@ export type VideoProcessorCapability = {
     kind: 'video.processor';
     processors: Array<{
         id: string;
-        runtime: AddonRuntimeKind;
         sourceTypes: string[];
     }>;
 };
@@ -59,6 +59,8 @@ export type AddonManifest = {
     id: string;
     name: string;
     version: string;
+    runtime: Exclude<AddonRuntimeKind, 'builtIn'>;
+    entry: string;
     description?: string;
     publisher?: string;
     capabilities: AddonCapability[];

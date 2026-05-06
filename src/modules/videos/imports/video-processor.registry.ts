@@ -12,6 +12,13 @@ import type {
 } from './video-processor.ports';
 import type { AddonService } from '@modules/addons/addons.service';
 
+type VideoProcessorAddonMetadata = {
+    initialStatus?: VideoProcessor['initialStatus'];
+    sourceTypes: VideoProcessor['sourceTypes'];
+};
+
+type VideoProcessorAddonDefinition = AddonDefinition<unknown, VideoProcessorAddonMetadata>;
+
 export type VideoProcessorRunHandle = AddonRun & {
     processor: VideoProcessorRun;
 };
@@ -29,6 +36,10 @@ export class VideoProcessorRegistry {
             runtime: 'builtIn',
             permissions: processor.permissions,
             implementation: processor,
+            metadata: {
+                initialStatus: processor.initialStatus,
+                sourceTypes: processor.sourceTypes,
+            },
             prepare: processor.prepare,
         });
     }
@@ -36,11 +47,11 @@ export class VideoProcessorRegistry {
     public list() {
         return this.addons
             .list('video.processor')
-            .map((addon) => new VideoProcessorAddon(addon as AddonDefinition<VideoProcessor>, this.addonService));
+            .map((addon) => new VideoProcessorAddon(addon as VideoProcessorAddonDefinition, this.addonService));
     }
 
     public resolve(id: string) {
-        const addon = this.addons.resolve<VideoProcessor>('video.processor', id);
+        const addon = this.addons.resolve<unknown, VideoProcessorAddonMetadata>('video.processor', id);
         return addon ? new VideoProcessorAddon(addon, this.addonService) : null;
     }
 
@@ -56,7 +67,7 @@ export class VideoProcessorRegistry {
 
 export class VideoProcessorAddon {
     constructor(
-        private readonly addon: AddonDefinition<VideoProcessor>,
+        private readonly addon: VideoProcessorAddonDefinition,
         private readonly addonService: AddonService
     ) {}
 
@@ -65,11 +76,11 @@ export class VideoProcessorAddon {
     }
 
     public get initialStatus() {
-        return this.addon.implementation.initialStatus;
+        return this.addon.metadata?.initialStatus;
     }
 
     public get sourceTypes() {
-        return this.addon.implementation.sourceTypes;
+        return this.addon.metadata?.sourceTypes ?? [];
     }
 
     public async prepareRun(): Promise<VideoProcessorRunHandle> {
@@ -84,7 +95,7 @@ export class VideoProcessorAddon {
 
 export class VideoProcessorRun {
     constructor(
-        private readonly addon: AddonDefinition<VideoProcessor>,
+        private readonly addon: VideoProcessorAddonDefinition,
         private readonly run: AddonRun
     ) {}
 
@@ -93,11 +104,11 @@ export class VideoProcessorRun {
     }
 
     public get initialStatus() {
-        return this.addon.implementation.initialStatus;
+        return this.addon.metadata?.initialStatus;
     }
 
     public get sourceTypes() {
-        return this.addon.implementation.sourceTypes;
+        return this.addon.metadata?.sourceTypes ?? [];
     }
 
     public validateSource(source: RawVideoProcessorSource) {
@@ -105,7 +116,9 @@ export class VideoProcessorRun {
     }
 
     public async identify(input: VideoProcessorIdentifyInput) {
-        if (!this.addon.implementation.identify) return Promise.resolve(null);
+        if (this.addon.runtime === 'builtIn' && typeof (this.addon.implementation as Partial<VideoProcessor>).identify !== 'function') {
+            return Promise.resolve(null);
+        }
 
         return this.run
             .call<Awaited<ReturnType<NonNullable<VideoProcessor['identify']>>>>('identify', input)

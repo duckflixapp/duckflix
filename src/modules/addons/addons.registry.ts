@@ -20,7 +20,10 @@ export class AddonRegistry {
         return Array.from(this.addons.values()).flatMap((scopedAddons) => Array.from(scopedAddons.values()));
     }
 
-    public resolve<TImplementation = unknown>(kind: AddonKind, id: string): AddonDefinition<TImplementation> | null {
-        return (this.addons.get(kind)?.get(id) as AddonDefinition<TImplementation> | undefined) ?? null;
+    public resolve<TImplementation = unknown, TMetadata = unknown>(
+        kind: AddonKind,
+        id: string
+    ): AddonDefinition<TImplementation, TMetadata> | null {
+        return (this.addons.get(kind)?.get(id) as AddonDefinition<TImplementation, TMetadata> | undefined) ?? null;
     }
 }
