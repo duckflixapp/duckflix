@@ -36,16 +36,6 @@ export class VideoNotFoundError extends AppError {
     }
 }
 
-export class TorrentDownloadError extends AppError {
-    constructor(cause: { message?: string; code?: string }) {
-        let friendlyMessage = 'Torrent could not be downloaded';
-        if (cause?.message?.includes('no peers')) friendlyMessage = 'No active seeders found for this torrent.';
-        if (cause?.code === 'ENOSPC') friendlyMessage = 'Not enough disk space for download.';
-
-        super(friendlyMessage, { cause, statusCode: 400 });
-    }
-}
-
 export class SubtitleDownloadError extends AppError {
     constructor(message: string, cause?: unknown) {
         super(`Subtitle Download: ${message}`, { statusCode: 502, cause });

@@ -2,15 +2,16 @@ import { AppError } from '@shared/errors';
 import { addonRegistry, addonService } from '@modules/addons/addons.container';
 import type { AddonRegistry } from '@modules/addons/addons.registry';
 import type { AddonDefinition, AddonRun } from '@modules/addons/addons.ports';
+import type { BunAddonImplementation } from '@modules/addons/runners/bun.runner';
+import type { VideoProcessor } from './video-processor.ports';
+import type { AddonService } from '@modules/addons/addons.service';
 import type {
     RawVideoProcessorSource,
-    VideoProcessor,
     VideoProcessorContext,
     VideoProcessorIdentifyInput,
     VideoProcessorStartInput,
     VideoProcessorStartOutput,
-} from './video-processor.ports';
-import type { AddonService } from '@modules/addons/addons.service';
+} from '@duckflixapp/addon-sdk/types';
 
 type VideoProcessorAddonMetadata = {
     initialStatus?: VideoProcessor['initialStatus'];
@@ -111,22 +112,37 @@ export class VideoProcessorRun {
         return this.addon.metadata?.sourceTypes ?? [];
     }
 
-    public validateSource(source: RawVideoProcessorSource) {
-        return this.run.call<void>('validateSource', source);
+    public validateSource(source: RawVideoProcessorSource, context: VideoProcessorContext) {
+        return this.run.call<void>('validateSource', source, { ...context, workspace: this.run.workspace });
     }
 
-    public async identify(input: VideoProcessorIdentifyInput) {
-        if (this.addon.runtime === 'builtIn' && typeof (this.addon.implementation as Partial<VideoProcessor>).identify !== 'function') {
+    public async identify(input: VideoProcessorIdentifyInput, context: VideoProcessorContext) {
+        if (!this.hasIdentify()) {
             return Promise.resolve(null);
         }
 
         return this.run
-            .call<Awaited<ReturnType<NonNullable<VideoProcessor['identify']>>>>('identify', input)
+            .call<
+                Awaited<ReturnType<NonNullable<VideoProcessor['identify']>>>
+            >('identify', input, { ...context, workspace: this.run.workspace })
             .then((metadata) => metadata ?? null);
     }
 
     public start(input: VideoProcessorStartInput, context: VideoProcessorContext): Promise<VideoProcessorStartOutput> {
         return this.run.call<VideoProcessorStartOutput>('start', input, { ...context, workspace: this.run.workspace });
+    }
+
+    private hasIdentify() {
+        if (this.addon.runtime === 'builtIn') {
+            return typeof (this.addon.implementation as Partial<VideoProcessor>).identify === 'function';
+        }
+
+        if (this.addon.runtime === 'bun') {
+            const implementation = this.addon.implementation as BunAddonImplementation;
+            return typeof implementation.module.capabilities?.['video.processor']?.identify === 'function';
+        }
+
+        return true;
     }
 }
 

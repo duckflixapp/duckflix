@@ -3,9 +3,10 @@ export type { VideoProcessorRunHandle } from './video-processor.registry';
 export type {
     PreparedVideoProcessorSource,
     RawVideoProcessorSource,
-    VideoProcessor,
     VideoProcessorIdentifyInput,
     VideoProcessorStartInput,
     VideoProcessorStartOutput,
     VideoProcessorContext,
-} from './video-processor.ports';
+} from '@duckflixapp/addon-sdk/types';
+
+export type { VideoProcessor } from './video-processor.ports';

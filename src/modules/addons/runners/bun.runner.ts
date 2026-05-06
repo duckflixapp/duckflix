@@ -10,6 +10,13 @@ export type BunAddonImplementation = {
     };
 };
 
+type AddonThrownError = {
+    message?: string;
+    statusCode?: number;
+    headers?: Record<string, string>;
+    details?: Record<string, unknown>;
+};
+
 export class BunAddonRunner implements AddonRunner {
     public readonly runtime = 'bun' as const;
 
@@ -25,9 +32,33 @@ export class BunAddonRunner implements AddonRunner {
                 }
 
                 logger.debug({ addonId: addon.id, kind: addon.kind, method }, 'Calling Bun addon method');
-                return candidate.apply(capability, args) satisfies Promise<TOutput>;
+                try {
+                    return (await candidate.apply(capability, args)) satisfies TOutput;
+                } catch (error) {
+                    throw this.toAppError(addon, method, error);
+                }
             },
             cleanup: async () => {},
         };
+    }
+
+    private toAppError(addon: AddonDefinition, method: string, error: unknown) {
+        if (error instanceof AppError) return error;
+
+        if (error && typeof error === 'object') {
+            const addonError = error as AddonThrownError;
+
+            return new AppError(addonError.message ?? `Bun addon "${addon.id}" failed while calling ${method}`, {
+                cause: error,
+                statusCode: addonError.statusCode,
+                headers: addonError.headers,
+                details: addonError.details,
+            });
+        }
+
+        return new AppError(`Bun addon "${addon.id}" failed while calling ${method}`, {
+            cause: error,
+            statusCode: 500,
+        });
     }
 }

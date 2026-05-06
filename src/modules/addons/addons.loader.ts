@@ -1,7 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { torrentProcessor } from '@modules/videos/imports/built-in/torrent.processor';
 import { uploaderProcessor } from '@modules/videos/imports/built-in/uploader.processor';
 import type { VideoProcessor } from '@modules/videos/imports/video-processor.ports';
 import { paths } from '@shared/configs/path.config';
@@ -40,7 +39,6 @@ export class AddonLoader {
 
     public loadBuiltIns() {
         this.registerBuiltInVideoProcessor(uploaderProcessor);
-        this.registerBuiltInVideoProcessor(torrentProcessor);
     }
 
     public async loadExternalAddons() {

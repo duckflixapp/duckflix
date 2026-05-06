@@ -9,9 +9,9 @@ import { importBodySchema, searchQuerySchema, subtitleParamsSchema, uploadBodySc
 import { limits } from '@shared/configs/limits.config';
 import { videoService, videoSubtitlesService, videoVersionsService } from './videos.container';
 import { saveUploadToTemp } from './upload-temp-file';
-import { videoProcessorRegistry } from './imports';
+import { videoProcessorRegistry, type VideoProcessorContext } from './imports';
 import { logger } from '@shared/configs/logger';
-import { DownloadCancelledError, type VideoProcessorContext } from './imports/video-processor.ports';
+import { DownloadCancelledError } from './imports/video-processor.ports';
 import { downloadRegistry } from './workflows/download.registry';
 import { db } from '@shared/configs/db';
 import { videos } from '@shared/schema';
@@ -19,27 +19,31 @@ import { eq } from 'drizzle-orm';
 import { processVideoWorkflow } from './workflows/video.workflow';
 import { emitVideoProgress, handleWorkflowError } from './video.handler';
 import { notifyJobStatus } from '@shared/services/notifications/notification.helper';
+import { identifyVideoWorkflow } from './workflows/identify.workflow';
 
 const uploadLimiter = createRateLimit({ max: 20, duration: 30000 });
 const standardLimiter = createRateLimit({ max: 30, duration: 3000 });
-const addonContext = (videoId: string, accountId: string) =>
+const addonContext = (videoId?: string, accountId?: string) =>
     ({
+        error: (message, options) => new AppError(message, options),
         emit: async (event) => {
             if (event.type === 'progress') {
+                if (!videoId) return;
                 await emitVideoProgress(videoId, event.phase, event.progress);
             }
 
             if (event.type === 'status') {
+                if (!videoId || !accountId) return;
                 notifyJobStatus(accountId, event.status, event.title, event.message, videoId).catch(() => {});
             }
 
             if (event.type === 'log') {
-                logger[event.level]({ ...event.data, videoId: videoId }, event.message);
+                logger[event.level]({ ...event.data, videoId }, event.message);
             }
         },
         download: {
-            register: (d) => downloadRegistry.register(videoId, d),
-            unregister: () => downloadRegistry.unregister(videoId),
+            register: (d) => (videoId ? downloadRegistry.register(videoId, d) : undefined),
+            unregister: () => (videoId ? downloadRegistry.unregister(videoId) : undefined),
         },
     }) satisfies VideoProcessorContext;
 
@@ -102,12 +106,13 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
 
                     const processorRun = await processorAddon.prepareRun();
                     const { processor } = processorRun;
+                    const preflightContext = addonContext(undefined, user.id);
                     let savedSourcePath: string | undefined;
                     let cleanupSourceOnError = true;
 
                     try {
                         videoProcessorRegistry.ensureSourceSupported(processor, rawSource.sourceType);
-                        await processor.validateSource(rawSource);
+                        await processor.validateSource(rawSource, preflightContext);
 
                         const source = rawSource.sourceType === 'file' ? { ...rawSource, tempPath: '' } : rawSource;
                         if (source.sourceType === 'file') {
@@ -117,7 +122,14 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
 
                         let metadata = await MetadataService.enrichMetadata(dbUrl, body);
 
-                        if (!metadata) metadata = await processor.identify({ source, requestedType: type });
+                        if (!metadata) metadata = await processor.identify({ source, requestedType: type }, preflightContext);
+
+                        // fallback to default identification
+                        if (!metadata && source.sourceType === 'file')
+                            metadata = await identifyVideoWorkflow(
+                                { fileName: source.file.name, filePath: source.tempPath, type },
+                                { checkHash: false }
+                            );
 
                         if (!metadata) {
                             throw new AppError('Failed to retrieve metadata. Please provide valid video data or db url', {
@@ -149,13 +161,16 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                             })
                             .catch(async (error) => {
                                 await processorRun.cleanup();
-                                if (error instanceof DownloadCancelledError) {
+                                if (
+                                    error instanceof DownloadCancelledError ||
+                                    (error instanceof Error && error.name == DownloadCancelledError.name)
+                                ) {
                                     await db.update(videos).set({ status: 'error' }).where(eq(videos.id, video.id));
                                     logger.info({ videoId: video.id, processor: processor.id }, 'Video import canceled');
                                     return;
                                 }
 
-                                await handleWorkflowError(video.id, error, 'processor-' + processor.id);
+                                await handleWorkflowError(video.id, error, processor.id);
                             });
 
                         savedSourcePath = undefined;
