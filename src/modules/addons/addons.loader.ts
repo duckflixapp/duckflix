@@ -1,20 +1,21 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { torrentProcessor } from '@modules/videos/imports/built-in/torrent.processor';
 import { uploaderProcessor } from '@modules/videos/imports/built-in/uploader.processor';
 import type { VideoProcessor } from '@modules/videos/imports/video-processor.ports';
 import { paths } from '@shared/configs/path.config';
 import z, { ZodError } from 'zod';
-import type { AddonDefinition, AddonManifest } from './addons.ports';
+import { AddonRuntimeKindValue, type AddonDefinition, type AddonManifest } from './addons.ports';
 import type { AddonRegistry } from './addons.registry';
-import type { WasiAddonImplementation } from './runners/wasi.runner';
 import { logger } from '@shared/configs/logger';
+import type { BunAddonImplementation } from './runners/bun.runner';
 
 const addonManifestSchema = z.object({
     id: z.string().trim().min(1),
     name: z.string().trim().min(1),
     version: z.string().trim().min(1),
-    runtime: z.enum(['wasi']),
+    runtime: z.enum(AddonRuntimeKindValue.filter((v) => v !== 'builtIn')),
     entry: z.string().trim().min(1),
     description: z.string().optional(),
     publisher: z.string().optional(),
@@ -25,6 +26,7 @@ const addonManifestSchema = z.object({
             processors: z.array(
                 z.object({
                     id: z.string().trim().min(1),
+                    initialStatus: z.enum(['processing', 'downloading']).optional(),
                     sourceTypes: z.array(z.enum(['file', 'text'])),
                 })
             ),
@@ -74,6 +76,7 @@ export class AddonLoader {
                         permissions: manifest.permissions,
                         implementation,
                         metadata: {
+                            initialStatus: processor.initialStatus,
                             sourceTypes: processor.sourceTypes,
                         },
                     });
@@ -115,15 +118,21 @@ export class AddonLoader {
         manifest: AddonManifest,
         addonDir: string,
         entryPath: string
-    ): Promise<WasiAddonImplementation | null> {
-        if (manifest.runtime === 'wasi') {
-            const wasmBytes = await fs.readFile(entryPath);
+    ): Promise<BunAddonImplementation | null> {
+        if (manifest.runtime === 'bun') {
+            const addonModule = await import(pathToFileURL(entryPath).href);
+            const addonExports =
+                addonModule.default && typeof addonModule.default === 'object'
+                    ? (addonModule.default as Record<string, unknown>)
+                    : (addonModule as Record<string, unknown>);
+
             return {
                 addonDir,
                 entryPath,
-                module: await WebAssembly.compile(wasmBytes),
-            } satisfies WasiAddonImplementation;
+                exports: addonExports,
+            } satisfies BunAddonImplementation;
         }
+
         return null;
     }
 }

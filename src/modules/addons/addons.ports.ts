@@ -1,6 +1,7 @@
 export type AddonPermission = 'network' | 'filesystem:job' | 'p2p';
 export type AddonKind = 'video.processor';
-export type AddonRuntimeKind = 'builtIn' | 'wasi';
+export const AddonRuntimeKindValue = ['builtIn', 'bun'] as const;
+export type AddonRuntimeKind = (typeof AddonRuntimeKindValue)[number];
 
 export type AddonWorkspace = {
     id: string;
@@ -49,6 +50,7 @@ export type VideoProcessorCapability = {
     kind: 'video.processor';
     processors: Array<{
         id: string;
+        initialStatus?: 'processing' | 'downloading';
         sourceTypes: string[];
     }>;
 };
