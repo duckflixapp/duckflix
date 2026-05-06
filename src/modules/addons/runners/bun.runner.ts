@@ -5,7 +5,9 @@ import { logger } from '@shared/configs/logger';
 export type BunAddonImplementation = {
     addonDir: string;
     entryPath: string;
-    exports: Record<string, unknown>;
+    module: {
+        capabilities?: Partial<Record<AddonDefinition['kind'], Record<string, unknown>>>;
+    };
 };
 
 export class BunAddonRunner implements AddonRunner {
@@ -16,13 +18,14 @@ export class BunAddonRunner implements AddonRunner {
 
         return {
             call: async <TOutput>(method: string, ...args: unknown[]): Promise<TOutput> => {
-                const candidate = implementation.exports[method];
+                const capability = implementation.module.capabilities?.[addon.kind];
+                const candidate = capability?.[method];
                 if (typeof candidate !== 'function') {
-                    throw new AppError(`Bun addon "${addon.id}" does not implement method: ${method}`, { statusCode: 500 });
+                    throw new AppError(`Bun addon "${addon.id}" does not implement ${addon.kind} method: ${method}`, { statusCode: 500 });
                 }
 
-                logger.debug({ addonId: addon.id, method }, 'Calling Bun addon method');
-                return candidate.apply(implementation.exports, args) satisfies Promise<TOutput>;
+                logger.debug({ addonId: addon.id, kind: addon.kind, method }, 'Calling Bun addon method');
+                return candidate.apply(capability, args) satisfies Promise<TOutput>;
             },
             cleanup: async () => {},
         };

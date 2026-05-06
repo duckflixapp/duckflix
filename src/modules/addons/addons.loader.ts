@@ -23,13 +23,11 @@ const addonManifestSchema = z.object({
     capabilities: z.array(
         z.object({
             kind: z.literal('video.processor'),
-            processors: z.array(
-                z.object({
-                    id: z.string().trim().min(1),
-                    initialStatus: z.enum(['processing', 'downloading']).optional(),
-                    sourceTypes: z.array(z.enum(['file', 'text'])),
-                })
-            ),
+            processor: z.object({
+                id: z.string().trim().min(1),
+                initialStatus: z.enum(['processing', 'downloading']).optional(),
+                sourceTypes: z.array(z.enum(['file', 'text'])),
+            }),
         })
     ),
 }) satisfies z.ZodType<AddonManifest>;
@@ -48,6 +46,8 @@ export class AddonLoader {
     public async loadExternalAddons() {
         const addonDirs = await fs.readdir(this.addonsPath, { withFileTypes: true }).catch(() => []);
 
+        let addons = 0,
+            capabilities = 0;
         for (const addonDirent of addonDirs) {
             if (!addonDirent.isDirectory()) continue;
 
@@ -65,25 +65,29 @@ export class AddonLoader {
             const implementation = await this.loadExternalImplementation(manifest, addonDir, entryPath);
             if (!implementation) continue;
 
+            addons++;
+            let addon_capabilities = 0;
             for (const capability of manifest.capabilities) {
                 if (capability.kind !== 'video.processor') continue;
 
-                for (const processor of capability.processors) {
-                    this.registry.register({
-                        id: processor.id,
-                        kind: 'video.processor',
-                        runtime: manifest.runtime,
-                        permissions: manifest.permissions,
-                        implementation,
-                        metadata: {
-                            initialStatus: processor.initialStatus,
-                            sourceTypes: processor.sourceTypes,
-                        },
-                    });
-                }
+                this.registry.register({
+                    id: capability.processor.id,
+                    kind: capability.kind,
+                    runtime: manifest.runtime,
+                    permissions: manifest.permissions,
+                    implementation,
+                    metadata: {
+                        initialStatus: capability.processor.initialStatus,
+                        sourceTypes: capability.processor.sourceTypes,
+                    },
+                });
+                addon_capabilities++;
             }
-            logger.debug({ id: manifest.id }, 'Loaded addon');
+            capabilities += addon_capabilities;
+            logger.debug({ id: manifest.id, name: manifest.name, capabilities: addon_capabilities }, 'Loaded addon');
         }
+
+        logger.debug({ addons, capabilities }, 'Addons load completed.');
     }
 
     private registerBuiltInVideoProcessor(processor: VideoProcessor) {
@@ -121,7 +125,7 @@ export class AddonLoader {
     ): Promise<BunAddonImplementation | null> {
         if (manifest.runtime === 'bun') {
             const addonModule = await import(pathToFileURL(entryPath).href);
-            const addonExports =
+            const module =
                 addonModule.default && typeof addonModule.default === 'object'
                     ? (addonModule.default as Record<string, unknown>)
                     : (addonModule as Record<string, unknown>);
@@ -129,7 +133,7 @@ export class AddonLoader {
             return {
                 addonDir,
                 entryPath,
-                exports: addonExports,
+                module,
             } satisfies BunAddonImplementation;
         }
 

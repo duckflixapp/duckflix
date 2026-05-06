@@ -48,11 +48,11 @@ export type AddonRunner = {
 
 export type VideoProcessorCapability = {
     kind: 'video.processor';
-    processors: Array<{
+    processor: {
         id: string;
         initialStatus?: 'processing' | 'downloading';
         sourceTypes: string[];
-    }>;
+    };
 };
 
 export type AddonCapability = VideoProcessorCapability;
