@@ -117,5 +117,7 @@ export const buildFfmpegArgs = (opts: BuildArgsOptions): string[] => {
         hlsOptions.push('-start_number', jit.startNumber.toString());
         hlsOptions.push('-output_ts_offset', jit.startTime.toString());
     }
-    return [...base, ...videoArgs, '-c:a', 'aac', '-b:a', '192k', ...hlsOptions, '-y', outputPath];
+    const audioArgs = ['-c:a', 'aac', '-profile:a', 'aac_low', '-b:a', '192k', '-ac', '2', '-ar', '48000'];
+
+    return [...base, ...videoArgs, ...audioArgs, ...hlsOptions, '-y', outputPath];
 };
