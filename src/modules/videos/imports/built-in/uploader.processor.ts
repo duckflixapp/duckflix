@@ -23,24 +23,28 @@ export const uploaderProcessor: VideoProcessor = {
         }
     },
 
-    async prepare(_) {
-        return;
-    },
-
-    async identify({ source, requestedType }) {
+    async identify({ source, requestedType, dbUrl }) {
         if (source.sourceType !== 'file') return null;
 
         return identifyVideoWorkflow({
             filePath: source.tempPath,
             fileName: source.file.name,
             type: requestedType,
+            dbUrl,
         });
     },
 
-    async start({ source }) {
+    async scan({ source, requestedType }) {
+        return [{ id: 'default', source, requestedType }];
+    },
+
+    async start({ items }) {
+        const [item] = items;
+        if (!item) throw new AppError('Uploader processor requires one video item', { statusCode: 500 });
+        const source = item.source;
         if (source.sourceType !== 'file') throw new AppError('Uploader processor only supports file sources', { statusCode: 400 });
 
         // do nothing, just pass parameters
-        return { fileName: source.file.name, fileSize: source.file.size, path: source.tempPath };
+        return [{ id: item.id, fileName: source.file.name, fileSize: source.file.size, path: source.tempPath }];
     },
 };

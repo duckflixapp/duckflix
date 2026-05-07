@@ -1,14 +1,28 @@
 import { logger } from '@shared/configs/logger';
+import { fillEpisodeFromTMDBIds } from '@shared/services/metadata/providers/tmdb.provider';
+import { resolveMetadata } from '@shared/services/metadata/metadata.service';
 import { episodeMetadataSchema, type EpisodeMetadata } from '@shared/services/metadata/metadata.validator';
 import path from 'node:path';
 
-export const identifyEpisode = async (filePath: string, fileName?: string): Promise<EpisodeMetadata> => {
+export const identifyEpisode = async (filePath: string, fileName?: string, dbUrl?: string): Promise<EpisodeMetadata> => {
     const filename = fileName ?? path.basename(filePath);
     const parsed = parseEpisodeFilename(filename);
 
     logger.debug({ filePath, parsed }, '[identify:episode] filename parsed');
 
-    // search tmdb episodes
+    if (dbUrl) {
+        const resolved = await resolveMetadata({ dbUrl, requestedType: 'episode' }).catch((error) => {
+            logger.debug({ filePath, dbUrl, cause: error }, '[identify:episode] db url resolve failed');
+            return null;
+        });
+        const resolvedEpisode = resolveEpisodeContext(resolved);
+        const seasonNumber = parsed.seasonNumber ?? resolvedEpisode?.seasonNumber;
+        const episodeNumber = parsed.episodeNumber ?? resolvedEpisode?.episodeNumber;
+
+        if (resolvedEpisode?.tmdbShowId && seasonNumber && episodeNumber) {
+            return fillEpisodeFromTMDBIds(resolvedEpisode.tmdbShowId, seasonNumber, episodeNumber);
+        }
+    }
 
     return episodeMetadataSchema.parse({
         type: 'episode',
@@ -18,6 +32,32 @@ export const identifyEpisode = async (filePath: string, fileName?: string): Prom
         tmdbShowId: null,
         ...parsed,
     });
+};
+
+const resolveEpisodeContext = (
+    resolved: Awaited<ReturnType<typeof resolveMetadata>>
+): { tmdbShowId: number; seasonNumber?: number; episodeNumber?: number } | null => {
+    if (!resolved) return null;
+
+    if (resolved.type === 'episode')
+        return {
+            tmdbShowId: resolved.tmdbShowId,
+            seasonNumber: resolved.seasonNumber,
+            episodeNumber: resolved.episodeNumber,
+        };
+
+    if (resolved.type === 'season')
+        return {
+            tmdbShowId: resolved.tmdbShowId,
+            seasonNumber: resolved.seasonNumber,
+        };
+
+    if (resolved.type === 'series')
+        return {
+            tmdbShowId: resolved.tmdbShowId,
+        };
+
+    return null;
 };
 
 /**

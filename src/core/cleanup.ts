@@ -18,6 +18,9 @@ const clearFolderContentOnly = async (dir: string) => {
 };
 
 const clearTempFolder = async () => {
+    await fs.mkdir(paths.addonWorkspaces, { recursive: true });
+    await clearFolderContentOnly(paths.addonWorkspaces);
+
     await fs.mkdir(paths.downloads, { recursive: true });
     await clearFolderContentOnly(paths.downloads);
 

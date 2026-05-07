@@ -4,6 +4,8 @@ import type {
     RawVideoProcessorSource,
     VideoProcessorContext,
     VideoProcessorIdentifyInput,
+    VideoProcessorScanInput,
+    VideoProcessorScanItem,
     VideoProcessorStartInput,
     VideoProcessorStartOutput,
 } from '@duckflixapp/addon-sdk/types';
@@ -16,6 +18,7 @@ export type VideoProcessor = {
     sourceTypes: readonly RawVideoProcessorSource['sourceType'][];
     prepare?(context: AddonPrepareContext): Promise<void> | void;
     validateSource(source: RawVideoProcessorSource, context: VideoProcessorContext): Promise<void> | void;
+    scan(input: VideoProcessorScanInput, context: VideoProcessorContext): Promise<VideoProcessorScanItem[]> | VideoProcessorScanItem[];
     identify?(input: VideoProcessorIdentifyInput, context: VideoProcessorContext): Promise<VideoMetadata | null>;
     start(input: VideoProcessorStartInput, context: VideoProcessorContext): Promise<VideoProcessorStartOutput>;
 };

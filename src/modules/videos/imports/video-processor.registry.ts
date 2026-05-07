@@ -9,6 +9,8 @@ import type {
     RawVideoProcessorSource,
     VideoProcessorContext,
     VideoProcessorIdentifyInput,
+    VideoProcessorScanInput,
+    VideoProcessorScanItem,
     VideoProcessorStartInput,
     VideoProcessorStartOutput,
 } from '@duckflixapp/addon-sdk/types';
@@ -114,6 +116,13 @@ export class VideoProcessorRun {
 
     public validateSource(source: RawVideoProcessorSource, context: VideoProcessorContext) {
         return this.run.call<void>('validateSource', source, { ...context, workspace: this.run.workspace });
+    }
+
+    public async scan(input: VideoProcessorScanInput, context: VideoProcessorContext): Promise<VideoProcessorScanItem[]> {
+        const items = await this.run.call<VideoProcessorScanItem[]>('scan', input, { ...context, workspace: this.run.workspace });
+        if (!items.length) throw new AppError(`Processor "${this.id}" did not return any video items`, { statusCode: 400 });
+
+        return items;
     }
 
     public async identify(input: VideoProcessorIdentifyInput, context: VideoProcessorContext) {

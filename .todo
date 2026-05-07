@@ -1,11 +1,8 @@
 PRIORITY: 
-
-- Addons & torrent client removal
-
+- Scan, Identify, Initiate -> Start, Process flow for upload
 
 SYSTEM
 
-- Pasting magnets
 - Cache banner & poster (is it worth it? legal?)
 
 DETAILS
@@ -32,7 +29,7 @@ FUTURE
 - Better upload form. Wizzard-like
 - Discovery, sources & duckflix addons
 - Generate AI subtitles
-- Upload for multiple video files in torrent?
+- Upload for multiple video files?
 - While processing video find intro, outro
 - Keep track of invalidated tokens?
 - Cast -> player, local subtitles, sync media controlls
