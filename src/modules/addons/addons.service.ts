@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { paths } from '@shared/configs/path.config';
 import { AppError } from '@shared/errors';
 import type { AddonDefinition, AddonRunner, AddonRuntimeKind, AddonWorkspace, AddonRun } from './addons.ports';
+import { logger } from '@shared/configs/logger';
 
 export class AddonService {
     private readonly runners = new Map<AddonRuntimeKind, AddonRunner>();
@@ -39,22 +40,27 @@ export class AddonService {
             throw error;
         }
 
+        const runWorkspace = workspace;
+        let cleanedUp = false;
+
         return {
             addonId: addon.id,
             kind: addon.kind,
             runtime: addon.runtime,
             get workspace() {
-                return workspace;
+                return runWorkspace;
             },
             call: async (method, ...args) => {
                 if (!runnerRun) throw new AppError('Addon run is not prepared', { statusCode: 500 });
                 return runnerRun.call(method, ...args);
             },
             cleanup: async () => {
+                if (cleanedUp) return;
+                cleanedUp = true;
+
                 await runnerRun?.cleanup();
-                if (!workspace) return;
-                await fs.rm(workspace.root, { recursive: true, force: true }).catch(() => {});
-                await fs.rmdir(workspace.root).catch(() => {});
+                if (!runWorkspace) return;
+                await fs.rm(runWorkspace.root, { recursive: true, force: true }).catch(() => {});
             },
         };
     }
@@ -75,6 +81,8 @@ export class AddonService {
         await fs.mkdir(workspace.inputDir, { recursive: true });
         await fs.mkdir(workspace.workDir, { recursive: true });
         await fs.mkdir(workspace.outputDir, { recursive: true });
+
+        logger.debug({ id }, 'Created workspace for addon run');
 
         return workspace;
     }

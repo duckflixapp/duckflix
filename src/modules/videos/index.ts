@@ -55,7 +55,6 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
     .group('', (app) =>
         app
             .guard({ auth: 'contributor' })
-
             .post(
                 '/upload',
                 async ({ user, body, set }) => {
