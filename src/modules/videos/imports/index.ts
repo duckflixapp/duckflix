@@ -4,9 +4,10 @@ export type {
     PreparedVideoProcessorSource,
     RawVideoProcessorSource,
     VideoProcessorIdentifyInput,
+    VideoProcessorModule,
     VideoProcessorStartInput,
     VideoProcessorStartOutput,
     VideoProcessorContext,
 } from '@duckflixapp/addon-sdk/types';
 
-export type { VideoProcessor } from './video-processor.ports';
+export type { BuiltInVideoProcessor } from './video-processor.ports';

@@ -1,9 +1,9 @@
 import { limits } from '@shared/configs/limits.config';
 import { AppError } from '@shared/errors';
-import type { VideoProcessor } from '../video-processor.ports';
+import type { BuiltInVideoProcessor } from '../video-processor.ports';
 import { identifyVideoWorkflow } from '@modules/videos/workflows/identify.workflow';
 
-export const uploaderProcessor: VideoProcessor = {
+export const uploaderProcessor: BuiltInVideoProcessor = {
     id: 'uploader',
     builtIn: true,
     initialStatus: 'processing',

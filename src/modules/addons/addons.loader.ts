@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { uploaderProcessor } from '@modules/videos/imports/built-in/uploader.processor';
-import type { VideoProcessor } from '@modules/videos/imports/video-processor.ports';
+import type { BuiltInVideoProcessor } from '@modules/videos/imports/video-processor.ports';
 import { paths } from '@shared/configs/path.config';
 import z, { ZodError } from 'zod';
 import { AddonRuntimeKindValue, type AddonDefinition, type AddonManifest } from './addons.ports';
@@ -88,7 +88,7 @@ export class AddonLoader {
         logger.debug({ addons, capabilities }, 'Addons load completed.');
     }
 
-    private registerBuiltInVideoProcessor(processor: VideoProcessor) {
+    private registerBuiltInVideoProcessor(processor: BuiltInVideoProcessor) {
         const addon = {
             id: processor.id,
             kind: 'video.processor',
@@ -101,8 +101,8 @@ export class AddonLoader {
             },
             prepare: processor.prepare,
         } satisfies AddonDefinition<
-            VideoProcessor,
-            { initialStatus: VideoProcessor['initialStatus']; sourceTypes: VideoProcessor['sourceTypes'] }
+            BuiltInVideoProcessor,
+            { initialStatus: BuiltInVideoProcessor['initialStatus']; sourceTypes: BuiltInVideoProcessor['sourceTypes'] }
         >;
 
         this.registry.register(addon);

@@ -3,21 +3,24 @@ import { addonRegistry, addonService } from '@modules/addons/addons.container';
 import type { AddonRegistry } from '@modules/addons/addons.registry';
 import type { AddonDefinition, AddonRun } from '@modules/addons/addons.ports';
 import type { BunAddonImplementation } from '@modules/addons/runners/bun.runner';
-import type { VideoProcessor } from './video-processor.ports';
+import type { BuiltInVideoProcessor } from './video-processor.ports';
 import type { AddonService } from '@modules/addons/addons.service';
 import type {
     RawVideoProcessorSource,
     VideoProcessorContext,
     VideoProcessorIdentifyInput,
+    VideoProcessorInitialStatus,
+    VideoProcessorModule,
     VideoProcessorScanInput,
     VideoProcessorScanItem,
+    VideoProcessorSourceType,
     VideoProcessorStartInput,
     VideoProcessorStartOutput,
 } from '@duckflixapp/addon-sdk/types';
 
 type VideoProcessorAddonMetadata = {
-    initialStatus?: VideoProcessor['initialStatus'];
-    sourceTypes: VideoProcessor['sourceTypes'];
+    initialStatus?: VideoProcessorInitialStatus;
+    sourceTypes: readonly VideoProcessorSourceType[];
 };
 
 type VideoProcessorAddonDefinition = AddonDefinition<unknown, VideoProcessorAddonMetadata>;
@@ -32,7 +35,7 @@ export class VideoProcessorRegistry {
         private readonly addonService: AddonService
     ) {}
 
-    public register(processor: VideoProcessor) {
+    public register(processor: BuiltInVideoProcessor) {
         this.addons.register({
             id: processor.id,
             kind: 'video.processor',
@@ -132,7 +135,7 @@ export class VideoProcessorRun {
 
         return this.run
             .call<
-                Awaited<ReturnType<NonNullable<VideoProcessor['identify']>>>
+                Awaited<ReturnType<NonNullable<VideoProcessorModule['identify']>>>
             >('identify', input, { ...context, workspace: this.run.workspace })
             .then((metadata) => metadata ?? null);
     }
@@ -143,7 +146,7 @@ export class VideoProcessorRun {
 
     private hasIdentify() {
         if (this.addon.runtime === 'builtIn') {
-            return typeof (this.addon.implementation as Partial<VideoProcessor>).identify === 'function';
+            return typeof (this.addon.implementation as Partial<VideoProcessorModule>).identify === 'function';
         }
 
         if (this.addon.runtime === 'bun') {
