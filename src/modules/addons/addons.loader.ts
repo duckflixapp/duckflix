@@ -10,8 +10,15 @@ import type { AddonRegistry } from './addons.registry';
 import { logger } from '@shared/configs/logger';
 import type { BunAddonImplementation } from './runners/bun.runner';
 
+const addonIdSchema = z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .regex(/^[a-zA-Z0-9._-]+$/);
+
 const addonManifestSchema = z.object({
-    id: z.string().trim().min(1),
+    id: addonIdSchema,
     name: z.string().trim().min(1),
     version: z.string().trim().min(1),
     runtime: z.enum(AddonRuntimeKindValue.filter((v) => v !== 'builtIn')),
@@ -23,7 +30,7 @@ const addonManifestSchema = z.object({
         z.object({
             kind: z.literal('video.processor'),
             processor: z.object({
-                id: z.string().trim().min(1),
+                id: addonIdSchema,
                 initialStatus: z.enum(['processing', 'downloading']).optional(),
                 sourceTypes: z.array(z.enum(['file', 'text'])),
             }),
@@ -48,41 +55,18 @@ export class AddonLoader {
             capabilities = 0;
         for (const addonDirent of addonDirs) {
             if (!addonDirent.isDirectory()) continue;
-
             const addonDir = path.join(this.addonsPath, addonDirent.name);
-            const manifest = await this.readManifest(addonDir).catch((e) => {
-                if (e instanceof ZodError) {
-                    logger.error({ message: JSON.parse(e.message) }, 'Failed to load addon manifest');
-                } else throw e;
-            });
-            if (!manifest) continue;
 
-            const entryPath = path.resolve(addonDir, manifest.entry);
-            const addonRoot = addonDir.endsWith(path.sep) ? addonDir : `${addonDir}${path.sep}`;
-            if (!entryPath.startsWith(addonRoot)) continue;
-            const implementation = await this.loadExternalImplementation(manifest, addonDir, entryPath);
-            if (!implementation) continue;
+            try {
+                const loaded = await this.loadExternalAddon(addonDir);
+                if (!loaded) continue;
 
-            addons++;
-            let addon_capabilities = 0;
-            for (const capability of manifest.capabilities) {
-                if (capability.kind !== 'video.processor') continue;
-
-                this.registry.register({
-                    id: capability.processor.id,
-                    kind: capability.kind,
-                    runtime: manifest.runtime,
-                    permissions: manifest.permissions,
-                    implementation,
-                    metadata: {
-                        initialStatus: capability.processor.initialStatus,
-                        sourceTypes: capability.processor.sourceTypes,
-                    },
-                });
-                addon_capabilities++;
+                addons++;
+                capabilities += loaded.capabilities;
+                logger.debug({ id: loaded.id, name: loaded.name, capabilities: loaded.capabilities }, 'Loaded addon');
+            } catch (error) {
+                this.logAddonLoadError(addonDir, error);
             }
-            capabilities += addon_capabilities;
-            logger.debug({ id: manifest.id, name: manifest.name, capabilities: addon_capabilities }, 'Loaded addon');
         }
 
         logger.debug({ addons, capabilities }, 'Addons load completed.');
@@ -106,6 +90,42 @@ export class AddonLoader {
         >;
 
         this.registry.register(addon);
+    }
+
+    private async loadExternalAddon(addonDir: string) {
+        const manifest = await this.readManifest(addonDir);
+        if (!manifest) return null;
+
+        const entryPath = path.resolve(addonDir, manifest.entry);
+        const addonRoot = path.resolve(addonDir);
+        const relativeEntryPath = path.relative(addonRoot, entryPath);
+        if (relativeEntryPath.startsWith('..') || path.isAbsolute(relativeEntryPath)) {
+            logger.warn({ id: manifest.id, addonDir, entryPath }, 'Skipped addon because entry path escapes addon root');
+            return null;
+        }
+
+        const implementation = await this.loadExternalImplementation(manifest, addonDir, entryPath);
+        if (!implementation) return null;
+
+        let capabilities = 0;
+        for (const capability of manifest.capabilities) {
+            if (capability.kind !== 'video.processor') continue;
+
+            this.registry.register({
+                id: capability.processor.id,
+                kind: capability.kind,
+                runtime: manifest.runtime,
+                permissions: manifest.permissions,
+                implementation,
+                metadata: {
+                    initialStatus: capability.processor.initialStatus,
+                    sourceTypes: capability.processor.sourceTypes,
+                },
+            });
+            capabilities++;
+        }
+
+        return { id: manifest.id, name: manifest.name, capabilities };
     }
 
     private async readManifest(addonDir: string) {
@@ -136,5 +156,14 @@ export class AddonLoader {
         }
 
         return null;
+    }
+
+    private logAddonLoadError(addonDir: string, error: unknown) {
+        if (error instanceof ZodError) {
+            logger.error({ addonDir, issues: error.issues }, 'Failed to load addon manifest');
+            return;
+        }
+
+        logger.error({ addonDir, err: error }, 'Failed to load addon');
     }
 }
