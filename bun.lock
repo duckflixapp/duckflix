@@ -5,7 +5,7 @@
     "": {
       "name": "@duckflixapp/backend",
       "dependencies": {
-        "@duckflixapp/addon-sdk": "0.1.2",
+        "@duckflixapp/addon-sdk": "0.2.1",
         "@duckflixapp/shared": "^1.3.0",
         "@elysiajs/cors": "^1.4.2",
         "@elysiajs/openapi": "^1.4.15",
@@ -54,7 +54,7 @@
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
-    "@duckflixapp/addon-sdk": ["@duckflixapp/addon-sdk@0.1.2", "https://npm.pkg.github.com/download/@duckflixapp/addon-sdk/0.1.2/b14d0b8c148abe692117d9267e31f7ca26dbc226", { "peerDependencies": { "typescript": "^5" }, "bin": { "duckflix-addon-build": "src/build.ts" } }, "sha512-GhdIqW5HYD6helNvN1Qq8YELzJiwmH5+eSs6dtVR5JecYXOeIeXXxKdbbn+lvlI10nS0BggeUP1HIgtU9i9XcQ=="],
+    "@duckflixapp/addon-sdk": ["@duckflixapp/addon-sdk@0.2.1", "https://npm.pkg.github.com/download/@duckflixapp/addon-sdk/0.2.1/96c3bf9ee3f74bc58ed37cc9f1210a8db6fdd9f2", { "peerDependencies": { "typescript": "^5" }, "bin": { "duckflix-addon-build": "src/build.ts" } }, "sha512-Gvnd71221v0SPTqk1KPazwVXZVo6wztWEWuNTSFOzl7XgDnAJK1oN2cJ+fy1/XhE7WEjmOObwOa0SJZW001n0w=="],
 
     "@duckflixapp/shared": ["@duckflixapp/shared@1.3.0", "https://npm.pkg.github.com/download/@duckflixapp/shared/1.3.0/7805ed380b56d09c55c878fdf0bbacfe0f3f50b9", { "peerDependencies": { "typescript": "^5" } }, "sha512-iUY/bedINgprY1e1tAWE8R7ncUdIMb0A8UCPn6p8h8QulagyT0I9/kHIXTloh4HMD1cX5Ik9jHRBcK5xogWPjw=="],
 
