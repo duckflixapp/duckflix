@@ -35,7 +35,20 @@ const buildHardwareAccelFlags = (hw: HardwareSupport) => {
 const buildVideoCodecArgs = (hw: HardwareSupport, mode: JobMode, config: VideoConfig) => {
     if (hw.nvdec) {
         const preset = mode === 'jit' ? 'p3' : 'p6';
-        return ['-c:v', 'h264_nvenc', '-preset', preset, '-b:v', config.bitrate];
+        return [
+            '-c:v',
+            'h264_nvenc',
+            '-preset',
+            preset,
+            '-b:v',
+            config.bitrate,
+            '-maxrate',
+            config.bitrate,
+            '-bufsize',
+            config.buf,
+            '-profile:v',
+            'high',
+        ];
     }
 
     if (hw.videotoolbox) {
@@ -48,6 +61,10 @@ const buildVideoCodecArgs = (hw: HardwareSupport, mode: JobMode, config: VideoCo
             mode === 'jit' ? '1' : '0',
             '-profile:v',
             'high',
+            '-maxrate',
+            config.bitrate,
+            '-bufsize',
+            config.buf,
             '-allow_sw',
             '1',
         ];
@@ -55,7 +72,20 @@ const buildVideoCodecArgs = (hw: HardwareSupport, mode: JobMode, config: VideoCo
 
     if (hw.qsv) {
         const preset = mode === 'jit' ? 'veryfast' : 'medium';
-        return ['-c:v', 'h264_qsv', '-preset', preset, '-b:v', config.bitrate];
+        return [
+            '-c:v',
+            'h264_qsv',
+            '-preset',
+            preset,
+            '-b:v',
+            config.bitrate,
+            '-maxrate',
+            config.bitrate,
+            '-bufsize',
+            config.buf,
+            '-profile:v',
+            'high',
+        ];
     }
 
     const preset = mode === 'jit' ? 'ultrafast' : 'medium';
@@ -71,11 +101,14 @@ const buildVideoCodecArgs = (hw: HardwareSupport, mode: JobMode, config: VideoCo
         config.bitrate,
         '-bufsize',
         config.buf,
+        '-sc_threshold',
+        '0',
     ];
 };
 
 export const buildFfmpegArgs = (opts: BuildArgsOptions): string[] => {
     const { inputPath, outputPath, type, hw, mode, config, jit } = opts;
+    const segmentDuration = mode === 'jit' ? (jit?.segmentDuration ?? 6) : 6;
 
     const base = ['-progress', 'pipe:1', '-v', 'info'];
 
@@ -95,15 +128,15 @@ export const buildFfmpegArgs = (opts: BuildArgsOptions): string[] => {
         videoArgs.push('-vf', `scale=-2:${config.height}:force_original_aspect_ratio=decrease`, '-pix_fmt', 'yuv420p');
     }
 
-    if (mode === 'jit' && jit) {
-        videoArgs.push('-force_key_frames', `expr:gte(t,n_forced*${jit.segmentDuration})`);
+    if (type === 'transcode') {
+        videoArgs.push('-force_key_frames', `expr:gte(t,n_forced*${segmentDuration})`);
     }
 
     const hlsOptions = [
         '-f',
         'hls',
         '-hls_time',
-        mode === 'jit' ? jit?.segmentDuration.toString() || '6' : '6',
+        segmentDuration.toString(),
         '-hls_playlist_type',
         mode === 'jit' ? 'event' : 'vod',
         '-hls_segment_filename',
@@ -117,7 +150,7 @@ export const buildFfmpegArgs = (opts: BuildArgsOptions): string[] => {
         hlsOptions.push('-start_number', jit.startNumber.toString());
         hlsOptions.push('-output_ts_offset', jit.startTime.toString());
     }
-    const audioArgs = ['-c:a', 'aac', '-profile:a', 'aac_low', '-b:a', '192k', '-ac', '2', '-ar', '48000'];
+    const audioArgs = ['-c:a', 'aac', '-profile:a', 'aac_low', '-b:a', config.audioBitrate, '-ac', '2', '-ar', '48000'];
 
     return [...base, ...videoArgs, ...audioArgs, ...hlsOptions, '-y', outputPath];
 };
