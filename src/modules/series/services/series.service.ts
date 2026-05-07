@@ -29,7 +29,7 @@ export const createSeriesService = ({ seriesRepository }: SeriesServiceDependenc
     const deleteSeriesById = async (data: { seriesId: string; accountId: string }) => {
         const result = await seriesRepository.deleteSeriesById(data);
         if (result.status === 'not_found') throw new SeriesNotFound();
-        await deleteVideosById(result.deletedVideos);
+        await deleteVideosById(result.deletedVideos, result.deletedSubtitles);
     };
 
     return {

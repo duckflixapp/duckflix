@@ -243,6 +243,7 @@ export const drizzleVideosRepository: VideosRepository = {
                 where: eq(videos.id, videoId),
                 with: {
                     versions: true,
+                    subtitles: { columns: { id: true, storageKey: true } },
                     movie: { columns: { id: true, title: true } },
                     episode: { columns: { id: true, name: true } },
                 },

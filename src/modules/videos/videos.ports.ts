@@ -7,6 +7,7 @@ export type VideoUploadStatus = 'downloading' | 'processing';
 
 export type VideoDeleteRecord = Video & {
     versions: VideoVersion[];
+    subtitles: { id: string; storageKey: string }[];
     movie: { id: string; title: string } | null;
     episode: { id: string; name: string } | null;
 };

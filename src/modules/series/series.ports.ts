@@ -20,13 +20,19 @@ export type EpisodeDetailedRecord = SeriesEpisode & {
 };
 
 export type SeriesDeleteResult =
-    | { status: 'deleted'; deletedVideos: string[]; series: { id: string; title: string; tmdbId: number | null } }
+    | {
+          status: 'deleted';
+          deletedVideos: string[];
+          deletedSubtitles: { id: string; storageKey: string }[];
+          series: { id: string; title: string; tmdbId: number | null };
+      }
     | { status: 'not_found' };
 
 export type SeasonDeleteResult =
     | {
           status: 'deleted';
           deletedVideos: string[];
+          deletedSubtitles: { id: string; storageKey: string }[];
           season: {
               id: string;
               name: string;
