@@ -38,7 +38,7 @@ export const drizzleSeriesRepository: SeriesRepository = {
             const tvSeries = await tx.query.series.findFirst({ where: eq(series.id, data.seriesId) });
             if (!tvSeries) return { status: 'not_found' };
 
-            await tx
+            const deletedVideos = await tx
                 .delete(videos)
                 .where(
                     inArray(
@@ -49,7 +49,8 @@ export const drizzleSeriesRepository: SeriesRepository = {
                             .innerJoin(seriesSeasons, eq(seriesEpisodes.seasonId, seriesSeasons.id))
                             .where(eq(seriesSeasons.seriesId, data.seriesId))
                     )
-                );
+                )
+                .returning({ id: videos.id });
             await tx.delete(series).where(eq(series.id, data.seriesId));
             await tx.insert(auditLogs).values({
                 actorAccountId: data.accountId,
@@ -64,6 +65,7 @@ export const drizzleSeriesRepository: SeriesRepository = {
 
             return {
                 status: 'deleted',
+                deletedVideos: deletedVideos.map((v) => v.id),
                 series: { id: tvSeries.id, title: tvSeries.title, tmdbId: tvSeries.tmdbId },
             };
         });
@@ -96,7 +98,7 @@ export const drizzleSeriesRepository: SeriesRepository = {
             });
             if (!season) return { status: 'not_found' };
 
-            await tx
+            const deletedVideos = await tx
                 .delete(videos)
                 .where(
                     inArray(
@@ -106,7 +108,8 @@ export const drizzleSeriesRepository: SeriesRepository = {
                             .from(seriesEpisodes)
                             .where(eq(seriesEpisodes.seasonId, data.seasonId))
                     )
-                );
+                )
+                .returning({ id: videos.id });
 
             await tx.delete(seriesSeasons).where(eq(seriesSeasons.id, data.seasonId));
             await tx.insert(auditLogs).values({
@@ -124,6 +127,7 @@ export const drizzleSeriesRepository: SeriesRepository = {
 
             return {
                 status: 'deleted',
+                deletedVideos: deletedVideos.map((v) => v.id),
                 season: {
                     id: season.id,
                     name: season.name,

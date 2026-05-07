@@ -1,6 +1,7 @@
 import { toSeriesDetailedDTO } from '@shared/mappers/series.mapper';
 import { SeriesNotFound } from '../errors';
 import type { SeriesRepository } from '../series.ports';
+import { deleteVideosById } from './video.service';
 
 type SeriesServiceDependencies = {
     seriesRepository: SeriesRepository;
@@ -28,6 +29,7 @@ export const createSeriesService = ({ seriesRepository }: SeriesServiceDependenc
     const deleteSeriesById = async (data: { seriesId: string; accountId: string }) => {
         const result = await seriesRepository.deleteSeriesById(data);
         if (result.status === 'not_found') throw new SeriesNotFound();
+        await deleteVideosById(result.deletedVideos);
     };
 
     return {
