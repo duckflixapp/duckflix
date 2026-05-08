@@ -58,16 +58,24 @@ export class AddonService {
                 if (cleanedUp) return;
                 cleanedUp = true;
 
-                await runnerRun?.cleanup();
-                if (!runWorkspace) return;
-                await fs.rm(runWorkspace.root, { recursive: true, force: true }).catch(() => {});
+                try {
+                    await runnerRun?.cleanup();
+                } finally {
+                    if (runWorkspace) await fs.rm(runWorkspace.root, { recursive: true, force: true }).catch(() => {});
+                }
             },
         };
     }
 
     private async createWorkspace(addon: AddonDefinition): Promise<AddonWorkspace> {
         const id = randomUUID();
-        const root = path.resolve(this.rootPath, addon.kind, addon.id, id);
+        const workspaceRoot = path.resolve(this.rootPath);
+        const root = path.resolve(workspaceRoot, addon.kind, addon.id, id);
+        const relativeRoot = path.relative(workspaceRoot, root);
+        if (relativeRoot.startsWith('..') || path.isAbsolute(relativeRoot)) {
+            throw new AppError(`Invalid addon workspace path for addon: ${addon.id}`, { statusCode: 500 });
+        }
+
         const workspace = {
             id,
             addonId: addon.id,

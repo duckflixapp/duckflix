@@ -1,4 +1,4 @@
-PRIORITY: 
+PRIORITY:
 
 SYSTEM
 
@@ -7,10 +7,10 @@ SYSTEM
 DETAILS
 
 - Add metada with dbURL
+- Edit metadata series, season, episode
 
 ADMIN
 
-- Manage Downloads -> torrent downloads and seeding
 - Manage Processes
 
 WATCH
@@ -22,10 +22,8 @@ User
 - Reset password mail
 - Edit details
 
-
 FUTURE
 
-- Better upload form. Wizzard-like
 - Discovery, sources & duckflix addons
 - Generate AI subtitles
 - While processing video find intro, outro

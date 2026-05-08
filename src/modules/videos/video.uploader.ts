@@ -22,6 +22,11 @@ import type { VideoMinDTO } from '@duckflixapp/shared';
 
 type CreatedVideo = Awaited<ReturnType<typeof videoService.initiateUpload>>;
 
+export interface UploadedVideo extends VideoMinDTO {
+    title: string;
+    overview: string;
+}
+
 const validateUploadMetadata = (
     metadata: unknown,
     data: { requestedType: CreateVideoInput['type']; source: string; itemId: string; processorId: string }
@@ -88,7 +93,7 @@ export const processUpload = async ({
 }: {
     context: CreateVideoInput;
     account: { id: string };
-}): Promise<VideoMinDTO[]> => {
+}): Promise<UploadedVideo[]> => {
     const { type, dbUrl } = context;
     const processorAddon = videoProcessorRegistry.resolve(context.processor);
     if (!processorAddon) throw new AppError('Failed to find processor for: ' + context.processor, { statusCode: 404 });
@@ -194,7 +199,7 @@ export const processUpload = async ({
                 statusCode: 400,
             });
 
-        const videosByItemId = new Map(startItems.map((item, index) => [item.id, { item, video: createdVideos[index] }]));
+        const videosByItemId = new Map(startItems.map((item, index) => [item.id, { item, video: createdVideos[index]! }]));
 
         processor
             .start(
@@ -276,7 +281,16 @@ export const processUpload = async ({
                 processorRun.cleanup().catch(() => logger.error({ id: processorRun.processor.id }, 'Failed to do processor cleanup'))
             );
 
-        return createdVideos;
+        const uploadedVideos = [...videosByItemId.entries()].map(([_, e]) => ({
+            title: e.item.metadata.type === 'movie' ? e.item.metadata.title : e.item.metadata.name,
+            overview:
+                e.item.metadata.type === 'movie'
+                    ? (e.item.metadata.overview ?? '')
+                    : `Season ${e.item.metadata.seasonNumber} Episode ${e.item.metadata.episodeNumber}`,
+            ...e.video,
+        }));
+
+        return uploadedVideos;
     } catch (e) {
         if (savedSourcePath) await fs.unlink(savedSourcePath).catch(() => {});
         await processorRun.cleanup();
