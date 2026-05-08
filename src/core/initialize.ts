@@ -7,7 +7,7 @@ import { initializeWatcher } from '@modules/videos/workflows/watcher.workflow';
 import { fetchSystemAccountId, setSystemAccountId } from '@shared/configs/system';
 import { recoverZombieMovies, recoverZombieProcesses } from './recovery';
 import { seedDatabase } from './seeder';
-import { filesCleanup } from './cleanup';
+import { filesCleanup, zombieCleanup } from './cleanup';
 import { initializeBundledAssets } from './assets';
 import { addonLoader } from '@modules/addons';
 
@@ -19,6 +19,7 @@ export const initalize = async () => {
 
     // cleanup
     await filesCleanup();
+    await zombieCleanup();
 
     // initialize bundled public assets
     await initializeBundledAssets();

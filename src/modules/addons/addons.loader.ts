@@ -63,7 +63,7 @@ export class AddonLoader {
 
                 addons++;
                 capabilities += loaded.capabilities;
-                logger.debug({ id: loaded.id, name: loaded.name, capabilities: loaded.capabilities }, 'Loaded addon');
+                logger.debug({ name: loaded.name }, 'Loaded addon');
             } catch (error) {
                 this.logAddonLoadError(addonDir, error);
             }
