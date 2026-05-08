@@ -10,11 +10,12 @@ services:
             - '6881:6881/udp'
         environment:
             - RQBIT_HTTP_LISTEN_ADDR=0.0.0.0:3030
-            - RQBIT_DEFAULT_OUTPUT_FOLDER=/home/rqbit/downloads
+            - RQBIT_DEFAULT_OUTPUT_FOLDER=/app/data/temp
         volumes:
             - rqbit_db:/home/rqbit/db
             - rqbit_cache:/home/rqbit/cache
-            - ./data/temp/downloads:/home/rqbit/downloads
+            - ./data/temp:/app/data/temp
+
         networks:
             - duckflix_network
 
@@ -23,17 +24,17 @@ services:
         container_name: duckflix_backend
         restart: always
         init: true
-        command: sh -c "bun run db:migrate && bun run start"
         ports:
             - '3000:3000'
-        env_file:
-            - .docker.env
         environment:
             - NODE_ENV=production
+        env_file:
+            - .docker.env
         volumes:
             - ./data:/app/data
             - ./logs:/app/logs
             - ./certs:/app/certs:ro
+            - ./addons:/app/addons
         tmpfs:
             - /app/data/live:size=4G,mode=1777
         networks:
