@@ -1,12 +1,22 @@
 import z from 'zod';
 
-const baseVideoSchema = z.object({
+const baseUploadSchema = z.object({
     dbUrl: z.url().max(1000).optional().nullable(),
-    video: z.file().optional(),
-    torrent: z.file().optional(),
+    processor: z.string().trim().min(1).max(64),
 });
 
-const createMovieSchema = baseVideoSchema.extend({
+const baseSourceTextUpload = baseUploadSchema.extend({
+    sourceType: z.literal('text'),
+    source: z.string().trim().min(1).max(4000),
+});
+const baseSourceFileUpload = baseUploadSchema.extend({
+    sourceType: z.literal('file'),
+    source: z.file(),
+});
+
+const baseVideoUploadSchema = z.discriminatedUnion('sourceType', [baseSourceFileUpload, baseSourceTextUpload]);
+
+const createMovieSchema = z.object({
     type: z.literal('movie'),
     title: z.string().min(1).max(255).optional().nullable(),
     overview: z.string().max(1000).optional().nullable(),
@@ -25,7 +35,7 @@ const createMovieSchema = baseVideoSchema.extend({
         .default([]),
 });
 
-const createEpisodeSchema = baseVideoSchema.extend({
+const createEpisodeSchema = z.object({
     type: z.literal('episode'),
     name: z.string().min(1).max(255).optional().nullable(),
     overview: z.string().max(1000).optional().nullable(),
@@ -35,7 +45,9 @@ const createEpisodeSchema = baseVideoSchema.extend({
     episodeNumber: z.coerce.number().int().positive().optional().nullable(),
 });
 
-export const createVideoSchema = z.discriminatedUnion('type', [createMovieSchema, createEpisodeSchema]);
+const createVideoMetaSchema = z.discriminatedUnion('type', [createMovieSchema, createEpisodeSchema]);
+
+export const createVideoSchema = baseVideoUploadSchema.and(createVideoMetaSchema);
 
 export const addVersionSchema = z.object({
     height: z.number().int().positive(),

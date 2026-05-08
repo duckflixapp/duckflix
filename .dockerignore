@@ -8,6 +8,7 @@
 **/temp/
 **/storage/
 **/.cache/
+addons/
 
 .env
 .env.*

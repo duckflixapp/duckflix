@@ -1,7 +1,7 @@
 import { and, count, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@shared/configs/db';
-import { auditLogs, libraries, libraryItems, series, seriesEpisodes, seriesSeasons, videos } from '@shared/schema';
+import { auditLogs, libraries, libraryItems, series, seriesEpisodes, seriesSeasons, subtitles, videos } from '@shared/schema';
 import type { SeriesRepository } from './series.ports';
 
 export const drizzleSeriesRepository: SeriesRepository = {
@@ -38,6 +38,21 @@ export const drizzleSeriesRepository: SeriesRepository = {
             const tvSeries = await tx.query.series.findFirst({ where: eq(series.id, data.seriesId) });
             if (!tvSeries) return { status: 'not_found' };
 
+            const toDelete = await tx
+                .select({ id: videos.id, subtitleId: subtitles.id, subStorageKey: subtitles.storageKey })
+                .from(videos)
+                .leftJoin(subtitles, eq(videos.id, subtitles.videoId))
+                .where(
+                    inArray(
+                        videos.id,
+                        tx
+                            .select({ videoId: seriesEpisodes.videoId })
+                            .from(seriesEpisodes)
+                            .innerJoin(seriesSeasons, eq(seriesEpisodes.seasonId, seriesSeasons.id))
+                            .where(eq(seriesSeasons.seriesId, data.seriesId))
+                    )
+                );
+
             await tx
                 .delete(videos)
                 .where(
@@ -64,6 +79,10 @@ export const drizzleSeriesRepository: SeriesRepository = {
 
             return {
                 status: 'deleted',
+                deletedVideos: [...new Set(toDelete.map((v) => v.id))],
+                deletedSubtitles: toDelete
+                    .filter((v) => v.subtitleId && v.subStorageKey)
+                    .map((v) => ({ id: v.subtitleId!, storageKey: v.subStorageKey! })),
                 series: { id: tvSeries.id, title: tvSeries.title, tmdbId: tvSeries.tmdbId },
             };
         });
@@ -96,6 +115,20 @@ export const drizzleSeriesRepository: SeriesRepository = {
             });
             if (!season) return { status: 'not_found' };
 
+            const toDelete = await tx
+                .select({ id: videos.id, subtitleId: subtitles.id, subStorageKey: subtitles.storageKey })
+                .from(videos)
+                .leftJoin(subtitles, eq(videos.id, subtitles.videoId))
+                .where(
+                    inArray(
+                        videos.id,
+                        tx
+                            .select({ videoId: seriesEpisodes.videoId })
+                            .from(seriesEpisodes)
+                            .where(eq(seriesEpisodes.seasonId, data.seasonId))
+                    )
+                );
+
             await tx
                 .delete(videos)
                 .where(
@@ -124,6 +157,10 @@ export const drizzleSeriesRepository: SeriesRepository = {
 
             return {
                 status: 'deleted',
+                deletedVideos: [...new Set(toDelete.map((v) => v.id))],
+                deletedSubtitles: toDelete
+                    .filter((v) => v.subtitleId && v.subStorageKey)
+                    .map((v) => ({ id: v.subtitleId!, storageKey: v.subStorageKey! })),
                 season: {
                     id: season.id,
                     name: season.name,

@@ -72,6 +72,11 @@ export const createVideoService = ({ videosRepository }: VideoServiceDependencie
             }
         }
 
+        for (const subtitle of video.subtitles) {
+            const subtitlePath = path.resolve(paths.storage, subtitle.storageKey);
+            await fs.rm(subtitlePath, { recursive: true, force: true }).catch(() => {});
+        }
+
         const videoDir = path.resolve(paths.storage, 'videos', video.id);
         await fs.rm(videoDir, { recursive: true, force: true }).catch(() => {});
         await videosRepository.deleteById(video.id);

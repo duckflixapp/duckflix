@@ -1,14 +1,13 @@
 import { Elysia } from 'elysia';
 import { authGuard } from '@shared/middlewares/auth.middleware';
 import { createRateLimit } from '@shared/configs/ratelimit';
-import * as MetadataService from '@shared/services/metadata/metadata.service';
 import { addVersionSchema, createProgressSchema, createVideoSchema, videoParamsSchema, videoVersionParamsSchema } from './video.validator';
 import { AppError } from '@shared/errors';
-import fs from 'node:fs/promises';
 import { importBodySchema, searchQuerySchema, subtitleParamsSchema, uploadBodySchema } from './subtitles.validator';
 import { limits } from '@shared/configs/limits.config';
 import { videoService, videoSubtitlesService, videoVersionsService } from './videos.container';
 import { saveUploadToTemp } from './upload-temp-file';
+import { processUpload } from './video.uploader';
 
 const uploadLimiter = createRateLimit({ max: 20, duration: 30000 });
 const standardLimiter = createRateLimit({ max: 30, duration: 3000 });
@@ -56,119 +55,17 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
     .group('', (app) =>
         app
             .guard({ auth: 'contributor' })
-
             .post(
                 '/upload',
                 async ({ user, body, set }) => {
-                    const { type, dbUrl } = body;
+                    const videos = await processUpload({ context: body, account: user });
 
-                    const videoFile = body.video;
-                    const torrentFile = body.torrent;
-
-                    if (!videoFile && !torrentFile)
-                        throw new AppError('Please provide either a valid video or torrent file', { statusCode: 400 });
-
-                    if (videoFile) {
-                        if (videoFile.size > limits.file.upload * 1024 * 1024) {
-                            throw new AppError('Video file exceeds maximum allowed size.', { statusCode: 400 });
-                        }
-
-                        const isValidMime = videoFile.type.startsWith('video/') || videoFile.type === 'application/octet-stream';
-                        if (!isValidMime) {
-                            throw new AppError('Only video files (mp4, mkv, avi, mov) are allowed', { statusCode: 400 });
-                        }
-                    }
-
-                    if (torrentFile) {
-                        if (torrentFile.size > 5 * 1024 * 1024) {
-                            throw new AppError('Torrent file is suspiciously large', { statusCode: 400 });
-                        }
-
-                        const isTorrentMime = torrentFile.type === 'application/x-bittorrent';
-                        const isTorrentExt = torrentFile.name.toLowerCase().endsWith('.torrent');
-
-                        if (!isTorrentMime && !isTorrentExt) {
-                            throw new AppError('The "torrent" field must contain a .torrent file.', { statusCode: 400 });
-                        }
-                    }
-
-                    let savedVideoPath: string | undefined;
-                    let savedTorrentPath: string | undefined;
-
-                    try {
-                        if (videoFile) {
-                            savedVideoPath = await saveUploadToTemp(videoFile);
-                        }
-                        if (torrentFile) {
-                            savedTorrentPath = await saveUploadToTemp(torrentFile);
-                        }
-
-                        let metadata = await MetadataService.enrichMetadata(dbUrl, body);
-
-                        if (!metadata && savedVideoPath) {
-                            const { identifyVideoWorkflow } = await import('./workflows/identify.workflow');
-                            metadata = await identifyVideoWorkflow({
-                                filePath: savedVideoPath,
-                                fileName: videoFile!.name,
-                                type,
-                            });
-                        }
-                        if (!metadata && savedTorrentPath) {
-                            const { identifyVideoWorkflow } = await import('./workflows/identify.workflow');
-                            metadata = await identifyVideoWorkflow(
-                                { filePath: savedTorrentPath, fileName: torrentFile!.name, type },
-                                { checkHash: false }
-                            );
-                        }
-
-                        if (!metadata) {
-                            throw new AppError('Failed to retrieve metadata. Please provide valid video data or db url', {
-                                statusCode: 400,
-                            });
-                        }
-
-                        const video = await videoService.initiateUpload(metadata, {
-                            accountId: user.id,
-                            status: videoFile ? 'processing' : 'downloading',
-                        });
-
-                        if (videoFile && savedVideoPath) {
-                            const { processVideoWorkflow } = await import('./workflows/video.workflow');
-                            const { handleWorkflowError } = await import('./video.handler');
-
-                            processVideoWorkflow({
-                                accountId: user.id,
-                                videoId: video.id,
-                                type: metadata.type,
-                                imdbId: metadata.imdbId,
-                                tempPath: savedVideoPath,
-                                originalName: videoFile.name,
-                                fileSize: videoFile.size,
-                            }).catch((e) => handleWorkflowError(video.id, e, 'video'));
-                        } else if (savedTorrentPath) {
-                            const { processTorrentFileWorkflow } = await import('./workflows/torrent.workflow');
-                            const { handleWorkflowError } = await import('./video.handler');
-
-                            processTorrentFileWorkflow({
-                                accountId: user.id,
-                                videoId: video.id,
-                                type: metadata.type,
-                                imdbId: metadata.imdbId,
-                                torrentPath: savedTorrentPath,
-                            }).catch((e) => handleWorkflowError(video.id, e, 'torrent'));
-                        }
-
-                        set.status = 201;
-                        return {
-                            status: 'success',
-                            message: torrentFile ? 'Torrent download initiated.' : 'Video processing started.',
-                            data: { video },
-                        };
-                    } catch (e) {
-                        if (savedVideoPath) await fs.unlink(savedVideoPath).catch(() => {});
-                        if (savedTorrentPath) await fs.unlink(savedTorrentPath).catch(() => {});
-                        throw e;
-                    }
+                    set.status = 201;
+                    return {
+                        status: 'success',
+                        message: `Video processing started for ${videos.length} videos.`,
+                        data: { videos },
+                    };
                 },
                 {
                     use: uploadLimiter,
@@ -184,7 +81,7 @@ export const videoRouter = new Elysia({ prefix: '/videos', detail: { tags: ['Vid
                     await videoService.cancelVideoDownload(id);
                     return {
                         status: 'success',
-                        message: 'Torrent download canceled.',
+                        message: 'Video download canceled.',
                     };
                 },
                 { params: videoParamsSchema, detail: { summary: 'Cancel Download' } }

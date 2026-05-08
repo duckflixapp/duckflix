@@ -1,10 +1,8 @@
 PRIORITY: 
-- Better upload form. Wizzard-like
 
 SYSTEM
 
-- Pasting magnets
-- Cache banner & poster
+- Cache banner & poster (is it worth it? legal?)
 
 DETAILS
 
@@ -27,9 +25,9 @@ User
 
 FUTURE
 
-- Discovery & duckflix addons
+- Better upload form. Wizzard-like
+- Discovery, sources & duckflix addons
 - Generate AI subtitles
-- Upload for multiple video files in torrent?
 - While processing video find intro, outro
 - Keep track of invalidated tokens?
 - Cast -> player, local subtitles, sync media controlls
