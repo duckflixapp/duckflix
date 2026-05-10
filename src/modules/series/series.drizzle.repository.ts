@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, exists, ilike, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, exists, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@shared/configs/db';
 import {
@@ -43,7 +43,7 @@ export const drizzleSeriesRepository: SeriesRepository = {
     async list(options) {
         const offset = (options.page - 1) * options.limit;
 
-        const searchFilter = options.search ? ilike(series.title, `%${options.search}%`) : null;
+        const searchFilter = options.q ? sql`lower(${series.title}) LIKE ${`%${options.q.toLowerCase()}%`}` : null;
         const genreFilter = options.genreId
             ? exists(
                   db

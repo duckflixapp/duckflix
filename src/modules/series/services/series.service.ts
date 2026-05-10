@@ -13,7 +13,7 @@ export const createSeriesService = ({ seriesRepository }: SeriesServiceDependenc
     const getSeries = async (options: {
         page: number;
         limit: number;
-        search?: string;
+        q?: string;
         orderBy?: string;
         genreId?: string;
     }): Promise<PaginatedResponse<SeriesDTO>> => {

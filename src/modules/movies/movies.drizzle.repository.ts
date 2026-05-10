@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, exists, ilike, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, exists, isNotNull, sql } from 'drizzle-orm';
 
 import { db } from '@shared/configs/db';
 import { libraries, libraryItems, movies, moviesToGenres, videoVersions } from '@schema/index';
@@ -45,7 +45,7 @@ export const drizzleMoviesRepository: MoviesRepository = {
     async list(options) {
         const offset = (options.page - 1) * options.limit;
 
-        const searchFilter = options.search ? ilike(movies.title, `%${options.search}%`) : null;
+        const searchFilter = options.search ? sql`lower(${movies.title}) LIKE ${`%${options.search.toLowerCase()}%`}` : null;
         const genreFilter = options.genreId
             ? exists(
                   db

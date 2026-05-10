@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, sql } from 'drizzle-orm';
+import { and, count, desc, eq, sql } from 'drizzle-orm';
 
 import { db } from '@shared/configs/db';
 import { isDuplicateKey } from '@shared/db.errors';
@@ -159,7 +159,7 @@ export const drizzleLibraryRepository: LibraryRepository = {
         const offset = (data.page - 1) * data.limit;
 
         const searchFilter = data.search
-            ? sql`(${ilike(movies.title, `%${data.search}%`)} OR ${ilike(series.title, `%${data.search}%`)})`
+            ? sql`(lower(${movies.title}) LIKE ${`%${data.search.toLowerCase()}%`} OR lower(${series.title}) LIKE ${`%${data.search.toLowerCase()}%`})`
             : null;
 
         const conditions = [searchFilter, eq(libraryItems.libraryId, data.libraryId)];

@@ -5,7 +5,7 @@ export const seriesQuerySchema = z.object({
     limit: z.coerce.number().int().positive().max(100).default(20),
     orderBy: z.string().max(100).optional(),
     genreId: z.uuid().optional(),
-    search: z.string().max(100, 'Search query too long').optional(),
+    q: z.string().max(100, 'Search query too long').optional(),
 });
 
 export const seriesParamSchema = z.object({
