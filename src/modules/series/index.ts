@@ -4,7 +4,7 @@ import { createRateLimit } from '@shared/configs/ratelimit';
 import { episodeService, seasonService, seriesService } from './series.container';
 
 // Validators
-import { episodeParamSchema, seasonParamSchema, seriesParamSchema } from './validator';
+import { episodeParamSchema, seasonParamSchema, seriesParamSchema, seriesQuerySchema } from './validator';
 
 const seriesLimiter = createRateLimit({ max: 45, duration: 3000 });
 
@@ -15,6 +15,16 @@ export const seriesRouter = new Elysia({ prefix: '/series', detail: { tags: ['TV
 
     .group('', { detail: { tags: ['TV Series'] } }, (app) =>
         app
+            .get(
+                '/',
+                async ({ query }) => {
+                    const options = seriesQuerySchema.parse(query);
+                    const paginatedResults = await seriesService.getSeries(options);
+                    return { status: 'success', ...paginatedResults };
+                },
+                { query: seriesQuerySchema, detail: { summary: 'List Series' } }
+            )
+
             .get(
                 '/:seriesId',
                 async ({ params: { seriesId }, user }) => {

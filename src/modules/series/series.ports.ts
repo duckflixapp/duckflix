@@ -7,6 +7,11 @@ export type SeriesDetailedRecord = Series & {
     seasons: (SeriesSeason & { episodeCount?: number })[];
 };
 
+export type SeriesListResult = {
+    results: SeriesDetailedRecord[];
+    totalItems: number;
+};
+
 export type SeasonDetailedRecord = SeriesSeason & {
     series: Series;
     episodes: SeriesEpisode[];
@@ -43,6 +48,7 @@ export type SeasonDeleteResult =
     | { status: 'not_found' };
 
 export interface SeriesRepository {
+    list(options: { page: number; limit: number; search?: string; orderBy?: string; genreId?: string }): Promise<SeriesListResult>;
     findSeriesById(seriesId: string): Promise<SeriesDetailedRecord | null>;
     countSeriesInWatchlist(data: { seriesId: string; profileId: string }): Promise<number>;
     deleteSeriesById(data: { seriesId: string; accountId: string }): Promise<SeriesDeleteResult>;

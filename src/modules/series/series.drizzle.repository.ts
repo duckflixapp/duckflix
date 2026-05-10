@@ -1,24 +1,86 @@
-import { and, count, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, exists, ilike, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@shared/configs/db';
-import { auditLogs, libraries, libraryItems, series, seriesEpisodes, seriesSeasons, subtitles, videos } from '@shared/schema';
+import {
+    auditLogs,
+    libraries,
+    libraryItems,
+    series,
+    seriesEpisodes,
+    seriesSeasons,
+    seriesToGenres,
+    subtitles,
+    videos,
+} from '@shared/schema';
 import type { SeriesRepository } from './series.ports';
 
+const getOrderBy = (orderBy: string | null) => {
+    switch (orderBy) {
+        case 'oldest':
+            return [asc(series.createdAt)];
+        case 'rating':
+            return [sql`cast(${series.rating} as decimal) DESC NULLS LAST`, desc(series.createdAt)];
+        case 'title':
+            return [asc(series.title)];
+        case 'newest':
+        default:
+            return [desc(series.createdAt)];
+    }
+};
+
+const richSeriesWith = {
+    genres: { with: { genre: true } },
+    seasons: {
+        extras: {
+            episodeCount: sql<number>`(
+                SELECT COUNT(*) FROM series_episodes WHERE series_episodes.season_id = ${seriesSeasons.id}
+            )`.as('episode_count'),
+        },
+    },
+} as const;
+
 export const drizzleSeriesRepository: SeriesRepository = {
+    async list(options) {
+        const offset = (options.page - 1) * options.limit;
+
+        const searchFilter = options.search ? ilike(series.title, `%${options.search}%`) : null;
+        const genreFilter = options.genreId
+            ? exists(
+                  db
+                      .select()
+                      .from(seriesToGenres)
+                      .where(and(eq(seriesToGenres.seriesId, series.id), eq(seriesToGenres.genreId, options.genreId)))
+              )
+            : null;
+
+        const conditions = [searchFilter, genreFilter];
+        const filters = and(...conditions.filter((condition) => condition != null));
+        const orderBy = getOrderBy(options.orderBy ?? null);
+
+        const [totalResult, results] = await Promise.all([
+            db.select({ value: count() }).from(series).where(filters),
+            db.query.series.findMany({
+                where: filters,
+                limit: options.limit,
+                offset,
+                orderBy,
+                with: richSeriesWith,
+            }),
+        ]);
+
+        if (!totalResult[0]) throw new Error('DB Count() failed');
+
+        return {
+            results,
+            totalItems: Number(totalResult[0].value),
+        };
+    },
+
     async findSeriesById(seriesId: string) {
         return (
             (await db.query.series.findFirst({
                 where: eq(series.id, seriesId),
-                with: {
-                    genres: { with: { genre: true } },
-                    seasons: {
-                        extras: {
-                            episodeCount: sql<number>`(
-                                SELECT COUNT(*) FROM series_episodes WHERE series_episodes.season_id = ${seriesSeasons.id}
-                            )`.as('episode_count'),
-                        },
-                    },
-                },
+                with: richSeriesWith,
             })) ?? null
         );
     },

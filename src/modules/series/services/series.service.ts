@@ -1,4 +1,6 @@
-import { toSeriesDetailedDTO } from '@shared/mappers/series.mapper';
+import type { PaginatedResponse, SeriesDTO } from '@duckflixapp/shared';
+
+import { toSeriesDetailedDTO, toSeriesDTO } from '@shared/mappers/series.mapper';
 import { SeriesNotFound } from '../errors';
 import type { SeriesRepository } from '../series.ports';
 import { deleteVideosById } from './video.service';
@@ -8,6 +10,27 @@ type SeriesServiceDependencies = {
 };
 
 export const createSeriesService = ({ seriesRepository }: SeriesServiceDependencies) => {
+    const getSeries = async (options: {
+        page: number;
+        limit: number;
+        search?: string;
+        orderBy?: string;
+        genreId?: string;
+    }): Promise<PaginatedResponse<SeriesDTO>> => {
+        const { results, totalItems } = await seriesRepository.list(options);
+
+        return {
+            data: results.map(toSeriesDTO),
+            meta: {
+                totalItems,
+                itemCount: results.length,
+                itemsPerPage: options.limit,
+                totalPages: Math.ceil(totalItems / options.limit),
+                currentPage: options.page,
+            },
+        };
+    };
+
     const getSeriesById = async (seriesId: string, options: { profileId?: string }) => {
         const tvSeries = await seriesRepository.findSeriesById(seriesId);
 
@@ -34,6 +57,7 @@ export const createSeriesService = ({ seriesRepository }: SeriesServiceDependenc
 
     return {
         deleteSeriesById,
+        getSeries,
         getSeriesById,
     };
 };
