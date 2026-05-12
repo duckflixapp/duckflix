@@ -6,10 +6,10 @@
     "private": true,
     "license": "MIT",
     "scripts": {
-        "start": "bun src/server.ts",
+        "start": "bun run db:migrate && bun src/server.ts",
         "dev": "bun --hot src/server.ts",
         "db:push": "drizzle-kit push",
-        "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
+        "db:migrate": "bun src/core/migrate.ts",
         "db:generate": "drizzle-kit generate",
         "db:studio": "drizzle-kit studio",
         "test": "bun test --env-file=.env.test --preload ./test/setup.ts",
