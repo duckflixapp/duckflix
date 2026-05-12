@@ -5,6 +5,11 @@ import { logger } from '@shared/configs/logger';
 
 export type Runnable = (...args: unknown[]) => Promise<number>;
 export type TaskStatus = 'working' | 'waiting';
+export type TaskSnapshot = {
+    id: string;
+    status: TaskStatus;
+    position: number;
+};
 
 type TaskEvents = {
     started: [taskId: string];
@@ -52,6 +57,24 @@ export class TaskHandler {
      */
     public get queueSize(): number {
         return this.taskQueue.size;
+    }
+
+    /**
+     * Returns a stable view of active and waiting tasks.
+     */
+    public list(): TaskSnapshot[] {
+        return [
+            ...this.current.map((task) => ({
+                id: task.id,
+                status: 'working' as const,
+                position: 0,
+            })),
+            ...Array.from(this.taskQueue).map((task, index) => ({
+                id: task.id,
+                status: 'waiting' as const,
+                position: index + 1,
+            })),
+        ];
     }
 
     /**

@@ -22,6 +22,7 @@ export const adminService = createAdminService({
             working: taskHandler.working,
             queue: taskHandler.queueSize,
         }),
+        listTasks: () => taskHandler.list(),
     },
     liveSessionStatisticsProvider: {
         getLiveSessionStatistics: () => ({

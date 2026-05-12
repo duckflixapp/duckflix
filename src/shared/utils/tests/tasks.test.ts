@@ -186,4 +186,20 @@ describe('TaskHandler', () => {
 
         await new Promise((r) => setTimeout(r, 150));
     });
+
+    test('should list working and waiting tasks with positions', async () => {
+        const ch = new TaskHandler({ concurrent: 2 });
+
+        const t1 = ch.handle(async () => await new Promise((r) => setTimeout(r, 100)));
+        const t2 = ch.handle(async () => await new Promise((r) => setTimeout(r, 100)));
+        const t3 = ch.handle(async () => 0);
+
+        expect(ch.list()).toEqual([
+            { id: t1, status: 'working', position: 0 },
+            { id: t2, status: 'working', position: 0 },
+            { id: t3, status: 'waiting', position: 1 },
+        ]);
+
+        await new Promise((r) => setTimeout(r, 150));
+    });
 });

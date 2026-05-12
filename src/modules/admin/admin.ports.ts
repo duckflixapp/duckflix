@@ -2,6 +2,7 @@ import type { AccountDTO, PaginatedResponse, UserRole } from '@duckflixapp/share
 import type { SystemSettingsT } from '@shared/schema';
 import type { AuditLogListItem } from '@shared/services/audit.service';
 import type { StorageStatistics } from '@shared/services/storage.service';
+import type { TaskSnapshot } from '@utils/taskHandler';
 
 export type DeepPartial<T> = {
     [K in keyof T]?: NonNullable<T[K]> extends Array<infer U>
@@ -67,6 +68,7 @@ export interface AdminStorageStatisticsProvider {
 
 export interface AdminTaskStatisticsProvider {
     getTaskStatistics(): { working: number; queue: number };
+    listTasks(): TaskSnapshot[];
 }
 
 export interface AdminLiveSessionStatisticsProvider {

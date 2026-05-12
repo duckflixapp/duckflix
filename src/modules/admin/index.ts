@@ -69,4 +69,12 @@ export const adminRouter = new Elysia({ prefix: '/admin' })
             return { status: 'success', data: { statistics } };
         },
         { detail: { tags: ['Admin'], summary: 'Statistics' } }
+    )
+    .get(
+        '/processes',
+        () => {
+            const processes = adminService.listProcesses();
+            return { status: 'success', data: { processes } };
+        },
+        { detail: { tags: ['Admin'], summary: 'Active Processes' } }
     );

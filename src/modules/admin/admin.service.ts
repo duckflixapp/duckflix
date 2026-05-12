@@ -5,6 +5,7 @@ import { toSystemStatisticsDTO } from '@shared/mappers/system.mapper';
 import { toAccountDTO } from '@shared/mappers/user.mapper';
 import type { AuditLogListItem } from '@shared/services/audit.service';
 import type { SystemSettingsT } from '@shared/schema';
+import type { TaskSnapshot } from '@utils/taskHandler';
 import {
     type AdminAuditLogService,
     type AdminLiveSessionStatisticsProvider,
@@ -114,6 +115,8 @@ export const createAdminService = ({
         actorAccountId?: string;
     }): Promise<PaginatedResponse<AuditLogListItem>> => auditLogService.listAuditLogs(options);
 
+    const listProcesses = (): TaskSnapshot[] => taskStatisticsProvider.listTasks();
+
     const getSystemStatistics = async (): Promise<SystemStatisticsDTO> => {
         const storageStats = await storageStatisticsProvider.getStorageStatistics();
         const version = runtimeInfoProvider.getVersion();
@@ -130,6 +133,7 @@ export const createAdminService = ({
         getSystemSettings,
         getSystemStatistics,
         getUsersWithRoles,
+        listProcesses,
         listAuditLogs,
         updateSystemSettings,
     };
