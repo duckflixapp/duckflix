@@ -23,6 +23,12 @@ High-performance media streaming backend built with Bun and TypeScript.
 
 See **[BUILDING.md](./BUILDING.md)** for full setup instructions.
 
+## Related Links
+
+- [Duckflix Frontend](https://github.com/duckflixapp/duckflix-web) - React/Vite web app
+- [Duckflix Website](https://duckflix.fun) - Project landing page
+- [Screenshots](https://imgur.com/a/Ukc3UZ6)
+
 ## License
 
 This project is licensed under the [MIT License](./LICENSE).
