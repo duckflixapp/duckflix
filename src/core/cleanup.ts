@@ -42,6 +42,7 @@ const deleteZombieVideos = async () => {
     const existingVideoIds = existingVideos.map((v) => v.id);
 
     const dir = path.resolve(paths.storage, 'videos/');
+    await fs.mkdir(dir, { recursive: true });
     const files = await fs.readdir(dir);
 
     const zombies = [];
